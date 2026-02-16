@@ -3,8 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 
+type ProductImage = {
+  src?: string | null;
+  alt?: string | null;
+};
+
 type ProductCardProps = {
-  imageUrl: string;
+  images?: ProductImage[];
   title: string;
   price: number;
   slug: string;
@@ -19,27 +24,28 @@ const formatPrice = (value: number) =>
     minimumFractionDigits: 2,
   }).format(value);
 
-const fallbackImage = "/images/product-placeholder.svg";
+const fallbackImage = "https://via.placeholder.com/600x600?text=No+Image";
 
 export default function ProductCard({
-  imageUrl,
+  images,
   title,
   price,
   slug,
   inStock,
   onAddToCart,
 }: ProductCardProps) {
-  const resolvedImage = imageUrl?.trim() ? imageUrl : fallbackImage;
+  const resolvedImage = images?.[0]?.src ?? fallbackImage;
+  const resolvedAlt = images?.[0]?.alt ?? title;
 
   return (
     <article className="group rounded-3xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
       <Link href={`/product/${slug}`} className="block" aria-label={`View ${title}`}>
-        <div className="relative h-52 overflow-hidden rounded-t-3xl bg-gray-100 sm:h-56 lg:h-56">
+        <div className="relative h-56 overflow-hidden rounded-t-3xl bg-gray-100">
           <Image
             src={resolvedImage}
-            alt={title}
+            alt={resolvedAlt}
             fill
-            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(max-width: 768px) 100vw, 25vw"
             className="object-cover transition duration-500 group-hover:scale-105"
             loading="lazy"
           />

@@ -1,14 +1,14 @@
-﻿import axios, { AxiosError } from "axios";
+﻿import "server-only";
 
 type FetchProductsParams = {
   page?: number;
   perPage?: number;
 };
 
-export type WCImage = {
+type WCImage = {
   id: number;
   src: string;
-  alt?: string;
+  alt?: string | null;
 };
 
 export type WCCategory = {
@@ -16,6 +16,7 @@ export type WCCategory = {
   name: string;
   slug: string;
   parent: number;
+  description?: string;
   image?: WCImage | null;
 };
 
@@ -33,121 +34,95 @@ export type WCProduct = {
   categories: WCCategory[];
 };
 
-const getClient = () => {
+const getEnv = () => {
   const baseUrl = process.env.NEXT_PUBLIC_WC_BASE_URL;
-  const consumerKey = process.env.NEXT_PUBLIC_WC_CONSUMER_KEY;
-  const consumerSecret = process.env.NEXT_PUBLIC_WC_CONSUMER_SECRET;
+  const consumerKey = process.env.WC_CONSUMER_KEY;
+  const consumerSecret = process.env.WC_CONSUMER_SECRET;
 
-  if (!baseUrl || !consumerKey || !consumerSecret) {
+  if (!baseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_WC_BASE_URL.");
+  }
+  if (!consumerKey) {
+    throw new Error("Missing WC_CONSUMER_KEY.");
+  }
+  if (!consumerSecret) {
+    throw new Error("Missing WC_CONSUMER_SECRET.");
+  }
+
+  return { baseUrl, consumerKey, consumerSecret };
+};
+
+const fetchFromWoo = async <T>(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>
+): Promise<T> => {
+  const { baseUrl, consumerKey, consumerSecret } = getEnv();
+  const normalizedBase = baseUrl.replace(/\/$/, "");
+  const url = new URL(`${normalizedBase}/wp-json/wc/v3/${path.replace(/^\//, "")}`);
+
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    });
+  }
+
+  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+  const response = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Basic ${auth}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
     throw new Error(
-      "Missing WooCommerce environment variables. Set NEXT_PUBLIC_WC_BASE_URL, NEXT_PUBLIC_WC_CONSUMER_KEY, and NEXT_PUBLIC_WC_CONSUMER_SECRET."
+      `WooCommerce request failed (${response.status}). ${body || response.statusText}`
     );
   }
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
-
-  return axios.create({
-    baseURL: `${normalizedBaseUrl}/wp-json/wc/v3`,
-    timeout: 15000,
-    params: {
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret,
-    },
-  });
-};
-
-const formatError = (error: unknown) => {
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    const message =
-      axiosError.response?.data?.message ||
-      axiosError.message ||
-      "WooCommerce API request failed.";
-    return new Error(message);
-  }
-
-  if (error instanceof Error) {
-    return error;
-  }
-
-  return new Error("Unexpected WooCommerce API error.");
+  return (await response.json()) as T;
 };
 
 export const fetchProducts = async (params: FetchProductsParams = {}) => {
-  try {
-    const client = getClient();
-    const response = await client.get<WCProduct[]>("/products", {
-      params: {
-        page: params.page ?? 1,
-        per_page: params.perPage ?? 12,
-      },
-    });
-
-    return response.data;
-  } catch (error) {
-    throw formatError(error);
-  }
+  return fetchFromWoo<WCProduct[]>("products", {
+    page: params.page ?? 1,
+    per_page: params.perPage ?? 12,
+  });
 };
 
 export const fetchProductBySlug = async (slug: string) => {
-  try {
-    const client = getClient();
-    const response = await client.get<WCProduct[]>("/products", {
-      params: {
-        slug,
-        per_page: 1,
-      },
-    });
+  const products = await fetchFromWoo<WCProduct[]>("products", {
+    slug,
+    per_page: 1,
+  });
 
-    return response.data[0] ?? null;
-  } catch (error) {
-    throw formatError(error);
-  }
+  return products[0] ?? null;
 };
 
 export const fetchCategories = async () => {
-  try {
-    const client = getClient();
-    const response = await client.get<WCCategory[]>("/products/categories", {
-      params: {
-        per_page: 100,
-      },
-    });
-
-    return response.data;
-  } catch (error) {
-    throw formatError(error);
-  }
+  return fetchFromWoo<WCCategory[]>("products/categories", {
+    per_page: 100,
+  });
 };
 
 export const fetchProductsByCategory = async (slug: string) => {
-  try {
-    const client = getClient();
-    const categoryResponse = await client.get<WCCategory[]>(
-      "/products/categories",
-      {
-        params: {
-          slug,
-          per_page: 1,
-        },
-      }
-    );
+  const categories = await fetchFromWoo<WCCategory[]>("products/categories", {
+    slug,
+    per_page: 1,
+  });
 
-    const category = categoryResponse.data[0];
+  const category = categories[0];
 
-    if (!category) {
-      return [] as WCProduct[];
-    }
-
-    const productsResponse = await client.get<WCProduct[]>("/products", {
-      params: {
-        category: category.id,
-        per_page: 12,
-      },
-    });
-
-    return productsResponse.data;
-  } catch (error) {
-    throw formatError(error);
+  if (!category) {
+    return [] as WCProduct[];
   }
+
+  return fetchFromWoo<WCProduct[]>("products", {
+    category: category.id,
+    per_page: 12,
+  });
 };
