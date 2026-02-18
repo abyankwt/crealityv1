@@ -35,18 +35,19 @@ export type WCProduct = {
 };
 
 const getEnv = () => {
-  const baseUrl = process.env.NEXT_PUBLIC_WC_BASE_URL;
+  const baseUrl = process.env.WC_BASE_URL;
   const consumerKey = process.env.WC_CONSUMER_KEY;
   const consumerSecret = process.env.WC_CONSUMER_SECRET;
 
+
   if (!baseUrl) {
-    throw new Error("Missing NEXT_PUBLIC_WC_BASE_URL.");
+    throw new Error("Missing WC_BASE_URL");
   }
   if (!consumerKey) {
-    throw new Error("Missing WC_CONSUMER_KEY.");
+    throw new Error("Missing WC_CONSUMER_KEY");
   }
   if (!consumerSecret) {
-    throw new Error("Missing WC_CONSUMER_SECRET.");
+    throw new Error("Missing WC_CONSUMER_SECRET");
   }
 
   return { baseUrl, consumerKey, consumerSecret };
@@ -55,7 +56,7 @@ const getEnv = () => {
 const fetchFromWoo = async <T>(
   path: string,
   params?: Record<string, string | number | boolean | undefined>
-): Promise<T> => {
+): Promise<{ data: T; totalPages: number; totalProducts: number }> => {
   const { baseUrl, consumerKey, consumerSecret } = getEnv();
   const normalizedBase = baseUrl.replace(/\/$/, "");
   const url = new URL(`${normalizedBase}/wp-json/wc/v3/${path.replace(/^\//, "")}`);
@@ -84,7 +85,10 @@ const fetchFromWoo = async <T>(
     );
   }
 
-  return (await response.json()) as T;
+  const totalPages = parseInt(response.headers.get("x-wp-totalpages") ?? "1", 10);
+  const totalProducts = parseInt(response.headers.get("x-wp-total") ?? "0", 10);
+
+  return { data: (await response.json()) as T, totalPages, totalProducts };
 };
 
 export const fetchProducts = async (params: FetchProductsParams = {}) => {
@@ -95,7 +99,7 @@ export const fetchProducts = async (params: FetchProductsParams = {}) => {
 };
 
 export const fetchProductBySlug = async (slug: string) => {
-  const products = await fetchFromWoo<WCProduct[]>("products", {
+  const { data: products } = await fetchFromWoo<WCProduct[]>("products", {
     slug,
     per_page: 1,
   });
@@ -104,13 +108,14 @@ export const fetchProductBySlug = async (slug: string) => {
 };
 
 export const fetchCategories = async () => {
-  return fetchFromWoo<WCCategory[]>("products/categories", {
+  const { data } = await fetchFromWoo<WCCategory[]>("products/categories", {
     per_page: 100,
   });
+  return data;
 };
 
 export const fetchProductsByCategory = async (slug: string) => {
-  const categories = await fetchFromWoo<WCCategory[]>("products/categories", {
+  const { data: categories } = await fetchFromWoo<WCCategory[]>("products/categories", {
     slug,
     per_page: 1,
   });
@@ -121,8 +126,9 @@ export const fetchProductsByCategory = async (slug: string) => {
     return [] as WCProduct[];
   }
 
-  return fetchFromWoo<WCProduct[]>("products", {
+  const { data } = await fetchFromWoo<WCProduct[]>("products", {
     category: category.id,
     per_page: 12,
   });
+  return data;
 };

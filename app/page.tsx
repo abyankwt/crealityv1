@@ -1,38 +1,6 @@
-﻿"use client";
-
-import Image from "next/image";
-import ProductCard from "@/components/ProductCard";
-
-const mockProducts = [
-  {
-    imageUrl: "/products/k1-max.jpg",
-    title: "Creality K1 Max 3D Printer",
-    price: 499.0,
-    slug: "creality-k1-max",
-    inStock: true,
-  },
-  {
-    imageUrl: "/products/ender-3-v3.jpg",
-    title: "Ender-3 V3 CoreXZ",
-    price: 269.0,
-    slug: "ender-3-v3",
-    inStock: true,
-  },
-  {
-    imageUrl: "/products/filament-pla.jpg",
-    title: "Hyper PLA Filament",
-    price: 24.5,
-    slug: "hyper-pla",
-    inStock: true,
-  },
-  {
-    imageUrl: "/products/space-pi.jpg",
-    title: "Space Pi Filament Dryer",
-    price: 89.99,
-    slug: "space-pi-dryer",
-    inStock: false,
-  },
-];
+﻿import Image from "next/image";
+import ProductGrid from "@/components/ProductGrid";
+import { fetchProducts } from "@/lib/api";
 
 const categories = [
   {
@@ -93,7 +61,15 @@ const reasons = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const { data: products, totalPages } = await fetchProducts();
+  const featuredProducts = products.filter(
+    (product) => (product as { featured?: boolean }).featured
+  );
+  const heroProduct = featuredProducts[0] ?? products[0];
+  const heroImage = heroProduct?.images?.[0]?.src ?? "/images/printers.jpg";
+  const heroAlt = heroProduct?.name ?? "Featured product";
+
   return (
     <main className="bg-neutral text-text">
       <section
@@ -138,8 +114,8 @@ export default function HomePage() {
               <div className="pointer-events-none absolute -inset-6 rounded-[32px] bg-[radial-gradient(circle_at_top,_rgba(107,190,69,0.18),_transparent_60%)]" />
               <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl transition duration-300 ease-out hover:-translate-y-1">
                 <Image
-                  src="/images/printers.jpg"
-                  alt="Creality K1 Max printer"
+                  src={heroImage}
+                  alt={heroAlt}
                   width={1200}
                   height={900}
                   className="h-auto max-h-[620px] w-full object-cover transition duration-500 ease-out hover:scale-105"
@@ -225,19 +201,11 @@ export default function HomePage() {
               Bestsellers ready to ship across Kuwait.
             </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {mockProducts.map((product) => (
-              <ProductCard
-                key={product.slug}
-                images={[{ src: product.imageUrl, alt: product.title }]}
-                title={product.title}
-                price={product.price}
-                slug={product.slug}
-                inStock={product.inStock}
-                onAddToCart={() => { }}
-              />
-            ))}
-          </div>
+          <ProductGrid
+            initialProducts={featuredProducts.length ? featuredProducts : products}
+            initialPage={1}
+            totalPages={totalPages}
+          />
         </div>
       </section>
 

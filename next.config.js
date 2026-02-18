@@ -4,7 +4,14 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "creality.com.kw" },
-      { protocol: "https", hostname: "via.placeholder.com" },
+      ...(process.env.WC_BASE_URL
+        ? [
+            {
+              protocol: new URL(process.env.WC_BASE_URL).protocol.replace(":", ""),
+              hostname: new URL(process.env.WC_BASE_URL).hostname,
+            },
+          ]
+        : []),
     ],
   },
 };
