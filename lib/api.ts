@@ -3,6 +3,7 @@
 type FetchProductsParams = {
   page?: number;
   perPage?: number;
+  search?: string;
 };
 
 type WCImage = {
@@ -95,6 +96,7 @@ export const fetchProducts = async (params: FetchProductsParams = {}) => {
   return fetchFromWoo<WCProduct[]>("products", {
     page: params.page ?? 1,
     per_page: params.perPage ?? 12,
+    search: params.search,
   });
 };
 
@@ -114,7 +116,7 @@ export const fetchCategories = async () => {
   return data;
 };
 
-export const fetchProductsByCategory = async (slug: string) => {
+export const fetchProductsByCategory = async (slug: string, page = 1) => {
   const { data: categories } = await fetchFromWoo<WCCategory[]>("products/categories", {
     slug,
     per_page: 1,
@@ -123,12 +125,12 @@ export const fetchProductsByCategory = async (slug: string) => {
   const category = categories[0];
 
   if (!category) {
-    return [] as WCProduct[];
+    return { data: [] as WCProduct[], totalPages: 0, totalProducts: 0 };
   }
 
-  const { data } = await fetchFromWoo<WCProduct[]>("products", {
+  return fetchFromWoo<WCProduct[]>("products", {
     category: category.id,
     per_page: 12,
+    page,
   });
-  return data;
 };

@@ -43,12 +43,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
-  const result = await fetchProducts(
+  const { data: products } = await fetchProducts(
     { search: query } as FetchProductsParams
   );
-  const products = Array.isArray(result)
-    ? result
-    : result?.products ?? [];
 
   const handleAddToCart = async () => {
     "use server";

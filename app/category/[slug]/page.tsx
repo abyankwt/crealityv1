@@ -45,13 +45,11 @@ export default async function CategoryPage({
   const { sort, page } = await searchParams;
   const resolvedSort = sort ?? "price-asc";
   const resolvedPage = Math.max(1, Number(page ?? 1));
-  const products = await fetchProductsByCategory(slug);
+  const { data: products, totalPages } = await fetchProductsByCategory(slug, resolvedPage);
   const categoryName = getCategoryName(products, slug);
 
+  // Sorting could be done via API if supported, or client side on the current page
   const sortedProducts = sortProducts(products, resolvedSort);
-  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
-  const start = (resolvedPage - 1) * PAGE_SIZE;
-  const paginatedProducts = sortedProducts.slice(start, start + PAGE_SIZE);
 
   const handleAddToCart = async () => {
     "use server";
@@ -78,13 +76,13 @@ export default async function CategoryPage({
         </div>
       </div>
 
-      {paginatedProducts.length === 0 ? (
+      {sortedProducts.length === 0 ? (
         <div className="mt-12 rounded-3xl border border-dashed border-border bg-white p-12 text-center text-sm text-gray-500">
           No products found in this category.
         </div>
       ) : (
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {paginatedProducts.map((product) => (
+          {sortedProducts.map((product) => (
             <ProductCard
               key={product.id}
               imageUrl={product.images?.[0]?.src ?? ""}
@@ -109,9 +107,8 @@ export default async function CategoryPage({
                 page: Math.max(1, resolvedPage - 1),
               },
             }}
-            className={`rounded-2xl border border-gray-200 px-4 py-2 transition hover:text-text ${
-              resolvedPage === 1 ? "pointer-events-none opacity-50" : ""
-            }`}
+            className={`rounded-2xl border border-gray-200 px-4 py-2 transition hover:text-text ${resolvedPage === 1 ? "pointer-events-none opacity-50" : ""
+              }`}
           >
             Previous
           </Link>
@@ -126,9 +123,8 @@ export default async function CategoryPage({
                 page: Math.min(totalPages, resolvedPage + 1),
               },
             }}
-            className={`rounded-2xl border border-gray-200 px-4 py-2 transition hover:text-text ${
-              resolvedPage === totalPages ? "pointer-events-none opacity-50" : ""
-            }`}
+            className={`rounded-2xl border border-gray-200 px-4 py-2 transition hover:text-text ${resolvedPage === totalPages ? "pointer-events-none opacity-50" : ""
+              }`}
           >
             Next
           </Link>
