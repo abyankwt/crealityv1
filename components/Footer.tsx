@@ -1,6 +1,5 @@
 ﻿import Link from "next/link";
-
-const footerLinks = [
+import Image from "next/image"; const footerLinks = [
   {
     title: "Shop",
     links: [
@@ -31,6 +30,11 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-200 bg-gray-50">
       <div className="mx-auto w-full max-w-7xl px-6 py-16 lg:px-8">
+        <div className="mb-12">
+          <Link href="/" className="inline-block">
+            <Image src="/logo.svg" alt="Creality Kuwait Logo" width={160} height={45} className="object-contain" />
+          </Link>
+        </div>
         <div className="grid gap-10 md:grid-cols-3">
           {footerLinks.map((group) => (
             <div key={group.title} className="space-y-4">

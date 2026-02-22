@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 type RouteContext = {
-  params?: {
-    path?: string[];
-  };
+  params: Promise<{
+    path: string[];
+  }>;
 };
 
 const forwardRequest = async (
@@ -62,14 +62,16 @@ export async function GET(
   request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
-  const path = context.params?.path ?? [];
-  return forwardRequest(request, path);
+  const { path } = await context.params;
+  const safePath = path ?? [];
+  return forwardRequest(request, safePath);
 }
 
 export async function POST(
   request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
-  const path = context.params?.path ?? [];
-  return forwardRequest(request, path);
+  const { path } = await context.params;
+  const safePath = path ?? [];
+  return forwardRequest(request, safePath);
 }

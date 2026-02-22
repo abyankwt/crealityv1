@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { addToCart } from "@/lib/cart";
+import { useCart } from "@/context/CartContext";
 
 type ProductImage = {
   src?: string | null;
@@ -41,6 +41,7 @@ export default function ProductCard({
   price,
   slug,
 }: ProductCardProps) {
+  const { addItem } = useCart();
   const [loading, setLoading] = useState<boolean>(false);
   const resolvedImage = product?.images?.[0]?.src || fallbackImage;
   const resolvedAlt = title;
@@ -56,8 +57,7 @@ export default function ProductCard({
 
     try {
       setLoading(true);
-      await addToCart(product.id, 1);
-      console.log("Added to cart.");
+      await addItem(product.id, 1);
     } catch (error) {
       console.error("Failed to add to cart:", error);
     } finally {
@@ -105,8 +105,8 @@ export default function ProductCard({
           aria-disabled={!isAvailable || loading}
           aria-label={`Add ${title} to cart`}
           className={`w-full rounded-xl px-6 py-3 text-sm font-semibold transition-all duration-300 ${isAvailable
-              ? "bg-[#6BBE45] text-white hover:bg-[#5AA73C]"
-              : "cursor-not-allowed border border-gray-200 text-gray-400"
+            ? "bg-[#6BBE45] text-white hover:bg-[#5AA73C]"
+            : "cursor-not-allowed border border-gray-200 text-gray-400"
             }`}
         >
           Add to cart

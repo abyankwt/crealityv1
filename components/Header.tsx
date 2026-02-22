@@ -183,8 +183,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-6 px-6 py-4 lg:px-8">
-        <Link href="/" className="text-base font-medium text-text">
-          Creality Kuwait
+        <Link href="/" className="inline-block">
+          <Image src="/logo.svg" alt="Creality Kuwait Logo" width={160} height={45} className="object-contain" />
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm text-gray-500 md:flex">

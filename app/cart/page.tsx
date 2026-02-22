@@ -6,26 +6,13 @@ import { useCart } from "@/context/CartContext";
 
 type QuantityMap = Record<string, number>;
 
-const formatPrice = (value: number | string | undefined) => {
-  if (value === undefined || value === null) {
-    return "-";
-  }
-  if (typeof value === "number") {
-    return new Intl.NumberFormat("en-KW", {
-      style: "currency",
-      currency: "KWD",
-      minimumFractionDigits: 2,
-    }).format(value);
-  }
-  return value;
-};
-
 export default function CartPage() {
   const { cart, loading, updateItem, removeItem } = useCart();
   const [quantities, setQuantities] = useState<QuantityMap>({});
+
   const checkoutUrl = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_WC_BASE_URL ?? "";
-    return baseUrl ? `${baseUrl}/site/checkout` : "";
+    return baseUrl ? `${baseUrl}/checkout` : "";
   }, []);
 
   useEffect(() => {
@@ -34,9 +21,9 @@ export default function CartPage() {
       return;
     }
     const next: QuantityMap = {};
-    cart.items.forEach((item: { key: string; quantity: number }) => {
+    for (const item of cart.items) {
       next[item.key] = item.quantity;
-    });
+    }
     setQuantities(next);
   }, [cart]);
 
@@ -64,65 +51,65 @@ export default function CartPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* ── Cart items ── */}
         <section className="space-y-4">
           {cart?.items?.length ? (
-            cart.items.map(
-              (item: {
-                key: string;
-                quantity: number;
-                name: string;
-                price: number | string;
-                images?: Array<{ src: string; alt?: string }>;
-              }) => (
-                <div
-                  key={item.key}
-                  className="flex flex-col gap-4 rounded-3xl border border-border bg-white p-5 shadow-sm sm:flex-row sm:items-center"
-                >
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-                    <Image
-                      src={item.images?.[0]?.src ?? "/placeholder.png"}
-                      alt={item.images?.[0]?.alt ?? item.name}
-                      fill
-                      sizes="96px"
-                      className="object-cover"
-                    />
-                  </div>
-
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm text-gray-400">Creality Kuwait</p>
-                    <h2 className="text-base font-semibold text-text">{item.name}</h2>
-                    <p className="text-sm text-gray-500">
-                      {formatPrice(item.price)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <label className="sr-only" htmlFor={`qty-${item.key}`}>
-                      Quantity
-                    </label>
-                    <input
-                      id={`qty-${item.key}`}
-                      type="number"
-                      min={1}
-                      value={quantities[item.key] ?? item.quantity}
-                      onChange={(event) =>
-                        handleQuantityChange(item.key, Number(event.target.value))
-                      }
-                      className="h-11 w-24 rounded-2xl border border-gray-200 px-3 text-sm text-text focus:border-black focus:outline-none"
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.key)}
-                      className="text-sm font-semibold text-gray-500 transition hover:text-black"
-                      disabled={loading}
-                    >
-                      Remove
-                    </button>
-                  </div>
+            cart.items.map((item) => (
+              <div
+                key={item.key}
+                className="flex flex-col gap-4 rounded-3xl border border-border bg-white p-5 shadow-sm sm:flex-row sm:items-center"
+              >
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+                  <Image
+                    src={item.images?.[0]?.src ?? "/placeholder.png"}
+                    alt={item.images?.[0]?.alt ?? item.name}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
                 </div>
-              )
-            )
+
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm text-gray-400">Creality Kuwait</p>
+                  <h2 className="text-base font-semibold text-text">
+                    {item.name}
+                  </h2>
+                  {/* Price: rendered exactly as WooCommerce formats it */}
+                  <span
+                    className="text-sm text-gray-500"
+                    dangerouslySetInnerHTML={{
+                      __html:
+                        item.totals.line_total_html || item.totals.line_total,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <label className="sr-only" htmlFor={`qty-${item.key}`}>
+                    Quantity
+                  </label>
+                  <input
+                    id={`qty-${item.key}`}
+                    type="number"
+                    min={1}
+                    value={quantities[item.key] ?? item.quantity}
+                    onChange={(e) =>
+                      handleQuantityChange(item.key, Number(e.target.value))
+                    }
+                    className="h-11 w-24 rounded-2xl border border-gray-200 px-3 text-sm text-text focus:border-black focus:outline-none"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.key)}
+                    className="text-sm font-semibold text-gray-500 transition hover:text-black"
+                    disabled={loading}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-white p-10 text-center text-sm text-gray-500">
               Your cart is empty.
@@ -130,16 +117,42 @@ export default function CartPage() {
           )}
         </section>
 
+        {/* ── Summary sidebar ── */}
         <aside className="h-fit rounded-3xl border border-border bg-white p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-text">Summary</h3>
           <div className="mt-5 space-y-3 text-sm">
             <div className="flex items-center justify-between text-gray-500">
               <span>Subtotal</span>
-              <span>{formatPrice(cart?.totals?.total_items)}</span>
+              <span
+                dangerouslySetInnerHTML={{
+                  __html:
+                    cart?.totals?.total_items_html ||
+                    cart?.totals?.total_items ||
+                    "-",
+                }}
+              />
             </div>
             <div className="flex items-center justify-between text-gray-500">
-              <span>Estimated total</span>
-              <span>{formatPrice(cart?.totals?.total_price)}</span>
+              <span>Shipping</span>
+              <span
+                dangerouslySetInnerHTML={{
+                  __html:
+                    cart?.totals?.total_shipping_html ||
+                    cart?.totals?.total_shipping ||
+                    "-",
+                }}
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 font-semibold text-text">
+              <span>Total</span>
+              <span
+                dangerouslySetInnerHTML={{
+                  __html:
+                    cart?.totals?.total_price_html ||
+                    cart?.totals?.total_price ||
+                    "-",
+                }}
+              />
             </div>
           </div>
 

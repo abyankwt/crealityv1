@@ -1,4 +1,5 @@
-﻿import Image from "next/image";
+import Image from "next/image";
+import Link from "next/link";
 import ProductGrid from "@/components/ProductGrid";
 import { fetchProducts } from "@/lib/api";
 
@@ -95,18 +96,20 @@ export default async function HomePage() {
               <p className="text-2xl font-semibold text-text">From KWD 189</p>
             </div>
             <div className="flex flex-wrap items-center gap-4">
-              <button
-                className="rounded-2xl bg-[#6BBE45] px-8 py-4 text-sm font-semibold text-white transition duration-300 ease-out hover:opacity-90"
+              <Link
+                href="/3d-printers"
+                className="inline-flex items-center justify-center rounded-2xl bg-[#6BBE45] px-8 py-4 text-sm font-semibold text-white transition duration-300 ease-out hover:opacity-90"
                 aria-label="Shop Creality printers"
               >
                 Shop printers
-              </button>
-              <button
-                className="rounded-2xl border border-black px-8 py-4 text-sm font-semibold transition duration-300 ease-out hover:bg-black hover:text-white"
+              </Link>
+              <Link
+                href="/materials"
+                className="inline-flex items-center justify-center rounded-2xl border border-black px-8 py-4 text-sm font-semibold transition duration-300 ease-out hover:bg-black hover:text-white"
                 aria-label="Explore Creality materials"
               >
                 Explore materials
-              </button>
+              </Link>
             </div>
           </div>
           <div className="flex justify-center lg:justify-end">

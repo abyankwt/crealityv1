@@ -1,52 +1,81 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getWpApiUrl } from "@/lib/wp";
+import { createSessionToken, SESSION_COOKIE_NAME, type SessionUser } from "@/lib/session";
+
+type LoginPayload = {
+  username?: string;
+  email?: string;
+  password?: string;
+};
+
+type WpUserResponse = {
+  id: number;
+  name: string;
+  email?: string;
+  slug?: string;
+  username?: string;
+  message?: string;
+};
+
+const getIdentifier = (payload: LoginPayload) => {
+  return payload.username?.trim() || payload.email?.trim() || "";
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { email?: string; password?: string };
-    const email = body?.email?.trim();
-    const password = body?.password;
+    const body = (await request.json()) as LoginPayload;
+    const identifier = getIdentifier(body);
+    const password = body?.password ?? "";
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!identifier || !password) {
+      return NextResponse.json(
+        { error: "Username/email and password are required." },
+        { status: 400 }
+      );
     }
 
-    const baseUrl = process.env.WC_BASE_URL;
-    if (!baseUrl) {
-      return NextResponse.json({ error: "Auth unavailable" }, { status: 401 });
-    }
+    const apiUrl = getWpApiUrl();
+    const basicToken = Buffer.from(`${identifier}:${password}`).toString("base64");
 
-    const response = await fetch(`${baseUrl}/wp-json/jwt-auth/v1/token`, {
-      method: "POST",
+    // Verify user credentials against WordPress.
+    const response = await fetch(`${apiUrl}/wp-json/wp/v2/users/me?context=edit`, {
       headers: {
-        "Content-Type": "application/json",
+        Authorization: `Basic ${basicToken}`,
       },
-      body: JSON.stringify({
-        username: email,
-        password,
-      }),
+      cache: "no-store",
     });
 
-    if (!response.ok) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    const data = (await response.json()) as WpUserResponse;
+
+    if (!response.ok || !data?.id) {
+      return NextResponse.json(
+        { error: data?.message ?? "Invalid credentials." },
+        { status: 401 }
+      );
     }
 
-    const data = (await response.json()) as { token?: string };
-    if (!data?.token) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
+    const sessionUser: SessionUser = {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      username: data.username ?? data.slug,
+    };
 
-    const res = NextResponse.json({ success: true });
+    const sessionToken = createSessionToken(sessionUser);
+    const res = NextResponse.json({ success: true, user: sessionUser });
     res.cookies.set({
-      name: "auth_token",
-      value: data.token,
+      name: SESSION_COOKIE_NAME,
+      value: sessionToken,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return res;
-  } catch {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Login failed.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
