@@ -1,28 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const getStoreApiUrl = (path: string) => {
-  const baseUrl = process.env.WC_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("WC_BASE_URL environment variable is not set.");
-  }
-  const normalizedBase = baseUrl.replace(/\/$/, "");
-  return `${normalizedBase}/wp-json/wc/store/v1/${path}`;
+type RouteContext = {
+  params?: {
+    path?: string[];
+  };
 };
 
-const forwardRequest = async (request: NextRequest, path: string[]) => {
+const forwardRequest = async (
+  request: NextRequest,
+  path: string[]
+): Promise<NextResponse> => {
   try {
-    const url = getStoreApiUrl(path.join("/"));
+    const baseUrl = process.env.WC_BASE_URL;
+    if (!baseUrl) {
+      throw new Error("WC_BASE_URL environment variable is not set.");
+    }
+
+    const url = `${baseUrl}/wp-json/wc/store/${path.join("/")}`;
     const headers = new Headers();
     const cookie = request.headers.get("cookie");
-    const contentType = request.headers.get("content-type");
 
     if (cookie) {
       headers.set("cookie", cookie);
     }
-    if (contentType) {
-      headers.set("content-type", contentType);
-    }
-    headers.set("accept", "application/json");
 
     const body =
       request.method === "GET" || request.method === "HEAD"
@@ -35,16 +35,22 @@ const forwardRequest = async (request: NextRequest, path: string[]) => {
       body,
     });
 
-    const text = await response.text();
-    let data: unknown = null;
+    const responseBody = await response.arrayBuffer();
+    const nextHeaders = new Headers();
+    const setCookie = response.headers.get("set-cookie");
+    const contentType = response.headers.get("content-type");
 
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = text;
+    if (setCookie) {
+      nextHeaders.set("set-cookie", setCookie);
+    }
+    if (contentType) {
+      nextHeaders.set("content-type", contentType);
     }
 
-    return NextResponse.json(data, { status: response.status });
+    return new NextResponse(responseBody, {
+      status: response.status,
+      headers: nextHeaders,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown proxy error.";
@@ -54,16 +60,16 @@ const forwardRequest = async (request: NextRequest, path: string[]) => {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
+  context: RouteContext
+): Promise<NextResponse> {
+  const path = context.params?.path ?? [];
   return forwardRequest(request, path);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
+  context: RouteContext
+): Promise<NextResponse> {
+  const path = context.params?.path ?? [];
   return forwardRequest(request, path);
 }

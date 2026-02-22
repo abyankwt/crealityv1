@@ -1,3 +1,22 @@
+/* ─────────────────────────────────────────────────────────────
+ * lib/cart.ts — Client-side WooCommerce Store API cart helpers
+ *
+ * Every request goes through Next.js API routes (/api/store/…).
+ * The nonce is stored in-memory and sent/received automatically.
+ * ───────────────────────────────────────────────────────────── */
+
+const NONCE_HEADER = "X-WC-Store-API-Nonce";
+
+// ── In-memory nonce store ──
+let nonce = "";
+
+/** Read the current nonce (useful for debugging). */
+export function getNonce(): string {
+  return nonce;
+}
+
+// ── Types ──
+
 type CartItem = {
   key: string;
   id: number;
@@ -17,7 +36,7 @@ type CartItem = {
   }>;
 };
 
-type CartResponse = {
+export type CartResponse = {
   items: CartItem[];
   items_count: number;
   items_weight: number;
@@ -38,57 +57,63 @@ type CartResponse = {
   needs_shipping?: boolean;
 };
 
-type AddItemRequest = {
-  id: number;
-  quantity: number;
-};
+// ── Core fetch wrapper ──
 
-type UpdateItemRequest = {
-  key: string;
-  quantity: number;
-};
+async function fetchStoreApi<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
 
-type RemoveItemRequest = {
-  key: string;
-};
+  // Attach nonce if we have one
+  if (nonce) {
+    headers[NONCE_HEADER] = nonce;
+  }
 
-async function fetchStoreApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/store${path}`, {
+  const response = await fetch(`/api/store/${path}`, {
     ...init,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 
+  // Capture the (possibly updated) nonce from the response
+  const responseNonce = response.headers.get(NONCE_HEADER);
+  if (responseNonce) {
+    nonce = responseNonce;
+  }
+
   if (!response.ok) {
-    const message = await response.text();
-    const details = message ? `: ${message}` : "";
-    throw new Error(`WooCommerce Store API error ${response.status}${details}`);
+    const text = await response.text();
+    let message = `Store API error ${response.status}`;
+    try {
+      const err = JSON.parse(text);
+      if (err?.message) message += `: ${err.message}`;
+      else if (err?.error) message += `: ${err.error}`;
+    } catch {
+      if (text) message += `: ${text}`;
+    }
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
 }
 
+// ── Public API ──
+
 export async function fetchCart(): Promise<CartResponse> {
-  return fetchStoreApi<CartResponse>("/cart", {
-    method: "GET",
-  });
+  return fetchStoreApi<CartResponse>("cart", { method: "GET" });
 }
 
 export async function addToCart(
   productId: number,
   quantity: number
 ): Promise<CartResponse> {
-  const body: AddItemRequest = {
-    id: productId,
-    quantity,
-  };
-
-  return fetchStoreApi<CartResponse>("/cart/add-item", {
+  return fetchStoreApi<CartResponse>("cart/add-item", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ id: productId, quantity }),
   });
 }
 
@@ -96,24 +121,17 @@ export async function updateCartItem(
   key: string,
   quantity: number
 ): Promise<CartResponse> {
-  const body: UpdateItemRequest = {
-    key,
-    quantity,
-  };
-
-  return fetchStoreApi<CartResponse>("/cart/update-item", {
+  return fetchStoreApi<CartResponse>("cart/update-item", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ key, quantity }),
   });
 }
 
-export async function removeCartItem(key: string): Promise<CartResponse> {
-  const body: RemoveItemRequest = {
-    key,
-  };
-
-  return fetchStoreApi<CartResponse>("/cart/remove-item", {
+export async function removeCartItem(
+  key: string
+): Promise<CartResponse> {
+  return fetchStoreApi<CartResponse>("cart/remove-item", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ key }),
   });
 }
