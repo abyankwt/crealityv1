@@ -5,12 +5,13 @@ import type { ReactNode } from "react";
 import Navbar from "@/components/navigation/Navbar";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
+import GlobalClientUI from "@/components/GlobalClientUI";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "Creality Kuwait",
-  description: "Headless WooCommerce storefront for Creality Kuwait.",
+  description: "Official Creality 3D printer store in Kuwait. FDM, resin printers, materials, and spare parts.",
 };
 
 export default function RootLayout({
@@ -27,6 +28,8 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          {/* Global floating UI: CompareBar + PromoPopup — client-only */}
+          <GlobalClientUI />
         </CartProvider>
       </body>
     </html>

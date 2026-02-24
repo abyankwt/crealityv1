@@ -42,8 +42,8 @@ export default function CartPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10 sm:py-14">
-      <div className="mb-8 space-y-2">
+    <div className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6 sm:py-14">
+      <div className="mb-5 space-y-1 sm:mb-8 sm:space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-gray-400">Cart</p>
         <h1 className="text-3xl font-semibold text-text sm:text-4xl">
           Your cart
@@ -57,7 +57,7 @@ export default function CartPage() {
             cart.items.map((item) => (
               <div
                 key={item.key}
-                className="flex flex-col gap-4 rounded-3xl border border-border bg-white p-5 shadow-sm sm:flex-row sm:items-center"
+                className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:gap-4 sm:rounded-3xl sm:p-5"
               >
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gray-100">
                   <Image
@@ -118,7 +118,7 @@ export default function CartPage() {
         </section>
 
         {/* ── Summary sidebar ── */}
-        <aside className="h-fit rounded-3xl border border-border bg-white p-6 shadow-sm">
+        <aside className="h-fit rounded-2xl border border-border bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
           <h3 className="text-lg font-semibold text-text">Summary</h3>
           <div className="mt-5 space-y-3 text-sm">
             <div className="flex items-center justify-between text-gray-500">

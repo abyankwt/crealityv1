@@ -1,276 +1,266 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
+import { MapPin, ShieldCheck, Wrench, HeartHandshake } from "lucide-react";
 import ProductGrid from "@/components/ProductGrid";
+import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts } from "@/lib/api";
+
+/* ─── Static data ─────────────────────────────────────── */
 
 const categories = [
   {
     title: "3D Printers",
-    description: "Flagship FDM machines built for speed and precision.",
+    description: "Industrial FDM systems and core hardware.",
+    cta: "View printers →",
     image: "/images/printers.jpg",
     href: "/category/3d-printers",
   },
   {
     title: "Materials",
-    description: "Premium PLA, ABS, and specialty materials.",
+    description: "Production-grade filaments and resins.",
+    cta: "Explore materials →",
     image: "/images/materials.jpg",
     href: "/category/materials",
   },
   {
     title: "Spare Parts",
-    description: "Nozzles, build plates, and essential upgrades.",
+    description: "Nozzles, build plates, and service kits.",
+    cta: "Browse parts →",
     image: "/images/spareparts.jpg",
     href: "/category/spare-parts",
   },
 ];
 
-const trustItems = [
-  {
-    title: "Fast delivery across Kuwait",
-    description: "Reliable shipping and tracking.",
-  },
-  {
-    title: "Genuine Creality products",
-    description: "Certified inventory only.",
-  },
-  {
-    title: "Expert local support",
-    description: "Specialists on the ground.",
-  },
-  {
-    title: "1-year warranty",
-    description: "Service backed coverage.",
-  },
-];
-
 const reasons = [
   {
-    title: "Local fulfillment",
-    description: "Same-week delivery across Kuwait with updates.",
+    icon: MapPin,
+    title: "Local facility",
+    description: "On-ground support and fulfillment in Kuwait.",
   },
   {
-    title: "Certified inventory",
-    description: "Authorized hardware and materials only.",
+    icon: ShieldCheck,
+    title: "Authorized inventory",
+    description: "Certified Creality hardware and parts.",
   },
   {
-    title: "Guided setup",
-    description: "Installation, training, and onboarding.",
+    icon: Wrench,
+    title: "Technical onboarding",
+    description: "Setup, training, and workflow guidance.",
   },
   {
+    icon: HeartHandshake,
     title: "Service coverage",
-    description: "Long-term maintenance plans.",
+    description: "Maintenance and spare parts availability.",
   },
 ];
 
-export default async function HomePage() {
-  const { data: products, totalPages } = await fetchProducts();
+type RawSearchParams = Record<string, string | string[] | undefined>;
+
+function getString(p: RawSearchParams, k: string): string | undefined {
+  const v = p[k];
+  return typeof v === "string" ? v : undefined;
+}
+
+function resolveSort(sort?: string): { orderby: string; order: "asc" | "desc" } {
+  switch (sort) {
+    case "price_asc": return { orderby: "price", order: "asc" };
+    case "price_desc": return { orderby: "price", order: "desc" };
+    case "date_desc": return { orderby: "date", order: "desc" };
+    default: return { orderby: "popularity", order: "desc" };
+  }
+}
+
+type PageProps = {
+  searchParams?: Promise<RawSearchParams>;
+};
+
+/* ─── Page ────────────────────────────────────────────── */
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const params: RawSearchParams = await (searchParams ?? Promise.resolve({}));
+  const sort = getString(params, "sort");
+  const stock = getString(params, "stock");
+  const { orderby, order } = resolveSort(sort);
+
+  const { data: products, totalPages, totalProducts } = await fetchProducts({
+    orderby,
+    order,
+    stock_status: stock || undefined,
+  });
+
   const featuredProducts = products.filter(
-    (product) => (product as { featured?: boolean }).featured
+    (p) => (p as { featured?: boolean }).featured
   );
-  const heroProduct = featuredProducts[0] ?? products[0];
-  const heroImage = heroProduct?.images?.[0]?.src ?? "/images/printers.jpg";
-  const heroAlt = heroProduct?.name ?? "Featured product";
+  const displayProducts = featuredProducts.length ? featuredProducts : products;
 
   return (
-    <main className="bg-neutral text-text">
-      <section
-        aria-labelledby="hero-heading"
-        className="bg-gradient-to-b from-white to-gray-50 py-20 sm:py-24"
-      >
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 lg:grid-cols-2 lg:px-8">
-          <div className="flex flex-col gap-6">
-            <div className="max-w-xl space-y-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-gray-500">
-                Creality Kuwait
-              </p>
-              <h1
-                id="hero-heading"
-                className="text-4xl font-semibold tracking-tight text-text sm:text-5xl lg:text-[64px]"
-              >
-                Premium 3D printing for studios and creators.
-              </h1>
-              <p className="text-base text-gray-500 sm:text-lg">
-                Curated Creality systems, materials, and service delivered with
-                local expertise for production-ready workflows.
-              </p>
-              <p className="text-2xl font-semibold text-text">From KWD 189</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <Link
-                href="/3d-printers"
-                className="inline-flex items-center justify-center rounded-2xl bg-[#6BBE45] px-8 py-4 text-sm font-semibold text-white transition duration-300 ease-out hover:opacity-90"
-                aria-label="Shop Creality printers"
-              >
-                Shop printers
-              </Link>
-              <Link
-                href="/materials"
-                className="inline-flex items-center justify-center rounded-2xl border border-black px-8 py-4 text-sm font-semibold transition duration-300 ease-out hover:bg-black hover:text-white"
-                aria-label="Explore Creality materials"
-              >
-                Explore materials
-              </Link>
-            </div>
-          </div>
-          <div className="flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-2xl">
-              <div className="pointer-events-none absolute -inset-6 rounded-[32px] bg-[radial-gradient(circle_at_top,_rgba(107,190,69,0.18),_transparent_60%)]" />
-              <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl transition duration-300 ease-out hover:-translate-y-1">
-                <Image
-                  src={heroImage}
-                  alt={heroAlt}
-                  width={1200}
-                  height={900}
-                  className="h-auto max-h-[620px] w-full object-cover transition duration-500 ease-out hover:scale-105"
-                  priority
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <main className="bg-[#f8f8f8] text-gray-900">
 
-      <section aria-label="Trust indicators" className="bg-neutral py-6">
-        <div className="mx-auto grid max-w-7xl gap-4 px-6 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
-          {trustItems.map((item) => (
-            <div key={item.title} className="flex items-start gap-4">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm text-text shadow-sm">
-                ○
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-text">{item.title}</p>
-                <p className="mt-1 text-sm text-gray-500">
-                  {item.description}
+      {/* ── 1. Gateway ────────────────────────────────────── */}
+      <section className="border-b border-gray-200 bg-[#f8f8f8] py-4 sm:py-6">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+
+            {/* Store — primary gateway */}
+            <div className="group flex h-full flex-col justify-between gap-4 rounded-2xl border border-gray-300 bg-white p-5 transition duration-150 hover:-translate-y-0.5 hover:border-gray-500 hover:shadow-sm">
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                  Gateway 01
+                </p>
+                <h1 className="text-2xl font-semibold text-gray-900 sm:text-3xl">
+                  Store
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Printers, materials, spare parts.
                 </p>
               </div>
+              <div className="space-y-2">
+                <Link
+                  href="/store"
+                  className="block w-full rounded-lg bg-black px-5 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-white transition duration-150 hover:bg-black/85 sm:w-fit"
+                >
+                  Enter Store
+                </Link>
+                <p className="text-[11px] text-gray-400">Browse hardware &amp; materials</p>
+              </div>
             </div>
-          ))}
+
+            {/* Printing Service — secondary gateway */}
+            <div className="group flex h-full flex-col justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 transition duration-150 hover:-translate-y-0.5 hover:border-gray-400 hover:shadow-sm">
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                  Gateway 02
+                </p>
+                <h2 className="text-2xl font-semibold text-gray-900 sm:text-3xl">
+                  Printing Service
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Custom production &amp; prototyping.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Link
+                  href="/printing-service"
+                  className="block w-full rounded-lg border border-gray-300 px-5 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.2em] text-gray-800 transition duration-150 hover:border-gray-600 sm:w-fit"
+                >
+                  Start Project
+                </Link>
+                <p className="text-[11px] text-gray-400">Start custom project inquiry</p>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
 
-      <section
-        aria-labelledby="category-heading"
-        className="bg-white py-20 sm:py-24"
-      >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-10 flex flex-col gap-2 sm:mb-12">
-            <h2 id="category-heading" className="text-3xl font-semibold text-text">
+      {/* ── 2. Category section ────────────────────────────── */}
+      <section className="border-b border-gray-200 bg-white py-7 sm:py-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-4 sm:mb-5">
+            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
               Shop by category
             </h2>
-            <p className="text-sm text-gray-500">
-              Commercial-grade gear curated for every workflow.
+            <p className="mt-1 text-sm text-gray-500">
+              Core hardware and materials aligned to production workflows.
             </p>
           </div>
-          <div className="grid gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {categories.map((category) => (
-              <a
+              <Link
                 key={category.title}
                 href={category.href}
-                className="group relative h-56 overflow-hidden rounded-[20px] border border-border bg-neutral transition duration-300 ease-out hover:-translate-y-1 hover:shadow-xl"
-                aria-label={`Shop ${category.title}`}
+                className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition duration-150 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-sm"
               >
-                <Image
-                  src={category.image}
-                  alt={category.title}
-                  fill
-                  sizes="(min-width: 1024px) 33vw, 100vw"
-                  className="object-cover transition duration-300 ease-out group-hover:scale-[1.03]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent transition duration-300 ease-out group-hover:from-black/80" />
-                <div className="absolute bottom-5 left-5 right-5 space-y-2 text-white">
-                  <h3 className="text-xl font-semibold">{category.title}</h3>
-                  <p className="text-sm text-white/80">{category.description}</p>
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold">
-                    Shop now
-                    <span aria-hidden="true">→</span>
+                <div className="relative h-28 sm:h-32 overflow-hidden">
+                  <Image
+                    src={category.image}
+                    alt={category.title}
+                    fill
+                    sizes="(min-width: 1024px) 33vw, 50vw"
+                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="space-y-1.5 p-3.5">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {category.title}
+                  </h3>
+                  <p className="text-xs text-gray-500">{category.description}</p>
+                  <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-gray-600 transition duration-150 group-hover:text-gray-900">
+                    {category.cta}
                   </span>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      <section
-        aria-labelledby="featured-heading"
-        className="bg-neutral py-16 sm:py-20"
-      >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-8 text-center sm:mb-10">
-            <h2 id="featured-heading" className="text-3xl font-semibold text-text">
+      {/* ── 3 + 4. Featured products with Filter bar ──────── */}
+      <section className="border-b border-gray-200 bg-[#f8f8f8] py-7 sm:py-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-4 sm:mb-5">
+            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
               Featured products
             </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Bestsellers ready to ship across Kuwait.
+            <p className="mt-1 text-sm text-gray-500">
+              Ready-to-ship systems and essentials.
             </p>
           </div>
+
+          {/* Filter bar — client component, Suspense boundary required */}
+          <Suspense fallback={null}>
+            <FilterBar totalCount={totalProducts} />
+          </Suspense>
+
           <ProductGrid
-            initialProducts={featuredProducts.length ? featuredProducts : products}
+            initialProducts={displayProducts}
             initialPage={1}
             totalPages={totalPages}
           />
         </div>
       </section>
 
-      <section aria-labelledby="brand-heading" className="bg-[#F5F5F5] py-20">
-        <div className="mx-auto max-w-7xl px-6 text-center lg:px-8">
-          <h2 id="brand-heading" className="text-3xl font-semibold text-text sm:text-4xl">
-            Engineered for precision.
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm text-gray-500 sm:text-base">
-            Enterprise-grade printers and materials built for repeatable, reliable
-            output in professional environments.
-          </p>
-          <button
-            className="mt-6 rounded-2xl bg-[#6BBE45] px-8 py-4 text-sm font-semibold text-white transition duration-300 ease-out hover:opacity-90"
-            aria-label="Explore the Creality lineup"
-          >
-            Explore the lineup
-          </button>
-        </div>
-      </section>
-
-      <section aria-labelledby="why-heading" className="bg-white py-20">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-8">
-            <h2 id="why-heading" className="text-3xl font-semibold text-text">
+      {/* ── 5. Why choose ─────────────────────────────────── */}
+      <section className="border-b border-gray-200 bg-white py-6 sm:py-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-4 sm:mb-5">
+            <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
               Why choose Creality Kuwait
             </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Local expertise paired with premium support.
+            <p className="mt-1 text-sm text-gray-500">
+              Focused hardware supply with local technical coverage.
             </p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {reasons.map((reason) => (
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+            {reasons.map(({ icon: Icon, title, description }) => (
               <div
-                key={reason.title}
-                className="rounded-2xl border border-border bg-neutral p-5 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:shadow-md"
+                key={title}
+                className="rounded-2xl border border-gray-200 bg-[#f9f9f9] p-3.5"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm text-text shadow-sm">
-                  ○
-                </div>
-                <h3 className="mt-4 text-base font-semibold text-text">
-                  {reason.title}
-                </h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  {reason.description}
-                </p>
+                <Icon
+                  className="mb-2.5 h-5 w-5 text-gray-400"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-bold text-gray-900">{title}</p>
+                <p className="mt-1.5 text-xs text-gray-500">{description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="newsletter-heading" className="bg-neutral py-20">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="rounded-2xl bg-white p-8 text-center shadow-sm sm:p-12">
-            <h2 id="newsletter-heading" className="text-3xl font-semibold text-text">
-              Newsletter
-            </h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Product launches, creator tips, and local offers delivered monthly.
+      {/* ── 6. Newsletter ─────────────────────────────────── */}
+      <section className="bg-[#f8f8f8] py-6 sm:py-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h2 className="text-base font-semibold text-gray-900">Newsletter</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Product updates and service notices. One email per month.
             </p>
-            <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center">
               <label className="sr-only" htmlFor="newsletter-email">
                 Email address
               </label>
@@ -278,18 +268,23 @@ export default async function HomePage() {
                 id="newsletter-email"
                 type="email"
                 placeholder="Email address"
-                className="w-full max-w-sm rounded-2xl border border-border bg-white px-5 py-3 text-sm text-text placeholder:text-gray-400 focus:border-black focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
               />
               <button
-                className="rounded-2xl bg-[#6BBE45] px-8 py-4 text-sm font-semibold text-white transition duration-300 ease-out hover:opacity-90"
+                type="button"
+                className="w-full shrink-0 rounded-lg bg-black px-6 py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-black/85 sm:w-auto"
                 aria-label="Subscribe to newsletter"
               >
                 Subscribe
               </button>
             </div>
+            <p className="mt-2.5 text-[11px] text-gray-400">
+              No spam. Product updates &amp; service notices only.
+            </p>
           </div>
         </div>
       </section>
+
     </main>
   );
 }

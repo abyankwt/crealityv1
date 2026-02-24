@@ -180,7 +180,7 @@ export async function addToCart(
 ): Promise<CartResponse> {
   return fetchStoreApi<CartResponse>("cart/add-item", {
     method: "POST",
-    body: JSON.stringify({ id: productId, quantity }),
+    body: JSON.stringify({ product_id: productId, id: productId, quantity }),
   });
 }
 

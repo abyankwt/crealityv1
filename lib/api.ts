@@ -4,6 +4,9 @@ type FetchProductsParams = {
   page?: number;
   perPage?: number;
   search?: string;
+  orderby?: string;
+  order?: "asc" | "desc";
+  stock_status?: string;
 };
 
 type WCImage = {
@@ -101,6 +104,9 @@ export const fetchProducts = async (params: FetchProductsParams = {}) => {
     page: params.page ?? 1,
     per_page: params.perPage ?? 12,
     search: params.search,
+    orderby: params.orderby,
+    order: params.order,
+    stock_status: params.stock_status,
   });
 };
 
@@ -120,7 +126,20 @@ export const fetchCategories = async () => {
   return data;
 };
 
-export const fetchProductsByCategory = async (slug: string, page = 1) => {
+export type FetchByCategoryOptions = {
+  page?: number;
+  orderby?: string;
+  order?: "asc" | "desc";
+  stock_status?: string;
+  /** If set, further filter by a child category slug (series) */
+  seriesSlug?: string;
+};
+
+export const fetchProductsByCategory = async (
+  slug: string,
+  page = 1,
+  opts: FetchByCategoryOptions = {}
+) => {
   const { data: categories } = await fetchFromWoo<WCCategory[]>("products/categories", {
     slug,
     per_page: 1,
@@ -132,9 +151,26 @@ export const fetchProductsByCategory = async (slug: string, page = 1) => {
     return { data: [] as WCProduct[], totalPages: 0, totalProducts: 0 };
   }
 
+  // If a series slug is specified, resolve that child category ID
+  let categoryId = category.id;
+  if (opts.seriesSlug) {
+    const { data: series } = await fetchFromWoo<WCCategory[]>("products/categories", {
+      slug: opts.seriesSlug,
+      per_page: 1,
+    });
+    if (series[0]) categoryId = series[0].id;
+  }
+
+  // Map sort shorthand to WC orderby/order params
+  let orderby = opts.orderby ?? "popularity";
+  let order: "asc" | "desc" = opts.order ?? "desc";
+
   return fetchFromWoo<WCProduct[]>("products", {
-    category: category.id,
+    category: categoryId,
     per_page: 12,
     page,
+    orderby,
+    order,
+    stock_status: opts.stock_status || undefined,
   });
 };

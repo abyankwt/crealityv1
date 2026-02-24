@@ -4,41 +4,44 @@ import StoreProductCard, { type StoreProduct } from "./ProductCard";
 type FeaturedProductsProps = {
   title?: string;
   products: StoreProduct[];
+  totalCount?: number;
 };
 
 export default function FeaturedProducts({
   title = "Featured printers",
   products,
+  totalCount,
 }: FeaturedProductsProps) {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 lg:px-8">
       <div className="flex items-end justify-between gap-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
             Featured
           </p>
-          <h2 className="mt-3 text-[24px] font-semibold tracking-tight text-[#0b0b0b] sm:text-[32px]">
+          <h2 className="mt-2 text-[22px] font-semibold tracking-tight text-[#0b0b0b] sm:text-[28px]">
             {title}
           </h2>
         </div>
         <Link
           href="/category/3d-printers"
-          className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 transition hover:text-[#0b0b0b]"
+          className="shrink-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-400 transition hover:text-[#0b0b0b]"
         >
-          View printers
+          View all →
         </Link>
       </div>
 
-      <div className="mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 pr-1 md:gap-6 lg:grid lg:grid-cols-3 lg:gap-6 lg:overflow-visible xl:grid-cols-4">
-        {products.map((product) => (
-          <div
-            key={product.id}
-            className="min-w-[260px] flex-1 snap-start lg:min-w-0"
-          >
-            <StoreProductCard product={product} />
-          </div>
-        ))}
-      </div>
+      {products.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-dashed border-gray-200 py-14 text-center text-sm text-gray-400">
+          No products found.
+        </div>
+      ) : (
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4">
+          {products.map((product) => (
+            <StoreProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
