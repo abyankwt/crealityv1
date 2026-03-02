@@ -239,6 +239,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     try {
       setAdding(true);
       await addItem(product.id, quantity);
+      window.location.href = process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/";
       await refreshCart();
       setToast({ message: "Added to cart.", type: "success" });
     } catch {
@@ -252,6 +253,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     try {
       setAdding(true);
       await addItem(product.id, 1);
+      window.location.href = process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/";
       await refreshCart();
       setToast({ message: "Added to cart.", type: "success" });
     } catch {
@@ -517,52 +519,52 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         </section>
 
         {/* Related products */}
-          <section className="mt-8 md:mt-10">
-            <div className="mb-4 flex items-end justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Related products</h2>
+        <section className="mt-8 md:mt-10">
+          <div className="mb-4 flex items-end justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Related products</h2>
+          </div>
+          {relatedLoading ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+              Loading related products…
             </div>
-            {relatedLoading ? (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
-                Loading related products…
-              </div>
-            ) : relatedProducts.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
-                No related products available.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-                {relatedProducts.slice(0, 4).map((related) => (
-                  <Link
-                    key={related.id}
-                    href={`/product/${related.slug}`}
-                    className="group rounded-xl border border-gray-200 bg-white p-3 transition hover:border-gray-300"
-                  >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100">
-                      <Image
-                        src={related.images?.[0]?.src ?? FALLBACK_IMAGE}
-                        alt={related.images?.[0]?.alt ?? related.name}
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 25vw"
-                        className="object-cover"
-                        loading="lazy"
-                      />
+          ) : relatedProducts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+              No related products available.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+              {relatedProducts.slice(0, 4).map((related) => (
+                <Link
+                  key={related.id}
+                  href={`/product/${related.slug}`}
+                  className="group rounded-xl border border-gray-200 bg-white p-3 transition hover:border-gray-300"
+                >
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100">
+                    <Image
+                      src={related.images?.[0]?.src ?? FALLBACK_IMAGE}
+                      alt={related.images?.[0]?.alt ?? related.name}
+                      fill
+                      sizes="(max-width: 1024px) 50vw, 25vw"
+                      className="object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                      {related.name}
+                    </p>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {renderPrice(related)}
                     </div>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                        {related.name}
-                      </p>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {renderPrice(related)}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {getStockLabel(related.stock_status)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
+                    <p className="text-xs text-gray-500">
+                      {getStockLabel(related.stock_status)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Full-width Description Layer */}

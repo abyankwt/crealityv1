@@ -74,6 +74,7 @@ export default function ProductCard({
     try {
       setLoading(true);
       await addItem(product.id, 1);
+      window.location.href = process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/";
     } catch (error) {
       console.error("Failed to add to cart:", error);
     } finally {
@@ -143,8 +144,8 @@ export default function ProductCard({
           aria-disabled={!isAvailable || loading}
           aria-label={`Add ${title} to cart`}
           className={`mt-auto w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition duration-150 ${isAvailable
-              ? "bg-[#6BBE45] text-white hover:bg-[#5AA73C]"
-              : "cursor-not-allowed border border-gray-200 bg-transparent text-gray-400"
+            ? "bg-[#6BBE45] text-white hover:bg-[#5AA73C]"
+            : "cursor-not-allowed border border-gray-200 bg-transparent text-gray-400"
             }`}
         >
           {loading ? "Adding…" : "Add to cart"}

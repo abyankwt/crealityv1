@@ -66,6 +66,7 @@ export default function StoreProductCard({ product }: StoreProductCardProps) {
     try {
       setLoading(true);
       await addItem(product.id, 1);
+      window.location.href = process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/";
     } finally {
       setLoading(false);
     }
@@ -100,8 +101,8 @@ export default function StoreProductCard({ product }: StoreProductCardProps) {
           <div className="absolute right-2.5 top-2.5">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${isAvailable
-                  ? "bg-white/90 text-green-700"
-                  : "bg-white/90 text-gray-500"
+                ? "bg-white/90 text-green-700"
+                : "bg-white/90 text-gray-500"
                 }`}
             >
               <span
@@ -140,8 +141,8 @@ export default function StoreProductCard({ product }: StoreProductCardProps) {
           onClick={handleAddToCart}
           disabled={!isAvailable || loading}
           className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition duration-150 active:scale-[0.98] ${isAvailable
-              ? "bg-[#0b0b0b] text-white hover:bg-black/80"
-              : "cursor-not-allowed border border-gray-200 text-gray-400"
+            ? "bg-[#0b0b0b] text-white hover:bg-black/80"
+            : "cursor-not-allowed border border-gray-200 text-gray-400"
             }`}
         >
           {loading ? "Adding…" : "Add to cart"}
@@ -155,8 +156,8 @@ export default function StoreProductCard({ product }: StoreProductCardProps) {
               onClick={handleCompare}
               disabled={!isCompared && !canAddMore}
               className={`w-full rounded-lg border px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] transition duration-150 ${isCompared
-                  ? "border-[#0b0b0b] text-[#0b0b0b]"
-                  : "border-gray-200 text-gray-500 hover:border-gray-400 disabled:cursor-not-allowed disabled:text-gray-300"
+                ? "border-[#0b0b0b] text-[#0b0b0b]"
+                : "border-gray-200 text-gray-500 hover:border-gray-400 disabled:cursor-not-allowed disabled:text-gray-300"
                 }`}
             >
               {isCompared ? "✓ Comparing" : "Compare"}

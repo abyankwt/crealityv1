@@ -124,6 +124,8 @@ async function fetchStoreApi<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_WC_API || "https://creality.com.kw/site/wp-json/wc/store/v1";
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
@@ -136,7 +138,7 @@ async function fetchStoreApi<T>(
     headers[CART_TOKEN_HEADER] = cartToken;
   }
 
-  const response = await fetch(`/api/store/${path}`, {
+  const response = await fetch(`${baseUrl}/${path}`, {
     ...init,
     credentials: "include",
     headers,

@@ -2,9 +2,9 @@ import { Suspense } from "react";
 import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts, fetchHeroImages } from "@/lib/api";
-import InteractiveFlyer from "@/components/InteractiveFlyer";
+import CampaignHero from "@/components/CampaignHero";
 import NewProductArrivals from "@/components/NewProductArrivals";
-import { FLYERS } from "@/config/flyers";
+import { CAMPAIGN_SLIDES } from "@/config/campaigns";
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -50,30 +50,24 @@ export default async function HomePage({ searchParams }: PageProps) {
     (p) => (p as { featured?: boolean }).featured
   );
 
-  // Hydrate flyers with images from WordPress backend
-  const dynamicFlyers = FLYERS.map((flyer, index) => {
-    // Top priority: Direct WP Home matching index
-    // Second priority: WP Home first image
-    // Third priority: Featured Product main image
-    // Fallback: Static config image
+  // Hydrate campaign slides with images from WordPress backend
+  // WP newhome slider order: [0]=K2 Plus, [1]=SPARKX i7, [2]=SpacePi, [3]=Halot Sky
+  // Our slides order:        [0]=SPARKX i7, [1]=K2 Series, [2]=SpacePi X4L, [3]=HALOT-SKY
+  // So we map: slide 0 -> WP 1, slide 1 -> WP 0, slide 2 -> WP 2, slide 3 -> WP 3
+  const wpToSlideMap: Record<number, number> = { 0: 1, 1: 0, 2: 2, 3: 3 };
 
-    // We try to pull exactly the WP slide that matches index:
-    const specificWpImg = wpHeroImages[index];
-    const fallbackWpImg = index === 0 ? specificWpImg : (wpHeroImages[0] || specificWpImg); // If more flyers than wp images, reuse the first one.
+  const dynamicSlides = CAMPAIGN_SLIDES.map((slide, index) => {
+    const wpIndex = wpToSlideMap[index] ?? index;
+    const wpImg = wpHeroImages[wpIndex] || wpHeroImages[0];
 
     const p = featuredProducts[index];
     const featuredProImg = p?.images?.[0]?.src;
 
-    const resolvedHeroImage = specificWpImg || fallbackWpImg || featuredProImg || flyer.image;
-
-    const productsImages = p?.images && p.images.length > 1
-      ? [p.images[0].src, p.images[1].src]
-      : flyer.products;
+    const resolvedImage = wpImg || featuredProImg || slide.backgroundImage;
 
     return {
-      ...flyer,
-      image: resolvedHeroImage,
-      products: productsImages
+      ...slide,
+      backgroundImage: resolvedImage,
     };
   });
 
@@ -81,7 +75,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
-      <InteractiveFlyer flyers={dynamicFlyers} />
+      <CampaignHero slides={dynamicSlides} />
       <NewProductArrivals products={newProducts} />
 
       {/* Featured Products */}

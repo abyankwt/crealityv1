@@ -56,13 +56,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
       <div className="h-[calc(100vh-65px)] overflow-y-auto px-5 pb-10 pt-5">
         {/* Top-level nav links */}
         <div className="space-y-1">
-          <Link
-            href="/store"
-            className="block rounded-lg px-2 py-2 text-base font-semibold text-gray-900 hover:bg-gray-50 transition"
-            onClick={onClose}
-          >
-            Store
-          </Link>
+
           <Link
             href="/printing-service"
             className="block rounded-lg px-2 py-2 text-base font-semibold text-gray-900 hover:bg-gray-50 transition"
@@ -175,7 +169,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             Orders
           </Link>
           <Link
-            href="/cart"
+            href={process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/"}
             className="block rounded-lg px-2 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
             onClick={onClose}
           >

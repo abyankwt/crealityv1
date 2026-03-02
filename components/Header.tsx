@@ -189,11 +189,10 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`transition hover:text-[#0b0b0b] ${
-                pathname === link.href || pathname?.startsWith(`${link.href}/`)
+              className={`transition hover:text-[#0b0b0b] ${pathname === link.href || pathname?.startsWith(`${link.href}/`)
                   ? "text-[#0b0b0b]"
                   : ""
-              }`}
+                }`}
             >
               {link.label}
             </Link>
@@ -243,9 +242,9 @@ export default function Header() {
                             />
                           </div>
                           <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-[#0b0b0b]">
-                            {item.name}
-                          </p>
+                            <p className="truncate text-sm font-medium text-[#0b0b0b]">
+                              {item.name}
+                            </p>
                             <p className="text-xs text-gray-500">{item.price}</p>
                           </div>
                         </Link>
@@ -260,7 +259,7 @@ export default function Header() {
 
         <div className="flex items-center gap-5 text-sm text-gray-500">
           <Link
-            href="/cart"
+            href={process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/"}
             className="relative flex items-center text-[#0b0b0b] transition hover:text-black"
             aria-label="Cart"
           >

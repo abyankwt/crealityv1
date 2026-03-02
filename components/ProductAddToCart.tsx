@@ -19,7 +19,7 @@ export default function ProductAddToCart({
     try {
       setIsAdding(true);
       await addItem(productId, 1);
-      alert("Added to cart.");
+      window.location.href = process.env.NEXT_PUBLIC_WC_CHECKOUT_URL || "https://creality.com.kw/site/checkout/";
     } catch (error) {
       console.error("Failed to add to cart:", error);
     } finally {

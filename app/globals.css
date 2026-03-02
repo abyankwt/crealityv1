@@ -14,3 +14,16 @@ body {
   background-color: var(--surface);
   color: var(--ink);
 }
+
+/* Campaign hero: responsive image positioning */
+@layer base {
+  .campaign-hero-img {
+    object-position: var(--hero-pos-mobile, center center);
+  }
+
+  @media (min-width: 768px) {
+    .campaign-hero-img {
+      object-position: var(--hero-pos-desktop, center center) !important;
+    }
+  }
+}

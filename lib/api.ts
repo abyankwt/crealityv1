@@ -125,21 +125,40 @@ export async function fetchHeroImages(): Promise<string[]> {
   const baseUrl = process.env.WC_BASE_URL?.replace(/\/$/, "");
   if (!baseUrl) return [];
 
-  // Assuming the old WP site has a page with slug "home" containing the slider
   try {
-    const url = `${baseUrl}/wp-json/wp/v2/pages?slug=home`;
-    const res = await fetch(url, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
+    // Step 1: Fetch the rendered newhome page to get the slide repeater IDs
+    const pageRes = await fetch(`${baseUrl}/?page_id=30116`, {
+      next: { revalidate: 60 },
+    });
+    if (!pageRes.ok) return [];
+    const html = await pageRes.text();
 
-    const pages = await res.json();
-    if (!pages || pages.length === 0) return [];
+    // Extract unique repeater IDs (in slide order)
+    const repeaterIds: string[] = [];
+    for (const m of html.matchAll(
+      /elementor-repeater-item-([a-f0-9]+)\s+swiper-slide/g
+    )) {
+      if (m[1] && !repeaterIds.includes(m[1])) repeaterIds.push(m[1]);
+    }
+    if (repeaterIds.length === 0) return [];
 
-    const content = pages[0].content?.rendered || "";
-    // Match the elementor swiper-slide images
-    const matchIter = content.matchAll(/<div class="swiper-slide">\s*<img[^>]+src="([^">]+)"/g);
+    // Step 2: Fetch the Elementor post CSS file (contains background-image URLs)
+    const cssUrl = `${baseUrl}/wp-content/uploads/elementor/css/post-30116.css`;
+    const cssRes = await fetch(cssUrl, { next: { revalidate: 60 } });
+    if (!cssRes.ok) return [];
+    const css = await cssRes.text();
+
+    // Step 3: For each repeater ID, extract background-image URL from CSS
     const images: string[] = [];
-    for (const match of matchIter) {
-      if (match[1]) images.push(match[1]);
+    for (const id of repeaterIds) {
+      const bgRegex = new RegExp(
+        `\\.elementor-repeater-item-${id}[^}]*background-image:\\s*url\\(["']?([^"')]+)["']?\\)`,
+        "i"
+      );
+      const bgMatch = css.match(bgRegex);
+      if (bgMatch?.[1]) {
+        images.push(bgMatch[1]);
+      }
     }
 
     return images;
@@ -148,6 +167,7 @@ export async function fetchHeroImages(): Promise<string[]> {
     return [];
   }
 }
+
 
 export const fetchCategories = async () => {
   const { data } = await fetchFromWoo<WCCategory[]>("products/categories", {
