@@ -68,6 +68,14 @@ final class Creality_Operations {
 
         add_filter( 'upload_mimes', array( $this, 'allow_model_upload_mimes' ) );
         add_action( 'pre_get_posts', array( $this, 'filter_hidden_models_query' ) );
+        add_filter( 'woocommerce_store_api_product_is_purchasable', array( $this, 'allow_special_order_store_api_purchase' ), 10, 2 );
+        add_filter( 'woocommerce_store_api_product_quantity_limit', array( $this, 'allow_special_order_store_api_quantity_limit' ), 10, 3 );
+        add_filter( 'woocommerce_product_get_stock_status', array( $this, 'allow_special_order_cart_stock_status' ), 10, 2 );
+        add_filter( 'woocommerce_product_variation_get_stock_status', array( $this, 'allow_special_order_cart_stock_status' ), 10, 2 );
+        add_filter( 'woocommerce_product_get_backorders', array( $this, 'allow_special_order_cart_backorder_mode' ), 10, 2 );
+        add_filter( 'woocommerce_product_variation_get_backorders', array( $this, 'allow_special_order_cart_backorder_mode' ), 10, 2 );
+        add_filter( 'woocommerce_product_is_in_stock', array( $this, 'allow_special_order_cart_stock' ), 10, 2 );
+        add_filter( 'woocommerce_product_backorders_allowed', array( $this, 'allow_special_order_cart_backorders' ), 10, 3 );
     }
 
     /**
@@ -2145,6 +2153,160 @@ final class Creality_Operations {
         );
 
         $query->set( 'meta_query', $meta_query );
+    }
+
+    /**
+     * Allow out-of-stock products to be purchased through the Store API.
+     *
+     * @param bool       $purchasable Current purchasable state.
+     * @param WC_Product $product     Product object.
+     * @return bool
+     */
+    public function allow_special_order_store_api_purchase( $purchasable, $product ) {
+        if ( ! $product instanceof WC_Product ) {
+            return $purchasable;
+        }
+
+        if ( $this->is_product_out_of_stock( $product ) ) {
+            return true;
+        }
+
+        return $purchasable;
+    }
+
+    /**
+     * Relax Store API quantity limits for out-of-stock special-order products.
+     *
+     * @param int|float|string $limit    Product quantity limit value.
+     * @param WC_Product       $product  Product object.
+     * @param array|null       $cart_item Cart item context.
+     * @return int|float|string
+     */
+    public function allow_special_order_store_api_quantity_limit( $limit, $product, $cart_item = null ) {
+        unset( $cart_item );
+
+        if ( ! $product instanceof WC_Product ) {
+            return $limit;
+        }
+
+        if ( $this->is_product_out_of_stock( $product ) ) {
+            return 9999;
+        }
+
+        return $limit;
+    }
+
+    /**
+     * Override raw stock status during Store API cart requests so WooCommerce treats special orders as cartable.
+     *
+     * @param string     $stock_status Current stock status.
+     * @param WC_Product $product      Product object.
+     * @return string
+     */
+    public function allow_special_order_cart_stock_status( $stock_status, $product ) {
+        if ( ! $product instanceof WC_Product ) {
+            return $stock_status;
+        }
+
+        if ( $this->is_store_api_cart_request() && $this->is_product_out_of_stock( $product ) ) {
+            return 'instock';
+        }
+
+        return $stock_status;
+    }
+
+    /**
+     * Override raw backorder mode during Store API cart requests.
+     *
+     * @param string     $backorders Current backorder mode.
+     * @param WC_Product $product    Product object.
+     * @return string
+     */
+    public function allow_special_order_cart_backorder_mode( $backorders, $product ) {
+        if ( ! $product instanceof WC_Product ) {
+            return $backorders;
+        }
+
+        if ( $this->is_store_api_cart_request() && $this->is_product_out_of_stock( $product ) ) {
+            return 'yes';
+        }
+
+        return $backorders;
+    }
+
+    /**
+     * Allow out-of-stock products to pass WooCommerce stock checks during Store API cart requests.
+     *
+     * @param bool       $in_stock Current stock state.
+     * @param WC_Product $product  Product object.
+     * @return bool
+     */
+    public function allow_special_order_cart_stock( $in_stock, $product ) {
+        if ( ! $product instanceof WC_Product ) {
+            return $in_stock;
+        }
+
+        if ( $this->is_store_api_cart_request() && $this->is_product_out_of_stock( $product ) ) {
+            return true;
+        }
+
+        return $in_stock;
+    }
+
+    /**
+     * Allow backorders only while the Store API cart is validating special-order items.
+     *
+     * @param bool       $allowed    Current backorder state.
+     * @param int        $product_id Product ID.
+     * @param WC_Product $product    Product object.
+     * @return bool
+     */
+    public function allow_special_order_cart_backorders( $allowed, $product_id, $product ) {
+        unset( $product_id );
+
+        if ( ! $product instanceof WC_Product ) {
+            return $allowed;
+        }
+
+        if ( $this->is_store_api_cart_request() && $this->is_product_out_of_stock( $product ) ) {
+            return true;
+        }
+
+        return $allowed;
+    }
+
+    /**
+     * Detect Store API cart endpoints so frontend product responses keep the original stock state.
+     *
+     * @return bool
+     */
+    private function is_store_api_cart_request() {
+        if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST ) {
+            return false;
+        }
+
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+        $rest_route = isset( $_REQUEST['rest_route'] ) ? (string) wp_unslash( $_REQUEST['rest_route'] ) : '';
+
+        if ( ! empty( $request_uri ) && false !== strpos( $request_uri, '/wp-json/wc/store/v1/cart' ) ) {
+            return true;
+        }
+
+        if ( ! empty( $rest_route ) && 0 === strpos( $rest_route, '/wc/store/v1/cart' ) ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check the product's raw stock status without triggering stock filters recursively.
+     *
+     * @param WC_Product $product Product object.
+     * @return bool
+     */
+    private function is_product_out_of_stock( $product ) {
+        return 'outofstock' === $product->get_stock_status();
     }
 
     /**

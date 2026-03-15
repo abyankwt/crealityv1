@@ -126,7 +126,7 @@ export default function CategoryIconGrid() {
       </div>
 
       {!selectedCategory ? (
-        <div className="mt-5 grid gap-3 md:grid-cols-3 md:gap-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
           {CATEGORY_TREE.map((category) => {
             const Icon = category.icon;
             return (
@@ -134,18 +134,22 @@ export default function CategoryIconGrid() {
                 key={category.id}
                 type="button"
                 onClick={() => setSelectedId(category.id)}
-                className="group flex min-h-[180px] flex-col justify-between rounded-3xl border border-gray-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
+                className="group flex min-h-[150px] flex-col items-center justify-between rounded-3xl border border-gray-200 bg-white p-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:min-h-[180px] sm:p-5"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="rounded-2xl bg-neutral-100 p-3 text-gray-900">
+                <div className="flex w-full justify-center">
+                  <div className="rounded-2xl bg-neutral-100 p-2.5 text-gray-900 sm:p-3">
                     <Icon className="h-6 w-6" />
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-300 transition group-hover:text-gray-700" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{category.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-gray-500">{category.description}</p>
+                <div className="flex flex-1 flex-col items-center justify-center">
+                  <h3 className="text-base font-semibold text-gray-900 sm:text-lg">
+                    {category.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs leading-5 text-gray-500 sm:mt-2 sm:text-sm sm:leading-6">
+                    {category.description}
+                  </p>
                 </div>
+                <ArrowRight className="h-5 w-5 text-gray-300 transition group-hover:text-gray-700" />
               </button>
             );
           })}
@@ -170,23 +174,27 @@ export default function CategoryIconGrid() {
             </Link>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {selectedCategory.children.map((child) => (
               <Link
                 key={child.href}
                 href={child.href}
-                className="group flex min-h-[136px] flex-col justify-between rounded-2xl border border-gray-200 bg-neutral-50 p-4 transition hover:border-gray-300 hover:bg-white"
+                className="group flex min-h-[128px] flex-col items-center justify-between rounded-2xl border border-gray-200 bg-neutral-50 p-3.5 text-center transition hover:border-gray-300 hover:bg-white sm:min-h-[136px] sm:p-4"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="rounded-2xl bg-white p-3 text-gray-900 shadow-sm">
+                <div className="flex w-full justify-center">
+                  <div className="rounded-2xl bg-white p-2.5 text-gray-900 shadow-sm sm:p-3">
                     <PackagePlus className="h-5 w-5" />
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-300 transition group-hover:text-gray-700" />
                 </div>
-                <div>
-                  <h4 className="text-base font-semibold text-gray-900">{child.title}</h4>
-                  <p className="mt-2 text-sm leading-6 text-gray-500">{child.description}</p>
+                <div className="flex flex-1 flex-col items-center justify-center">
+                  <h4 className="text-sm font-semibold text-gray-900 sm:text-base">
+                    {child.title}
+                  </h4>
+                  <p className="mt-1.5 text-xs leading-5 text-gray-500 sm:mt-2 sm:text-sm sm:leading-6">
+                    {child.description}
+                  </p>
                 </div>
+                <ArrowRight className="h-5 w-5 text-gray-300 transition group-hover:text-gray-700" />
               </Link>
             ))}
           </div>

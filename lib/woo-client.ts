@@ -23,6 +23,8 @@ type WooOrderLineItemResponse = {
 
 type WooOrderResponse = {
   id: number;
+  order_key?: string;
+  checkout_payment_url?: string;
   status: string;
   date_created: string;
   total: string;

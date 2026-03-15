@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import AddToCartConfirmationModal from "@/components/AddToCartConfirmationModal";
 import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import ProductCard from "@/components/ProductCard";
@@ -9,6 +11,7 @@ import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
 import { formatPrice, getProductPriceInfo } from "@/lib/price";
 import { getProductAvailability } from "@/lib/productLogic";
+import { isProductInStock } from "@/lib/productStock";
 import { sanitizeWooDescription } from "@/lib/sanitizeWooDescription";
 import type {
   StoreProduct,
@@ -64,9 +67,8 @@ const getAttributeValues = (attribute: StoreProductAttribute) => {
   return [];
 };
 
-const getStockLabel = (status?: string) => {
-  if (status === "instock") return "In stock";
-  if (status === "onbackorder") return "Backorder";
+const getStockLabel = (inStock: boolean) => {
+  if (inStock) return "In stock";
   return "Out of stock";
 };
 
@@ -85,6 +87,7 @@ const Star = ({ filled }: { filled: boolean }) => (
 );
 
 export default function ProductDetail({ product }: ProductDetailProps) {
+  const router = useRouter();
   const { addItem, refreshCart } = useCart();
   const [selectedImage, setSelectedImage] = useState<string>(
     product.images?.[0]?.src ?? FALLBACK_IMAGE
@@ -99,6 +102,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningAccepted, setWarningAccepted] = useState(false);
   const [pendingQuantity, setPendingQuantity] = useState(1);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const primaryActionsRef = useRef<HTMLDivElement | null>(null);
 
   const galleryImages =
@@ -108,10 +112,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
   const mainImage = selectedImage || galleryImages[0]?.src || FALLBACK_IMAGE;
   const availability = getProductAvailability(product);
+  const isInStock = isProductInStock(product);
   const cleanDescription = sanitizeWooDescription(product.description);
   const stockLabel =
     availability.type === "available"
-      ? getStockLabel(product.stock_status)
+      ? getStockLabel(isInStock)
       : availability.label;
   const canOrder = Boolean(product.id);
   const modalAvailability = {
@@ -166,7 +171,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         const filtered = products.filter(
           (item: StoreProduct) =>
             item.id !== product.id &&
-            item.stock_status === "instock" &&
+            isProductInStock(item) &&
             item.purchasable
         );
 
@@ -216,7 +221,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
       setAdding(true);
       await addItem(product.id, itemQuantity);
       await refreshCart();
-      setToast({ message: "Added to cart.", type: "success" });
+      setConfirmationOpen(true);
     } catch {
       setToast({ message: "Unable to add to cart.", type: "error" });
     } finally {
@@ -648,11 +653,22 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         onClose={() => setWarningOpen(false)}
         onConfirm={async () => {
           setWarningOpen(false);
+          if (availability.type === "special") {
+            await performAddToCart(pendingQuantity);
+            return;
+          }
+
           await performAddToCart(pendingQuantity);
         }}
         confirmLabel="Add to cart"
         secondaryLabel="Back"
         title="Before you continue"
+      />
+
+      <AddToCartConfirmationModal
+        open={confirmationOpen}
+        product={product}
+        onClose={() => setConfirmationOpen(false)}
       />
     </div>
   );

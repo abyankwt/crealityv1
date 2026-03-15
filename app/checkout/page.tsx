@@ -17,6 +17,7 @@ import OrderWarningModal from "@/components/OrderWarningModal";
 import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
 import { submitCheckout, type BillingAddress } from "@/lib/cart";
+import { formatKWD } from "@/lib/formatCurrency";
 import {
     requiresOrderWarning,
     type ProductAvailability,
@@ -118,15 +119,8 @@ function CheckoutPageContent() {
         return txt.value;
     };
 
-    const formatPrice = (minorUnits: string, decimals = 3) => {
-        const num = Number(minorUnits) / Math.pow(10, decimals);
-        return num.toFixed(decimals).replace(/\.?0+$/, "");
-    };
-
-    const currency =
-        cart?.totals?.currency_symbol ??
-        cart?.totals?.currency_prefix ??
-        "KD";
+    const parseMinorUnits = (minorUnits: string, decimals = 3) =>
+        Number(minorUnits) / Math.pow(10, decimals);
 
     const minorUnit = cart?.totals?.currency_minor_unit ?? 3;
 
@@ -285,10 +279,10 @@ function CheckoutPageContent() {
                                 item.images?.[0]?.thumbnail ||
                                 item.images?.[0]?.src ||
                                 "/images/product-placeholder.svg";
-                            const lineTotal = formatPrice(
+                            const lineTotal = formatKWD(parseMinorUnits(
                                 item.totals?.line_total ?? "0",
                                 minorUnit
-                            );
+                            ));
 
                             return (
                                 <div key={item.key} className="flex items-center gap-4 px-4 py-3">
@@ -320,7 +314,7 @@ function CheckoutPageContent() {
                                         </div>
                                     </div>
                                     <p className="whitespace-nowrap text-sm font-semibold text-gray-900">
-                                        {currency} {lineTotal}
+                                        {lineTotal}
                                     </p>
                                 </div>
                             );
@@ -330,16 +324,14 @@ function CheckoutPageContent() {
                             <div className="flex justify-between text-sm text-gray-600">
                                 <span>Subtotal ({itemCount} items)</span>
                                 <span className="font-medium text-gray-900">
-                                    {currency}{" "}
-                                    {formatPrice(cart.totals?.total_items ?? "0", minorUnit)}
+                                    {formatKWD(parseMinorUnits(cart.totals?.total_items ?? "0", minorUnit))}
                                 </span>
                             </div>
                             {Number(cart.totals?.total_shipping ?? 0) > 0 && (
                                 <div className="flex justify-between text-sm text-gray-600">
                                     <span>Shipping</span>
                                     <span className="font-medium text-gray-900">
-                                        {currency}{" "}
-                                        {formatPrice(cart.totals.total_shipping, minorUnit)}
+                                        {formatKWD(parseMinorUnits(cart.totals.total_shipping, minorUnit))}
                                     </span>
                                 </div>
                             )}
@@ -347,8 +339,7 @@ function CheckoutPageContent() {
                                 <div className="flex justify-between text-sm text-green-600">
                                     <span>Discount</span>
                                     <span className="font-medium">
-                                        -{currency}{" "}
-                                        {formatPrice(cart.totals.total_discount, minorUnit)}
+                                        -{formatKWD(parseMinorUnits(cart.totals.total_discount, minorUnit))}
                                     </span>
                                 </div>
                             )}
@@ -356,8 +347,7 @@ function CheckoutPageContent() {
                                 <div className="flex justify-between text-base font-bold text-gray-900">
                                     <span>Total</span>
                                     <span>
-                                        {currency}{" "}
-                                        {formatPrice(cart.totals?.total_price ?? "0", minorUnit)}
+                                        {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
                                     </span>
                                 </div>
                             </div>
@@ -602,8 +592,7 @@ function CheckoutPageContent() {
                             </>
                         ) : (
                             <>
-                                Place Order - {currency}{" "}
-                                {formatPrice(cart.totals?.total_price ?? "0", minorUnit)}
+                                Place Order - {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
                             </>
                         )}
                     </button>

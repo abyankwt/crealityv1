@@ -8,6 +8,7 @@ import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
+import { formatKWD } from "@/lib/formatCurrency";
 import {
     requiresOrderWarning,
     type ProductAvailability,
@@ -26,15 +27,8 @@ export default function CartPage() {
         return txt.value;
     };
 
-    const formatPrice = (minorUnits: string, decimals = 3) => {
-        const num = Number(minorUnits) / Math.pow(10, decimals);
-        return num.toFixed(decimals).replace(/\.?0+$/, "");
-    };
-
-    const currency =
-        cart?.totals?.currency_symbol ??
-        cart?.totals?.currency_prefix ??
-        "KD";
+    const parseMinorUnits = (minorUnits: string, decimals = 3) =>
+        Number(minorUnits) / Math.pow(10, decimals);
 
     const minorUnit = cart?.totals?.currency_minor_unit ?? 3;
 
@@ -109,14 +103,16 @@ export default function CartPage() {
                         item.images?.[0]?.thumbnail ||
                         item.images?.[0]?.src ||
                         "/images/product-placeholder.svg";
-                    const lineTotal = formatPrice(
+                    const lineTotal = formatKWD(parseMinorUnits(
                         item.totals?.line_total ?? "0",
                         minorUnit
-                    );
+                    ));
                     const unitPrice = item.prices
-                        ? formatPrice(
-                              item.prices.price,
-                              item.prices.currency_minor_unit ?? minorUnit
+                        ? formatKWD(
+                              parseMinorUnits(
+                                  item.prices.price,
+                                  item.prices.currency_minor_unit ?? minorUnit
+                              )
                           )
                         : null;
                     const min = item.quantity_limits?.minimum ?? 1;
@@ -152,12 +148,12 @@ export default function CartPage() {
                                         )}
                                         {unitPrice && (
                                             <p className="mt-1 text-xs text-gray-500">
-                                                {currency} {unitPrice} each
+                                                {unitPrice} each
                                             </p>
                                         )}
                                     </div>
                                     <p className="whitespace-nowrap text-sm font-semibold text-gray-900 sm:text-base">
-                                        {currency} {lineTotal}
+                                        {lineTotal}
                                     </p>
                                 </div>
 
@@ -212,14 +208,14 @@ export default function CartPage() {
                     <div className="flex justify-between text-sm text-gray-600">
                         <span>Subtotal</span>
                         <span className="font-medium text-gray-900">
-                            {currency} {formatPrice(cart.totals?.total_items ?? "0", minorUnit)}
+                            {formatKWD(parseMinorUnits(cart.totals?.total_items ?? "0", minorUnit))}
                         </span>
                     </div>
                     {Number(cart.totals?.total_shipping ?? 0) > 0 && (
                         <div className="flex justify-between text-sm text-gray-600">
                             <span>Shipping</span>
                             <span className="font-medium text-gray-900">
-                                {currency} {formatPrice(cart.totals.total_shipping, minorUnit)}
+                                {formatKWD(parseMinorUnits(cart.totals.total_shipping, minorUnit))}
                             </span>
                         </div>
                     )}
@@ -227,7 +223,7 @@ export default function CartPage() {
                         <div className="flex justify-between text-sm text-green-600">
                             <span>Discount</span>
                             <span className="font-medium">
-                                -{currency} {formatPrice(cart.totals.total_discount, minorUnit)}
+                                -{formatKWD(parseMinorUnits(cart.totals.total_discount, minorUnit))}
                             </span>
                         </div>
                     )}
@@ -235,7 +231,7 @@ export default function CartPage() {
                         <div className="flex justify-between text-base font-bold text-gray-900">
                             <span>Total</span>
                             <span>
-                                {currency} {formatPrice(cart.totals?.total_price ?? "0", minorUnit)}
+                                {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
                             </span>
                         </div>
                     </div>

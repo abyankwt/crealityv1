@@ -43,7 +43,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const { data: newProducts } = await fetchProducts({
     orderby: "date",
     order: "desc",
-    perPage: 4,
+    perPage: 8,
   });
 
   const wpHeroImages = await fetchHeroImages();

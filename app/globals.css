@@ -69,18 +69,28 @@ body {
 .product-actions {
   margin-top: auto;
   display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
 .product-actions > * {
-  flex: 1;
+  flex: none;
   min-width: 0;
 }
 
 .product-actions button {
-  flex: 1;
+  flex: none;
+  width: 100%;
   min-width: 0;
   font-size: 13px;
+}
+
+.product-status {
+  min-height: 20px;
+}
+
+.product-delivery {
+  min-height: 18px;
 }
 
 .product-title {

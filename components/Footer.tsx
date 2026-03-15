@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -123,7 +123,7 @@ export default function Footer() {
                     }`}
                   onClick={() => setSocialToggle("official")}
                 >
-                  Global
+                  GCC
                 </button>
               </div>
 

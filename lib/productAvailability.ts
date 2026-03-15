@@ -1,4 +1,4 @@
-import type { Product } from "@/lib/woocommerce-types";
+import { isProductInStock, isSpecialOrder } from "@/lib/productStock";
 
 export type ProductOrderingType =
   | "available"
@@ -13,20 +13,12 @@ export type ProductAvailability = {
   leadTime: string | null;
 };
 
-function matchesCategory(
-  product: Pick<Product, "categories"> | null | undefined,
-  values: string[]
-) {
-  return (product?.categories ?? []).some((category) => {
-    const name = category.name.toLowerCase();
-    const slug = category.slug.toLowerCase();
-    return values.some((value) => name.includes(value) || slug.includes(value));
-  });
-}
-
 export function getProductAvailability(
   product:
-    | Pick<Product, "stock_status" | "categories" | "tags">
+    | {
+        is_in_stock?: boolean | null;
+        tags?: Array<{ name: string; slug: string }>;
+      }
     | null
     | undefined
 ): ProductAvailability {
@@ -35,9 +27,7 @@ export function getProductAvailability(
     tag.slug.toLowerCase().includes("preorder")
   );
 
-  const isPrinterCategory = matchesCategory(product, ["printer"]);
-
-  if (product?.stock_status === "instock") {
+  if (isProductInStock(product)) {
     return {
       type: "available",
       label: "Buy Now",
@@ -55,7 +45,7 @@ export function getProductAvailability(
     };
   }
 
-  if (product?.stock_status === "outofstock" && isPrinterCategory) {
+  if (isSpecialOrder(product)) {
     return {
       type: "special",
       label: "Special Order",
