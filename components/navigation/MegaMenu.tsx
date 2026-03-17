@@ -1,15 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CategoryNode } from "@/lib/categories";
 import CategoryColumn from "./CategoryColumn";
 
 type MegaMenuProps = {
   label?: string;
+  href?: string;
   categories: CategoryNode[];
 };
 
-export default function MegaMenu({ label = "Products", categories }: MegaMenuProps) {
+export default function MegaMenu({
+  label = "Products",
+  href,
+  categories,
+}: MegaMenuProps) {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,25 +61,34 @@ export default function MegaMenu({ label = "Products", categories }: MegaMenuPro
       onFocus={openMenu}
       onBlur={closeMenu}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 text-sm font-medium transition hover:text-[#0b0b0b]"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        {label}
-        <svg
-          className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          aria-hidden="true"
+      <div className="flex items-center gap-1.5 text-sm font-medium">
+        {href ? (
+          <Link href={href} className="transition hover:text-[#0b0b0b]">
+            {label}
+          </Link>
+        ) : (
+          <span>{label}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex items-center transition hover:text-[#0b0b0b]"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`Toggle ${label} menu`}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <svg
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
       {/* Mega panel */}
       <div

@@ -1,81 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import {
+  ACCOUNT_NAV_LINKS,
+  ALL_PRODUCTS_CATEGORY_LINKS,
+  PRE_ORDERS_SECTION_ID,
+  type NavigationItem,
+  type NavigationLink,
+} from "@/config/navigation";
+import { scrollToSectionById } from "@/lib/scrollToSection";
 
 type MobileDrawerMenuProps = {
+  navigation: NavigationItem[];
   onNavigate?: () => void;
 };
 
-type DrawerLink = {
-  label: string;
-  href: string;
-};
-
-type DrawerSection = DrawerLink & {
-  id: string;
-  children?: DrawerLink[];
-};
-
-const mainSections: DrawerSection[] = [
-  {
-    id: "all-products",
-    label: "All Products",
-    href: "/store",
-    children: [
-      { label: "3D Printer", href: "/category/3d-printers" },
-      { label: "3D Scanner", href: "/category/3d-scanners" },
-      { label: "Accessory", href: "/category/accessories" },
-      { label: "Material", href: "/category/materials" },
-      { label: "Washing and Curing", href: "/category/washing-curing" },
-      { label: "Laser", href: "/category/laser-milling" },
-      { label: "Milling", href: "/category/laser-milling-series" },
-    ],
-  },
-  {
-    id: "printing-service",
-    label: "Printing Service",
-    href: "/printing-service",
-    children: [{ label: "Start a Print Job", href: "/printing-service" }],
-  },
-  {
-    id: "downloads",
-    label: "Downloads",
-    href: "/downloads",
-    children: [
-      { label: "3D Print Files", href: "/downloads" },
-      { label: "Documents", href: "/downloads" },
-      { label: "Software", href: "/downloads" },
-    ],
-  },
-  {
-    id: "support",
-    label: "Support",
-    href: "/support",
-  },
-];
-
-const accountSection: DrawerSection = {
-  id: "account",
-  label: "Account",
-  href: "/account",
-  children: [
-    { label: "Dashboard", href: "/account" },
-    { label: "Orders", href: "/account/orders" },
-    { label: "Addresses", href: "/account/addresses" },
-  ],
+type DrawerSection = NavigationItem & {
+  children?: NavigationLink[];
 };
 
 function DrawerRow({
   section,
   expanded,
-  onNavigate,
+  onChildNavigate,
+  onLinkClick,
   onToggle,
 }: {
   section: DrawerSection;
   expanded: boolean;
-  onNavigate?: () => void;
+  onChildNavigate?: () => void;
+  onLinkClick: (event: ReactMouseEvent<HTMLAnchorElement>) => void;
   onToggle: () => void;
 }) {
   const hasChildren = Boolean(section.children?.length);
@@ -87,7 +45,7 @@ function DrawerRow({
         <Link
           href={section.href}
           className="min-w-0 flex-1 text-sm font-medium text-gray-900"
-          onClick={onNavigate}
+          onClick={onLinkClick}
         >
           {section.label}
         </Link>
@@ -115,7 +73,7 @@ function DrawerRow({
               key={`${section.id}-${child.href}-${child.label}`}
               href={child.href}
               className="text-sm transition hover:text-gray-900"
-              onClick={onNavigate}
+              onClick={onChildNavigate}
             >
               {child.label}
             </Link>
@@ -126,34 +84,67 @@ function DrawerRow({
   );
 }
 
-export default function MobileDrawerMenu({ onNavigate }: MobileDrawerMenuProps) {
+export default function MobileDrawerMenu({
+  navigation,
+  onNavigate,
+}: MobileDrawerMenuProps) {
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const pathname = usePathname();
+
+  const sections = navigation.map<DrawerSection>((item) => {
+    if (item.kind === "mega") {
+      return {
+        ...item,
+        children: ALL_PRODUCTS_CATEGORY_LINKS,
+      };
+    }
+
+    if (item.kind === "account") {
+      return {
+        ...item,
+        children: ACCOUNT_NAV_LINKS,
+      };
+    }
+
+    return item;
+  });
 
   const toggleSection = (sectionId: string) => {
     setOpenSection((current) => (current === sectionId ? null : sectionId));
   };
 
+  const handleSectionClick =
+    (section: DrawerSection) => (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (section.id !== "pre-orders" || pathname !== "/") {
+        onNavigate?.();
+        return;
+      }
+
+      event.preventDefault();
+
+      const didScroll = scrollToSectionById(PRE_ORDERS_SECTION_ID);
+
+      if (didScroll) {
+        onNavigate?.();
+        return;
+      }
+
+      window.location.assign(section.href);
+    };
+
   return (
     <div className="flex flex-col">
       <div>
-        {mainSections.map((section) => (
+        {sections.map((section) => (
           <DrawerRow
             key={section.id}
             section={section}
             expanded={openSection === section.id}
-            onNavigate={onNavigate}
+            onChildNavigate={onNavigate}
+            onLinkClick={handleSectionClick(section)}
             onToggle={() => toggleSection(section.id)}
           />
         ))}
-      </div>
-
-      <div className="mt-2">
-        <DrawerRow
-          section={accountSection}
-          expanded={openSection === accountSection.id}
-          onNavigate={onNavigate}
-          onToggle={() => toggleSection(accountSection.id)}
-        />
       </div>
     </div>
   );

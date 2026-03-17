@@ -10,6 +10,10 @@
   --accent-green: #7bbf6a;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--surface);
   color: var(--ink);

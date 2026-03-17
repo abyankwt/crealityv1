@@ -2,10 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, ShoppingBag, User } from "lucide-react";
+import {
+  PRE_ORDERS_SECTION_ID,
+  type NavigationItem,
+} from "@/config/navigation";
 import { useCart } from "@/context/CartContext";
+import { scrollToSectionById } from "@/lib/scrollToSection";
 import type { UserSession } from "@/lib/types";
 import type { CategoryNode } from "@/lib/categories";
 import MobileStoreSwitcher from "@/components/MobileStoreSwitcher";
@@ -16,6 +22,7 @@ import MobileMenu from "./MobileMenu";
 
 type NavbarProps = {
   categories?: CategoryNode[];
+  navigation: NavigationItem[];
 };
 
 type AuthMeResponse =
@@ -25,7 +32,7 @@ type AuthMeResponse =
     user: { id: number; email: string; name: string };
   };
 
-export default function Navbar({ categories = [] }: NavbarProps) {
+export default function Navbar({ categories = [], navigation }: NavbarProps) {
   const { cart } = useCart();
   const itemCount = cart?.items_count ?? 0;
   const pathname = usePathname();
@@ -77,6 +84,54 @@ export default function Navbar({ categories = [] }: NavbarProps) {
     }
   };
 
+  const isActiveLink = (item: NavigationItem) => {
+    if (item.kind === "mega") {
+      return pathname.startsWith("/category") || pathname === "/store";
+    }
+
+    if (item.kind === "account") {
+      return (
+        pathname.startsWith("/account") ||
+        pathname === "/login" ||
+        pathname === "/register"
+      );
+    }
+
+    if (item.id === "printing-service") {
+      return (
+        pathname === item.href ||
+        pathname.startsWith("/printing-service") ||
+        pathname.startsWith("/printing-services")
+      );
+    }
+
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  };
+
+  const navLinkClass = (item: NavigationItem) =>
+    `relative text-sm font-medium transition hover:text-[#0b0b0b] ${
+      isActiveLink(item)
+        ? "text-[#0b0b0b] after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:bg-[#7bbf6a]"
+        : item.kind === "promotion"
+          ? "text-[#7bbf6a]"
+          : "text-gray-600"
+    }`;
+
+  const handleNavigationClick =
+    (item: NavigationItem) => (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (item.id !== "pre-orders" || pathname !== "/") {
+        return;
+      }
+
+      event.preventDefault();
+
+      const didScroll = scrollToSectionById(PRE_ORDERS_SECTION_ID);
+
+      if (!didScroll) {
+        window.location.assign(item.href);
+      }
+    };
+
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
@@ -102,40 +157,100 @@ export default function Navbar({ categories = [] }: NavbarProps) {
             </Link>
             <div className="hidden lg:flex lg:items-center lg:gap-6">
               <StoreSwitcher />
-              <div
-                className={`relative ${pathname?.startsWith("/category") || pathname === "/store"
-                  ? "text-[#0b0b0b] after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:bg-[#7bbf6a]"
-                  : "text-gray-600"
-                  }`}
-              >
-                <MegaMenu label="Products" categories={categories} />
-              </div>
-              <Link
-                href="/downloads"
-                className={`relative text-sm font-medium transition hover:text-[#0b0b0b] ${pathname?.startsWith("/downloads")
-                  ? "text-[#0b0b0b] after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:bg-[#7bbf6a]"
-                  : "text-gray-600"
-                  }`}
-              >
-                Downloads
-              </Link>
-              <Link
-                href="/support"
-                className={`relative text-sm font-medium transition hover:text-[#0b0b0b] ${pathname === "/support"
-                  ? "text-[#0b0b0b] after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-full after:bg-[#7bbf6a]"
-                  : "text-gray-600"
-                  }`}
-              >
-                Support
-              </Link>
-              <a
-                href="https://www.crealitycloud.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-medium text-gray-600 transition hover:text-[#0b0b0b]"
-              >
-                Creality Cloud
-              </a>
+              {navigation.map((item) => {
+                if (item.kind === "mega") {
+                  return (
+                    <div key={item.id} className={`relative ${navLinkClass(item)}`}>
+                      <MegaMenu
+                        label={item.label}
+                        href={item.href}
+                        categories={categories}
+                      />
+                    </div>
+                  );
+                }
+
+                if (item.kind === "account") {
+                  return (
+                    <div key={item.id} className="relative" ref={accountRef}>
+                      <button
+                        type="button"
+                        onClick={() => setAccountOpen((prev) => !prev)}
+                        className={`${navLinkClass(item)} flex items-center gap-1.5`}
+                        aria-haspopup="menu"
+                        aria-expanded={accountOpen}
+                      >
+                        <User className="h-4 w-4" />
+                        {item.label}
+                      </button>
+                      {accountOpen && (
+                        <div className="absolute right-0 mt-3 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
+                          {user ? (
+                            <>
+                              <Link
+                                href="/account"
+                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Dashboard
+                              </Link>
+                              <Link
+                                href="/account/orders"
+                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Orders
+                              </Link>
+                              <Link
+                                href="/account/addresses"
+                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Addresses
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="block w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                              >
+                                Logout
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <Link
+                                href="/login"
+                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Login
+                              </Link>
+                              <Link
+                                href="/register"
+                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
+                                onClick={() => setAccountOpen(false)}
+                              >
+                                Register
+                              </Link>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={navLinkClass(item)}
+                    onClick={handleNavigationClick(item)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -153,71 +268,6 @@ export default function Navbar({ categories = [] }: NavbarProps) {
                 </span>
               )}
             </Link>
-            <div className="relative" ref={accountRef}>
-              <button
-                type="button"
-                onClick={() => setAccountOpen((prev) => !prev)}
-                className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:border-gray-300 hover:text-[#0b0b0b]"
-                aria-haspopup="menu"
-                aria-expanded={accountOpen}
-              >
-                <User className="h-4 w-4" />
-                Account
-              </button>
-              {accountOpen && (
-                <div className="absolute right-0 mt-3 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
-                  {user ? (
-                    <>
-                      <Link
-                        href="/account"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        Dashboard
-                      </Link>
-                      <Link
-                        href="/account/orders"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        Orders
-                      </Link>
-                      <Link
-                        href="/account/addresses"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        Addresses
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="block w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                      >
-                        Logout
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href="/login"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        Login
-                      </Link>
-                      <Link
-                        href="/register"
-                        className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                        onClick={() => setAccountOpen(false)}
-                      >
-                        Register
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="flex items-center gap-3 lg:hidden">
@@ -251,7 +301,7 @@ export default function Navbar({ categories = [] }: NavbarProps) {
       <MobileMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        categories={categories}
+        navigation={navigation}
       />
     </header>
   );
