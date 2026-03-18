@@ -10,6 +10,10 @@
   --accent-green: #7bbf6a;
 }
 
+.text-primary {
+  color: var(--accent);
+}
+
 html {
   scroll-behavior: smooth;
 }

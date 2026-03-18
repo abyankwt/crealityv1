@@ -1,69 +1,96 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import {
+  Box,
+  Boxes,
+  Droplet,
+  Factory,
+  Package,
+  Printer,
+  Rocket,
+  Settings,
+  Truck,
+  Upload,
+  Wrench,
+} from "lucide-react";
 import PrintEstimator from "@/components/printing-service/PrintEstimator";
-import QuoteForm from "@/components/printing-service/QuoteForm";
 import FaqAccordion from "@/components/printing-service/FaqAccordion";
+
+type InfoCard = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+};
 
 const offerCards = [
   {
     title: "FDM Printing",
     description: "Functional parts with durable thermoplastics.",
+    icon: Box,
   },
   {
     title: "Resin Printing",
     description: "High-detail components with tight tolerances.",
+    icon: Droplet,
   },
   {
     title: "Post Processing",
     description: "Sanding, finishing, and surface preparation.",
+    icon: Wrench,
   },
   {
     title: "Batch Production",
     description: "Consistent output for scaled quantities.",
+    icon: Boxes,
   },
-];
+] satisfies InfoCard[];
 
 const serviceCategories = [
   {
     title: "Rapid Prototyping",
     description: "Fast iteration for engineering and design teams.",
+    icon: Rocket,
   },
   {
     title: "Production Runs",
     description: "Repeatable parts with controlled QC checks.",
+    icon: Factory,
   },
   {
     title: "Custom Fixtures",
     description: "Jigs and tooling tailored to your workflow.",
+    icon: Wrench,
   },
   {
     title: "End-Use Parts",
     description: "Durable components for final assemblies.",
+    icon: Package,
   },
-];
+] satisfies InfoCard[];
 
 const workflowSteps = [
   {
-    number: "01",
-    title: "Upload your file",
+    title: "Upload",
     description: "Send STL, OBJ, STEP, or ZIP assets.",
+    icon: Upload,
   },
   {
-    number: "02",
-    title: "We review & quote",
-    description: "Material, lead time, and finishing options.",
+    title: "Configure",
+    description: "Choose material, technology, printer, and quantity.",
+    icon: Settings,
   },
   {
-    number: "03",
-    title: "Production begins",
+    title: "Production",
     description: "Industrial machines start within 24 hours.",
+    icon: Printer,
   },
   {
-    number: "04",
-    title: "Delivery across Kuwait",
+    title: "Delivery",
     description: "Tracked shipping to your facility.",
+    icon: Truck,
   },
-];
+] satisfies InfoCard[];
 
 const reasons = [
   {
@@ -152,81 +179,89 @@ export default function PrintingServicePage() {
         </div>
       </section>
 
-      <section className="border-b border-gray-200 bg-white py-10">
+      <section className="border-b border-gray-200 bg-gray-50 py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-6">
+          <div className="mb-6 max-w-2xl">
             <h2 className="text-lg font-semibold text-gray-900">What we offer</h2>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
               Core services built for engineering-grade deliverables.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {offerCards.map((card, index) => (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {offerCards.map((card) => {
+              const Icon = card.icon;
+              return (
               <div
                 key={card.title}
-                className="rounded-xl border border-gray-200 bg-[#f9f9f9] p-4"
+                className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-xs font-semibold text-gray-700">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {card.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{card.description}</p>
-                  </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                  <Icon className="w-5 h-5 text-primary" />
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-gray-200 bg-[#f8f8f8] py-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Service categories</h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Built for engineering, production, and custom requirements.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {serviceCategories.map((category) => (
-              <div
-                key={category.title}
-                className="rounded-xl border border-gray-200 bg-white p-4"
-              >
-                <p className="text-sm font-semibold text-gray-900">
-                  {category.title}
+                <p className="mt-4 text-lg font-semibold text-gray-900">
+                  {card.title}
                 </p>
-                <p className="mt-2 text-xs text-gray-500">
-                  {category.description}
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                  {card.description}
                 </p>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </section>
 
       <section className="border-b border-gray-200 bg-white py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">How it works</h2>
+          <div className="mb-6 max-w-2xl">
+            <h2 className="text-lg font-semibold text-gray-900">Service categories</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              Built for engineering, production, and custom requirements.
+            </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {serviceCategories.map((category) => {
+              const Icon = category.icon;
+              return (
+              <div
+                key={category.title}
+                className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
+                <p className="mt-4 text-lg font-semibold text-gray-900">
+                  {category.title}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                  {category.description}
+                </p>
+              </div>
+            )})}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-gray-200 bg-gray-50 py-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-6 max-w-2xl">
+            <h2 className="text-lg font-semibold text-gray-900">How it works</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              A streamlined workflow from upload through delivery.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {workflowSteps.map((step) => (
               <div
-                key={step.number}
-                className="rounded-xl border border-gray-200 bg-[#f9f9f9] p-4"
+                key={step.title}
+                className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-                  {step.number}
-                </p>
-                <p className="mt-2 text-sm font-semibold text-gray-900">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                  <step.icon className="w-5 h-5 text-primary" />
+                </div>
+                <p className="mt-4 text-lg font-semibold text-gray-900">
                   {step.title}
                 </p>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
                   {step.description}
                 </p>
               </div>
@@ -239,24 +274,6 @@ export default function PrintingServicePage() {
       <section id="estimate" className="border-b border-gray-200 bg-white py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <PrintEstimator />
-        </div>
-      </section>
-
-      {/* Manual Quote Form */}
-      <section id="quote" className="border-b border-gray-200 bg-[#f8f8f8] py-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-              Custom Projects
-            </p>
-            <h2 className="mt-2 text-lg font-semibold text-gray-900">
-              Need a custom quote?
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              For complex projects, batch orders, or specific requirements, submit a manual quote request.
-            </p>
-          </div>
-          <QuoteForm />
         </div>
       </section>
 
@@ -305,10 +322,10 @@ export default function PrintingServicePage() {
             </p>
           </div>
           <a
-            href="#quote"
+            href="#estimate"
             className="inline-flex items-center justify-center rounded-lg bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
           >
-            Request a Quote
+            Get Instant Estimate
           </a>
         </div>
       </section>

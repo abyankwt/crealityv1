@@ -16,10 +16,16 @@ type AddToCartBody = {
     job_id: number;
     total_cost: number;
     summary: {
+        file_name?: string;
         dimensions: string;
         material_grams: number;
         estimated_time: string;
         printer: string;
+        material?: string;
+        technology?: string;
+        quantity?: number;
+        deadline?: string;
+        description?: string;
     };
 };
 
@@ -57,10 +63,16 @@ export async function POST(request: NextRequest) {
             ],
             meta_data: [
                 { key: "_print_job_id", value: String(body.job_id) },
+                { key: "_print_file_name", value: body.summary?.file_name ?? "" },
                 { key: "_print_dimensions", value: body.summary?.dimensions ?? "" },
                 { key: "_print_material_grams", value: String(body.summary?.material_grams ?? "") },
                 { key: "_print_estimated_time", value: body.summary?.estimated_time ?? "" },
                 { key: "_print_printer", value: body.summary?.printer ?? "" },
+                { key: "_print_material", value: body.summary?.material ?? "" },
+                { key: "_print_technology", value: body.summary?.technology ?? "" },
+                { key: "_print_quantity", value: String(body.summary?.quantity ?? "") },
+                { key: "_print_deadline", value: body.summary?.deadline ?? "" },
+                { key: "_print_description", value: body.summary?.description ?? "" },
             ],
         };
 
