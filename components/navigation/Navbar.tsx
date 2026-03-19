@@ -16,6 +16,8 @@ import type { UserSession } from "@/lib/types";
 import type { CategoryNode } from "@/lib/categories";
 import MobileStoreSwitcher from "@/components/MobileStoreSwitcher";
 import SearchBar from "@/components/SearchBar";
+import GuestMenu from "@/components/navigation/GuestMenu";
+import UserMenu from "@/components/navigation/UserMenu";
 import StoreSwitcher from "./StoreSwitcher";
 import MegaMenu from "./MegaMenu";
 import MobileMenu from "./MobileMenu";
@@ -132,6 +134,9 @@ export default function Navbar({ categories = [], navigation }: NavbarProps) {
       }
     };
 
+  const accountLabel = user?.name ?? "Account";
+  const avatarLetter = user?.name?.charAt(0).toUpperCase();
+
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
@@ -176,64 +181,31 @@ export default function Navbar({ categories = [], navigation }: NavbarProps) {
                       <button
                         type="button"
                         onClick={() => setAccountOpen((prev) => !prev)}
-                        className={`${navLinkClass(item)} flex items-center gap-1.5`}
+                        className={`${navLinkClass(item)} flex items-center gap-2`}
                         aria-haspopup="menu"
                         aria-expanded={accountOpen}
                       >
-                        <User className="h-4 w-4" />
-                        {item.label}
+                        {user ? (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">
+                            {avatarLetter}
+                          </span>
+                        ) : (
+                          <User className="h-4 w-4" />
+                        )}
+                        <span>{accountLabel}</span>
                       </button>
                       {accountOpen && (
-                        <div className="absolute right-0 mt-3 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
-                          {user ? (
-                            <>
-                              <Link
-                                href="/account"
-                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                Dashboard
-                              </Link>
-                              <Link
-                                href="/account/orders"
-                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                Orders
-                              </Link>
-                              <Link
-                                href="/account/addresses"
-                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                Addresses
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={handleLogout}
-                                className="block w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50"
-                              >
-                                Logout
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <Link
-                                href="/login"
-                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                Login
-                              </Link>
-                              <Link
-                                href="/register"
-                                className="block rounded-md px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-                                onClick={() => setAccountOpen(false)}
-                              >
-                                Register
-                              </Link>
-                            </>
-                          )}
+                        <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow">
+                          <div className="py-2">
+                            {user ? (
+                              <UserMenu
+                                onClose={() => setAccountOpen(false)}
+                                onLogout={handleLogout}
+                              />
+                            ) : (
+                              <GuestMenu onClose={() => setAccountOpen(false)} />
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

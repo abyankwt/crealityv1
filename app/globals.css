@@ -190,6 +190,15 @@ body {
   padding: 10px;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (min-width: 768px) {
   .product-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

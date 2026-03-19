@@ -63,8 +63,8 @@ export default function Hero() {
         {/* Image column */}
         <div className="order-1 lg:order-2">
           <SmartImage
-            src="/images/printers.jpg"
-            alt="Creality 3D printer"
+            src="/images/store-hero-new.jpg"
+            alt="Creality 3D printer with printed models"
             mode="banner"
             priority
             sizes="(max-width: 768px) 100vw, 50vw"

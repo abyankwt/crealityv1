@@ -26,7 +26,7 @@ export default function MobileStoreSwitcher() {
     },
     {
       href: "/printing-services",
-      label: "Printing Services",
+      label: "Printing",
       icon: Printer,
       isActive: isPrintingRoute,
     },
@@ -50,7 +50,7 @@ export default function MobileStoreSwitcher() {
               }`}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
-              <span>{item.label}</span>
+              <span className="whitespace-nowrap">{item.label}</span>
             </Link>
           );
         })}

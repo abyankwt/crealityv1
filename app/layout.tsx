@@ -31,7 +31,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="bg-white text-gray-900">
+      <body className="bg-white text-gray-900" suppressHydrationWarning>
         <CartProvider>
           <Navbar categories={categories} navigation={navigation} />
           <main className="min-h-screen">{children}</main>

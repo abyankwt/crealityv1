@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronUp,
   ShoppingCart,
-  XCircle,
   Package,
   Truck,
   CheckCircle2,
   Clock,
   Ban,
+  XCircle,
   RotateCcw,
 } from "lucide-react";
 import type { ApiResponse, WooOrder } from "@/lib/types";
@@ -23,20 +24,51 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "success"; orders: WooOrder[] };
 
-/* ── Status badge mapping ── */
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: "Pending", color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: Clock },
-  processing: { label: "Processing", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Package },
-  "on-hold": { label: "On Hold", color: "bg-orange-50 text-orange-700 border-orange-200", icon: Clock },
-  completed: { label: "Completed", color: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
-  cancelled: { label: "Cancelled", color: "bg-red-50 text-red-700 border-red-200", icon: Ban },
-  refunded: { label: "Refunded", color: "bg-gray-50 text-gray-600 border-gray-200", icon: RotateCcw },
-  failed: { label: "Failed", color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
-  shipped: { label: "Shipped", color: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: Truck },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: typeof Clock }
+> = {
+  pending: {
+    label: "Pending",
+    color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    icon: Clock,
+  },
+  processing: {
+    label: "Processing",
+    color: "bg-blue-50 text-blue-700 border-blue-200",
+    icon: Package,
+  },
+  "on-hold": {
+    label: "On Hold",
+    color: "bg-orange-50 text-orange-700 border-orange-200",
+    icon: Clock,
+  },
+  completed: {
+    label: "Completed",
+    color: "bg-green-50 text-green-700 border-green-200",
+    icon: CheckCircle2,
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "bg-red-50 text-red-700 border-red-200",
+    icon: Ban,
+  },
+  refunded: {
+    label: "Refunded",
+    color: "bg-gray-50 text-gray-600 border-gray-200",
+    icon: RotateCcw,
+  },
+  failed: {
+    label: "Failed",
+    color: "bg-red-50 text-red-700 border-red-200",
+    icon: XCircle,
+  },
+  shipped: {
+    label: "Shipped",
+    color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    icon: Truck,
+  },
 };
-
-const CANCELLABLE = ["pending", "processing"];
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -49,11 +81,14 @@ const formatDate = (value: string) => {
 };
 
 export default function OrdersClient() {
+  const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [cancelling, setCancelling] = useState<number | null>(null);
   const [reordering, setReordering] = useState<number | null>(null);
-  const [actionMsg, setActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [actionMsg, setActionMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -66,7 +101,8 @@ export default function OrdersClient() {
       }
       setState({ status: "success", orders: data.data });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to load orders.";
+      const message =
+        error instanceof Error ? error.message : "Unable to load orders.";
       setState({ status: "error", message });
     }
   }, []);
@@ -87,32 +123,6 @@ export default function OrdersClient() {
     });
   };
 
-  /* ── Cancel order ── */
-  const handleCancel = async (orderId: number) => {
-    if (!confirm("Are you sure you want to cancel this order?")) return;
-    setCancelling(orderId);
-    setActionMsg(null);
-    try {
-      const res = await fetch("/api/account/orders/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_id: orderId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setActionMsg({ type: "error", text: data.error || "Failed to cancel order." });
-        return;
-      }
-      setActionMsg({ type: "success", text: `Order #${orderId} has been cancelled.` });
-      await loadOrders();
-    } catch {
-      setActionMsg({ type: "error", text: "Failed to cancel order." });
-    } finally {
-      setCancelling(null);
-    }
-  };
-
-  /* ── Reorder ── */
   const handleReorder = async (order: WooOrder) => {
     if (!order.line_items?.length) return;
     setReordering(order.id);
@@ -126,7 +136,10 @@ export default function OrdersClient() {
         window.location.href = "/cart";
       }, 1000);
     } catch {
-      setActionMsg({ type: "error", text: "Some items could not be added to cart." });
+      setActionMsg({
+        type: "error",
+        text: "Some items could not be added to cart.",
+      });
     } finally {
       setReordering(null);
     }
@@ -141,33 +154,33 @@ export default function OrdersClient() {
         </p>
       </div>
 
-      {/* Action message */}
-      {actionMsg && (
+      {actionMsg ? (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm ${actionMsg.type === "success"
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            actionMsg.type === "success"
               ? "border-green-200 bg-green-50 text-green-700"
               : "border-red-200 bg-red-50 text-red-700"
-            }`}
+          }`}
         >
           {actionMsg.text}
         </div>
-      )}
+      ) : null}
 
-      {state.status === "loading" && (
+      {state.status === "loading" ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-gray-100" />
+          {[1, 2, 3].map((index) => (
+            <div key={index} className="h-24 animate-pulse rounded-2xl bg-gray-100" />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {state.status === "error" && (
+      {state.status === "error" ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-600">
           {state.message}
         </div>
-      )}
+      ) : null}
 
-      {state.status === "success" && state.orders.length === 0 && (
+      {state.status === "success" && state.orders.length === 0 ? (
         <div className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
           <Package className="mb-3 h-10 w-10 text-gray-300" />
           <p className="text-sm text-gray-500">
@@ -181,23 +194,22 @@ export default function OrdersClient() {
             Browse Store
           </Link>
         </div>
-      )}
+      ) : null}
 
-      {state.status === "success" && state.orders.length > 0 && (
+      {state.status === "success" && state.orders.length > 0 ? (
         <div className="space-y-4">
           {state.orders.map((order) => {
             const isExpanded = expanded.has(order.id);
             const statusConf = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
             const StatusIcon = statusConf.icon;
-            const canCancel = CANCELLABLE.includes(order.status);
             const hasItems = (order.line_items?.length ?? 0) > 0;
+            const isCancelled = order.status === "cancelled";
 
             return (
               <div
                 key={order.id}
                 className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
               >
-                {/* Header row */}
                 <button
                   type="button"
                   onClick={() => toggleExpand(order.id)}
@@ -206,7 +218,7 @@ export default function OrdersClient() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3">
                       <p className="text-sm font-semibold text-gray-900">
-                        Order #{order.id}
+                        Order ID #{order.id}
                       </p>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusConf.color}`}
@@ -215,10 +227,10 @@ export default function OrdersClient() {
                         {statusConf.label}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {formatDate(order.date)} · {order.currency} {order.total}
-                      {order.payment_method_title && ` · ${order.payment_method_title}`}
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                      <span>Date: {formatDate(order.date)}</span>
+                      <span>Price: {order.currency} {order.total}</span>
+                    </div>
                   </div>
                   {isExpanded ? (
                     <ChevronUp className="h-4 w-4 text-gray-400" />
@@ -227,11 +239,9 @@ export default function OrdersClient() {
                   )}
                 </button>
 
-                {/* Expanded detail */}
-                {isExpanded && (
+                {isExpanded ? (
                   <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
-                    {/* Line items */}
-                    {hasItems && (
+                    {hasItems ? (
                       <div className="mb-4">
                         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
                           Items
@@ -242,7 +252,7 @@ export default function OrdersClient() {
                               key={item.id}
                               className="flex items-center gap-3 px-4 py-3"
                             >
-                              {item.image?.src && (
+                              {item.image?.src ? (
                                 <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gray-50">
                                   <Image
                                     src={item.image.src}
@@ -252,7 +262,7 @@ export default function OrdersClient() {
                                     className="object-contain p-0.5"
                                   />
                                 </div>
-                              )}
+                              ) : null}
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium text-gray-900">
                                   {item.name}
@@ -268,12 +278,11 @@ export default function OrdersClient() {
                           ))}
                         </div>
                       </div>
-                    )}
+                    ) : null}
 
-                    {/* Addresses */}
-                    {(order.billing || order.shipping) && (
+                    {order.billing || order.shipping ? (
                       <div className="mb-4 grid gap-4 sm:grid-cols-2">
-                        {order.billing && (
+                        {order.billing ? (
                           <div>
                             <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
                               Billing
@@ -282,22 +291,26 @@ export default function OrdersClient() {
                               {order.billing.first_name} {order.billing.last_name}
                               <br />
                               {order.billing.address_1}
-                              {order.billing.address_2 && `, ${order.billing.address_2}`}
+                              {order.billing.address_2
+                                ? `, ${order.billing.address_2}`
+                                : ""}
                               <br />
                               {order.billing.city}
-                              {order.billing.postcode && `, ${order.billing.postcode}`}
+                              {order.billing.postcode
+                                ? `, ${order.billing.postcode}`
+                                : ""}
                               <br />
                               {order.billing.country}
-                              {order.billing.phone && (
+                              {order.billing.phone ? (
                                 <>
                                   <br />
                                   {order.billing.phone}
                                 </>
-                              )}
+                              ) : null}
                             </p>
                           </div>
-                        )}
-                        {order.shipping && order.shipping.address_1 && (
+                        ) : null}
+                        {order.shipping && order.shipping.address_1 ? (
                           <div>
                             <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
                               Shipping
@@ -306,21 +319,24 @@ export default function OrdersClient() {
                               {order.shipping.first_name} {order.shipping.last_name}
                               <br />
                               {order.shipping.address_1}
-                              {order.shipping.address_2 && `, ${order.shipping.address_2}`}
+                              {order.shipping.address_2
+                                ? `, ${order.shipping.address_2}`
+                                : ""}
                               <br />
                               {order.shipping.city}
-                              {order.shipping.postcode && `, ${order.shipping.postcode}`}
+                              {order.shipping.postcode
+                                ? `, ${order.shipping.postcode}`
+                                : ""}
                               <br />
                               {order.shipping.country}
                             </p>
                           </div>
-                        )}
+                        ) : null}
                       </div>
-                    )}
+                    ) : null}
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-3">
-                      {hasItems && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      {hasItems ? (
                         <button
                           type="button"
                           onClick={() => handleReorder(order)}
@@ -330,26 +346,28 @@ export default function OrdersClient() {
                           <ShoppingCart className="h-3.5 w-3.5" />
                           {reordering === order.id ? "Adding..." : "Reorder"}
                         </button>
-                      )}
-                      {canCancel && (
+                      ) : null}
+                      {isCancelled ? (
+                        <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                          Cancelled
+                        </span>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => handleCancel(order.id)}
-                          disabled={cancelling === order.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                          onClick={() => router.push(`/support?orderId=${order.id}`)}
+                          className="text-sm text-primary hover:underline"
                         >
-                          <XCircle className="h-3.5 w-3.5" />
-                          {cancelling === order.id ? "Cancelling..." : "Cancel Order"}
+                          Request Support
                         </button>
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             );
           })}
         </div>
-      )}
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <Link

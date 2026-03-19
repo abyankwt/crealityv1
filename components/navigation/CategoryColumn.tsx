@@ -1,57 +1,97 @@
 import Link from "next/link";
-import Image from "next/image";
+import type { LucideIcon } from "lucide-react";
+import {
+  Box,
+  Cog,
+  Droplets,
+  Drill,
+  Package,
+  Printer,
+  ScanLine,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import type { CategoryNode } from "@/lib/categories";
 
 type CategoryColumnProps = {
-    category: CategoryNode;
-    onNavigate?: () => void;
+  category: CategoryNode;
+  onNavigate?: () => void;
 };
 
-export default function CategoryColumn({ category, onNavigate }: CategoryColumnProps) {
-    return (
-        <div className="space-y-3">
-            {/* Column header */}
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  "3d-printers": Printer,
+  "3d-scanners": ScanLine,
+  accessories: Wrench,
+  materials: Droplets,
+  "washing-curing": Sparkles,
+  "laser-milling": Drill,
+  "spare-parts": Cog,
+};
+
+function getCategoryIcon(slug: string) {
+  return CATEGORY_ICONS[slug] ?? Box;
+}
+
+function getCategoryLinks(category: CategoryNode) {
+  if (category.children.length > 0) {
+    return category.children.map((child) => ({
+      id: child.id,
+      name: child.name,
+      slug: child.slug,
+    }));
+  }
+
+  return [
+    {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+    },
+  ];
+}
+
+export default function CategoryColumn({
+  category,
+  onNavigate,
+}: CategoryColumnProps) {
+  const Icon = getCategoryIcon(category.slug);
+  const links = getCategoryLinks(category);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Link
+          href={`/category/${category.slug}`}
+          className="mb-2 inline-block text-xs font-semibold uppercase tracking-wide text-gray-400"
+          onClick={onNavigate}
+        >
+          {category.name}
+        </Link>
+
+        <div className="space-y-1">
+          {links.map((link) => (
             <Link
-                href={`/category/${category.slug}`}
-                className="block text-[11px] font-semibold uppercase tracking-[0.3em] text-gray-400 transition hover:text-gray-700"
-                onClick={onNavigate}
+              key={link.id}
+              href={`/category/${link.slug}`}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-gray-700 transition duration-150 ease-out hover:translate-x-1 hover:bg-gray-50 hover:text-black"
+              role="menuitem"
+              onClick={onNavigate}
             >
-                {category.name}
+              <Icon className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              <span>{link.name}</span>
             </Link>
-
-            {/* Optional category image */}
-            {category.image && (
-                <Link
-                    href={`/category/${category.slug}`}
-                    className="group relative block h-28 w-full overflow-hidden rounded-xl bg-gray-100"
-                    onClick={onNavigate}
-                >
-                    <Image
-                        src={category.image}
-                        alt={category.name}
-                        fill
-                        sizes="220px"
-                        className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                    />
-                </Link>
-            )}
-
-            {/* Child categories */}
-            {category.children.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                    {category.children.map((child) => (
-                        <Link
-                            key={child.id}
-                            href={`/category/${child.slug}`}
-                            className="text-sm text-gray-500 transition-colors hover:text-gray-900"
-                            role="menuitem"
-                            onClick={onNavigate}
-                        >
-                            {child.name}
-                        </Link>
-                    ))}
-                </div>
-            )}
+          ))}
         </div>
-    );
+      </div>
+
+      <Link
+        href={`/category/${category.slug}`}
+        className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-gray-700 transition duration-150 ease-out hover:translate-x-1 hover:bg-gray-50 hover:text-black"
+        onClick={onNavigate}
+      >
+        <Package className="h-4 w-4 text-gray-400" aria-hidden="true" />
+        <span className="font-medium">View All</span>
+      </Link>
+    </div>
+  );
 }

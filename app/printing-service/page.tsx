@@ -138,8 +138,8 @@ export default function PrintingServicePage() {
   return (
     <main className="bg-[#f8f8f8] text-gray-900">
       <section className="border-b border-gray-200 bg-[#f8f8f8] py-10">
-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-5">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 sm:px-6 md:grid md:grid-cols-2 md:items-center">
+          <div className="order-2 space-y-5 md:order-1">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
                 Printing Service
@@ -166,10 +166,10 @@ export default function PrintingServicePage() {
               </Link>
             </div>
           </div>
-          <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="order-1 relative overflow-hidden rounded-xl border border-gray-200 bg-white md:order-2">
             <Image
-              src="/images/printers.jpg"
-              alt="Industrial 3D printing"
+              src="/images/printing-hero.jpg"
+              alt="3D printing Kuwait City skyline"
               width={900}
               height={700}
               className="h-full max-h-[360px] w-full object-cover"

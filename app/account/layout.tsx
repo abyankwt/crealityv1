@@ -20,7 +20,9 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <AccountSidebar />
+          <div className="hidden md:block">
+            <AccountSidebar />
+          </div>
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
             {children}
           </section>

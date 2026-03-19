@@ -18,7 +18,7 @@ const OPTIONS: StoreOption[] = [
     description: "Hardware, materials, and parts",
   },
   {
-    label: "Printing Services",
+    label: "Printing",
     href: "/printing-services",
     description: "Custom jobs and enterprise support",
   },
@@ -31,7 +31,7 @@ export default function StoreSwitcher() {
   const currentLabel =
     pathname.startsWith("/printing-service") ||
     pathname.startsWith("/printing-services")
-      ? "Printing Services"
+      ? "Printing"
       : "Store";
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function StoreSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-700 transition hover:border-gray-300"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white whitespace-nowrap text-sm font-medium text-gray-700 transition hover:border-gray-300"
         aria-haspopup="menu"
         aria-expanded={open}
       >

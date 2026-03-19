@@ -29,6 +29,8 @@ type PrintAnalysisResponse = {
   material_grams: number;
   estimated_time_minutes: number;
   estimated_time_display: string;
+  estimation_source?: "slicer" | "fallback";
+  estimation_note?: string;
   compatible_printers: PrinterMatch[];
   breakdown: CostBreakdown;
 };
@@ -355,7 +357,7 @@ export default function PrintEstimator() {
           <div className="mt-6 rounded-xl border border-gray-200 bg-[#fafafa] p-8 text-center">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
             <p className="text-sm font-semibold text-gray-900">
-              Analyzing your model...
+              Analyzing and slicing your model...
             </p>
             {activeUpload ? (
               <p className="mt-1 text-xs text-gray-500">
@@ -375,6 +377,11 @@ export default function PrintEstimator() {
                   <span>{analysis.estimated_time_display}</span>
                   <span>{analysis.material_grams.toFixed(1)} g</span>
                 </div>
+                {analysis.estimation_note ? (
+                  <p className="mt-2 text-xs text-gray-500">
+                    {analysis.estimation_note}
+                  </p>
+                ) : null}
               </div>
               <button
                 type="button"
