@@ -8,6 +8,7 @@ import AddToCartConfirmationModal from "@/components/AddToCartConfirmationModal"
 import OrderWarningModal from "@/components/OrderWarningModal";
 import ProductActionButton from "@/components/ProductActionButton";
 import { useCart } from "@/context/CartContext";
+import { getProductAvailability } from "@/lib/productAvailability";
 import { formatPrice } from "@/lib/price";
 import { resolveProductOrderType } from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
@@ -44,6 +45,10 @@ export default function ProductCard({
     product_order_type ??
     product.product_order_type ??
     resolveProductOrderType(product);
+  const availability = getProductAvailability({
+    ...product,
+    product_order_type: productOrderType,
+  });
   const isAvailable = productOrderType === "in_stock";
   const isSpecialOrder = productOrderType === "special_order";
   const isPreOrder = productOrderType === "pre_order";
@@ -141,9 +146,9 @@ export default function ProductCard({
   return (
     <>
       <article className="product-card flex flex-col min-w-0 group relative h-full rounded-xl border border-gray-200 bg-white p-[10px] transition-all duration-200 hover:shadow-sm">
-        {(isSpecialOrder || isPreOrder) && (
+        {availability.type !== "available" && (
           <div className="product-badge absolute left-2 top-2 z-10 rounded-full bg-[#e5e7eb] px-[10px] py-1 text-[12px] text-gray-700">
-            {isPreOrder ? "Pre-Order" : "Special Order"}
+            {availability.badge}
           </div>
         )}
         <Link

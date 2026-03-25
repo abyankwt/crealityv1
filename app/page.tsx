@@ -116,10 +116,10 @@ export default async function HomePage({ searchParams }: PageProps) {
           <div className="mb-6 flex items-end justify-between">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-                New Hardware Arrivals
+                New & Upcoming Products
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                The latest additions to our production ecosystem.
+                Discover the latest releases and upcoming innovations.
               </p>
             </div>
             <Link

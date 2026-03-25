@@ -1,33 +1,103 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Clock3, Package, Printer, ScanLine, Wrench } from "lucide-react";
 
-const CATEGORIES = [
+type CategoryCardItem = {
+  title: string;
+  href: string;
+  imageName: string;
+  alt: string;
+};
+
+type CategoryGroup = {
+  title: string;
+  badgeClassName: string;
+  items: CategoryCardItem[];
+};
+
+const CATEGORY_GROUPS: CategoryGroup[] = [
   {
-    title: "K Series",
-    href: "/category/k-series",
-    icon: Printer,
+    title: "3D Printers",
+    badgeClassName: "bg-green-100 text-green-700",
+    items: [
+      {
+        title: "FDM Printers",
+        href: "/category/fdm-printers",
+        imageName: "fdm-printers.png",
+        alt: "FDM Printers",
+      },
+      {
+        title: "Resin Printers",
+        href: "/category/resin-printers",
+        imageName: "resin-printers.png",
+        alt: "Resin Printers",
+      },
+    ],
   },
   {
-    title: "PLA Filaments",
-    href: "/category/pla-filaments",
-    icon: Package,
+    title: "Materials",
+    badgeClassName: "bg-amber-100 text-amber-700",
+    items: [
+      {
+        title: "Filaments",
+        href: "/category/filaments",
+        imageName: "filaments.png",
+        alt: "Filaments",
+      },
+      {
+        title: "Resins",
+        href: "/category/resins",
+        imageName: "resins.png",
+        alt: "Resins",
+      },
+    ],
   },
   {
-    title: "Accessories",
-    href: "/category/accessories",
-    icon: Wrench,
-  },
-  {
-    title: "Scanners",
-    href: "/category/3d-scanners",
-    icon: ScanLine,
-  },
-  {
-    title: "Pre-orders",
-    href: "/pre-orders",
-    icon: Clock3,
+    title: "Other",
+    badgeClassName: "bg-sky-100 text-sky-700",
+    items: [
+      {
+        title: "Accessories",
+        href: "/category/accessories",
+        imageName: "accessories.png",
+        alt: "Accessories",
+      },
+      {
+        title: "3D Scanners",
+        href: "/category/3d-scanners",
+        imageName: "3d-scanners.png",
+        alt: "3D Scanners",
+      },
+    ],
   },
 ] as const;
+
+const CATEGORY_IMAGE_VERSION = "20260325";
+
+function getCategoryImageSrc(imageName: string) {
+  return `/images/categories/${imageName}?v=${CATEGORY_IMAGE_VERSION}`;
+}
+
+function CategoryCard({ title, href, imageName, alt }: CategoryCardItem) {
+  return (
+    <Link
+      href={href}
+      prefetch
+      className="category-card group flex h-[120px] w-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:border-gray-300 hover:shadow-md"
+    >
+      <div className="flex h-24 w-24 items-center justify-center">
+        <Image
+          src={getCategoryImageSrc(imageName)}
+          alt={alt}
+          width={100}
+          height={100}
+          className="h-[90px] w-[90px] object-contain"
+          unoptimized
+        />
+      </div>
+      <span className="text-sm font-semibold text-gray-900">{title}</span>
+    </Link>
+  );
+}
 
 export default function CategoryNavigation() {
   return (
@@ -42,19 +112,27 @@ export default function CategoryNavigation() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {CATEGORIES.map(({ title, href, icon: Icon }) => (
-            <Link
-              key={title}
-              href={href}
-              prefetch
-              className="category-card flex min-h-[120px] flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-5 text-center transition hover:border-gray-300 hover:shadow-sm"
+        <div className="mb-6 h-px bg-gray-200" />
+
+        <div className="flex flex-wrap justify-center gap-10">
+          {CATEGORY_GROUPS.map((group) => (
+            <div
+              key={group.title}
+              className="mb-10 flex min-w-0 flex-col items-center last:mb-0"
             >
-              <span className="mb-3 inline-flex rounded-full bg-gray-100 p-3 text-gray-800">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-semibold text-gray-900">{title}</span>
-            </Link>
+              <div className="mb-4 flex items-center justify-center gap-2">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${group.badgeClassName}`}
+                >
+                  {group.title}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-6">
+                {group.items.map((item) => (
+                  <CategoryCard key={item.href} {...item} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
