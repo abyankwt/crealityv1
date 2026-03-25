@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import RouteProgressBar from "@/components/RouteProgressBar";
 
 // Lazy-load floating client-only UI — must be in a Client Component
@@ -20,7 +21,9 @@ const SupportChatbot = dynamic(() => import("@/components/SupportChatbot"), {
 export default function GlobalClientUI() {
     return (
         <>
-            <RouteProgressBar />
+            <Suspense fallback={null}>
+                <RouteProgressBar />
+            </Suspense>
             <CompareBar />
             <PromoPopup />
             <SupportChatbot />
