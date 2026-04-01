@@ -20,6 +20,13 @@ export type NavigationLink = {
   href: string;
 };
 
+export type MenuNavigationItem = {
+  id: number;
+  title: string;
+  url: string;
+  parent?: number;
+};
+
 export const PRE_ORDERS_SECTION_ID = "pre-orders";
 
 type BuildNavigationOptions = {
@@ -144,5 +151,117 @@ export function buildNavigation({
     USED_3D_PRINTERS_ITEM,
     ...getActivePromotions(promotions, now, timeZone),
     ...STATIC_NAV_ITEMS,
+  ];
+}
+
+function normalizeMenuHref(href: string) {
+  const trimmed = href.trim();
+
+  if (!trimmed) {
+    return "/store";
+  }
+
+  if (trimmed === "/products") {
+    return "/store";
+  }
+
+  if (trimmed.length > 1 && trimmed.endsWith("/")) {
+    return trimmed.slice(0, -1);
+  }
+
+  return trimmed;
+}
+
+function resolveNavigationId(item: Pick<MenuNavigationItem, "id" | "title" | "url">) {
+  const href = normalizeMenuHref(item.url).toLowerCase();
+  const title = item.title.trim().toLowerCase();
+
+  if (href === "/store" || title === "all products") {
+    return "all-products";
+  }
+
+  if (href === "/pre-orders" || title === "pre-orders") {
+    return "pre-orders";
+  }
+
+  if (href === "/used-3d-printers" || title === "used 3d printers") {
+    return "used-3d-printers";
+  }
+
+  if (
+    href === "/printing-service" ||
+    href === "/printing-services" ||
+    title === "printing service"
+  ) {
+    return "printing-service";
+  }
+
+  if (href === "/downloads" || title === "downloads") {
+    return "downloads";
+  }
+
+  if (href === "/support" || title === "support") {
+    return "support";
+  }
+
+  return `menu-${item.id}`;
+}
+
+export function buildNavigationFromMenu({
+  menuItems,
+  hasPreOrders,
+  promotions = DEFAULT_PROMOTIONAL_NAV_ITEMS,
+  now = new Date(),
+  timeZone = "Asia/Kuwait",
+}: BuildNavigationOptions & {
+  menuItems: MenuNavigationItem[];
+}): NavigationItem[] {
+  const menuNavigation = menuItems
+    .filter((item) => !item.parent)
+    .map<NavigationItem | null>((item) => {
+      const href = normalizeMenuHref(item.url);
+      const id = resolveNavigationId(item);
+
+      if (id === "pre-orders" && !hasPreOrders) {
+        return null;
+      }
+
+      if (href === "/account" || item.title.trim().toLowerCase() === "account") {
+        return null;
+      }
+
+      return {
+        id,
+        kind: id === "all-products" ? "mega" : "link",
+        label: item.title,
+        href,
+      };
+    })
+    .filter((item): item is NavigationItem => Boolean(item));
+
+  if (menuNavigation.length === 0) {
+    return buildNavigation({
+      hasPreOrders,
+      promotions,
+      now,
+      timeZone,
+    });
+  }
+
+  const withPromotions = [
+    ...menuNavigation,
+    ...getActivePromotions(promotions, now, timeZone).filter(
+      (promotion) => !menuNavigation.some((item) => item.id === promotion.id)
+    ),
+  ];
+
+  return [
+    ...withPromotions,
+    STATIC_NAV_ITEMS.find((item) => item.kind === "account") ?? {
+      id: "account",
+      kind: "account",
+      label: "Account",
+      href: "/account",
+    },
   ];
 }

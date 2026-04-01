@@ -20,11 +20,11 @@ type AddToCartBody = {
         dimensions: string;
         material_grams: number;
         estimated_time: string;
-        printer: string;
+        color?: string;
         material?: string;
         technology?: string;
         quantity?: number;
-        deadline?: string;
+        provider?: string;
         description?: string;
     };
 };
@@ -67,11 +67,11 @@ export async function POST(request: NextRequest) {
                 { key: "_print_dimensions", value: body.summary?.dimensions ?? "" },
                 { key: "_print_material_grams", value: String(body.summary?.material_grams ?? "") },
                 { key: "_print_estimated_time", value: body.summary?.estimated_time ?? "" },
-                { key: "_print_printer", value: body.summary?.printer ?? "" },
+                { key: "_print_color", value: body.summary?.color ?? "" },
                 { key: "_print_material", value: body.summary?.material ?? "" },
                 { key: "_print_technology", value: body.summary?.technology ?? "" },
                 { key: "_print_quantity", value: String(body.summary?.quantity ?? "") },
-                { key: "_print_deadline", value: body.summary?.deadline ?? "" },
+                { key: "_print_provider", value: body.summary?.provider ?? "" },
                 { key: "_print_description", value: body.summary?.description ?? "" },
             ],
         };

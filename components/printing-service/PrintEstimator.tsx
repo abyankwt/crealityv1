@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ApiResponse } from "@/lib/types";
 import InlinePrintConfig, {
+  getPrintColorLabel,
   type PrintJobConfig,
+  type PrintColor,
   type PrintTechnology,
 } from "@/components/printing-service/InlinePrintConfig";
 
@@ -64,28 +66,16 @@ const TECHNOLOGY_MULTIPLIERS: Record<PrintTechnology, number> = {
 };
 
 const INITIAL_TECHNOLOGY: PrintTechnology = "FDM";
+const INITIAL_COLOR: PrintColor = "black";
+const DEFAULT_PROVIDER = "Creality Kuwait";
 
-const buildInitialConfig = (printerId = ""): PrintJobConfig => ({
+const buildInitialConfig = (): PrintJobConfig => ({
   material: MATERIAL_OPTIONS[INITIAL_TECHNOLOGY][0],
   technology: INITIAL_TECHNOLOGY,
-  printerId,
+  color: INITIAL_COLOR,
   quantity: 1,
-  deadline: getDefaultDeadline(),
   description: "",
 });
-
-function formatInputDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getDefaultDeadline() {
-  const date = new Date();
-  date.setDate(date.getDate() + 5);
-  return formatInputDate(date);
-}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -104,37 +94,6 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-function getDeadlineMultiplier(deadline: string) {
-  if (!deadline) return 1;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const selectedDate = new Date(deadline);
-  if (Number.isNaN(selectedDate.getTime())) {
-    return 1;
-  }
-
-  selectedDate.setHours(0, 0, 0, 0);
-  const diffInDays = Math.ceil(
-    (selectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  if (diffInDays <= 1) return 1.25;
-  if (diffInDays <= 3) return 1.15;
-  if (diffInDays <= 7) return 1.05;
-  return 1;
-}
-
-function getPrinterMultiplier(
-  printerId: string,
-  printers: PrinterMatch[]
-) {
-  const index = printers.findIndex((printer) => printer.id === printerId);
-  if (index < 0) return 1;
-  return 1 + index * 0.03;
-}
-
 function calculateEstimatedPrice(
   analysis: PrintAnalysisResponse,
   config: PrintJobConfig
@@ -142,11 +101,6 @@ function calculateEstimatedPrice(
   const basePrice = analysis.breakdown.total_cost;
   const materialMultiplier = MATERIAL_MULTIPLIERS[config.material] ?? 1;
   const technologyMultiplier = TECHNOLOGY_MULTIPLIERS[config.technology] ?? 1;
-  const printerMultiplier = getPrinterMultiplier(
-    config.printerId,
-    analysis.compatible_printers
-  );
-  const deadlineMultiplier = getDeadlineMultiplier(config.deadline);
   const quantity = Math.max(1, config.quantity);
 
   return Number(
@@ -154,8 +108,6 @@ function calculateEstimatedPrice(
       basePrice *
       materialMultiplier *
       technologyMultiplier *
-      printerMultiplier *
-      deadlineMultiplier *
       quantity
     ).toFixed(3)
   );
@@ -168,6 +120,7 @@ function dimensionsLabel(dimensions: PrintAnalysisResponse["dimensions"]) {
 export default function PrintEstimator() {
   const [fileUploaded, setFileUploaded] = useState(false);
   const [config, setConfig] = useState<PrintJobConfig>(buildInitialConfig());
+  const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [price, setPrice] = useState(0);
   const [analysis, setAnalysis] = useState<PrintAnalysisResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -246,10 +199,10 @@ export default function PrintEstimator() {
       }
 
       const nextAnalysis = body.data;
-      const defaultPrinterId = nextAnalysis.compatible_printers[0]?.id ?? "";
 
       setAnalysis(nextAnalysis);
-      setConfig(buildInitialConfig(defaultPrinterId));
+      setConfig(buildInitialConfig());
+      setProvider(DEFAULT_PROVIDER);
       setFileUploaded(true);
     } catch (error) {
       setUploadError(
@@ -262,11 +215,6 @@ export default function PrintEstimator() {
 
   const handleOrder = async () => {
     if (!analysis) return;
-
-    const selectedPrinter =
-      analysis.compatible_printers.find(
-        (printer) => printer.id === config.printerId
-      ) ?? null;
 
     setOrdering(true);
     setOrderError(null);
@@ -283,11 +231,11 @@ export default function PrintEstimator() {
             dimensions: dimensionsLabel(analysis.dimensions),
             material_grams: analysis.material_grams,
             estimated_time: analysis.estimated_time_display,
-            printer: selectedPrinter?.name ?? "N/A",
+            color: getPrintColorLabel(config.color),
             material: config.material,
             technology: config.technology,
             quantity: config.quantity,
-            deadline: config.deadline,
+            provider,
             description: config.description.trim(),
           },
         }),
@@ -310,6 +258,7 @@ export default function PrintEstimator() {
   const reset = () => {
     setFileUploaded(false);
     setConfig(buildInitialConfig());
+    setProvider(DEFAULT_PROVIDER);
     setPrice(0);
     setAnalysis(null);
     setUploadError(null);
@@ -323,8 +272,6 @@ export default function PrintEstimator() {
   const canProceed =
     !!analysis &&
     analysis.compatible_printers.length > 0 &&
-    !!config.printerId &&
-    !!config.deadline &&
     config.description.trim().length > 0 &&
     !ordering;
 
@@ -470,14 +417,16 @@ export default function PrintEstimator() {
           dimensionsLabel={dimensionsLabel(analysis.dimensions)}
           estimatedTime={analysis.estimated_time_display}
           materialGrams={analysis.material_grams}
-          printerOptions={analysis.compatible_printers}
+          hasCompatiblePrinters={analysis.compatible_printers.length > 0}
           materialOptions={MATERIAL_OPTIONS[config.technology]}
           config={config}
+          provider={provider}
           price={price}
           ordering={ordering}
           canProceed={canProceed}
           errorMessage={orderError}
           onConfigChange={handleConfigChange}
+          onProviderChange={setProvider}
           onProceed={() => {
             void handleOrder();
           }}

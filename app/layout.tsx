@@ -4,9 +4,14 @@ import type { ReactNode } from "react";
 import Footer from "@/components/Footer";
 import GlobalClientUI from "@/components/GlobalClientUI";
 import Navbar from "@/components/navigation/Navbar";
-import { buildNavigation, type PromotionMenuItem } from "@/config/navigation";
+import {
+  buildNavigation,
+  buildNavigationFromMenu,
+  type PromotionMenuItem,
+} from "@/config/navigation";
 import { CartProvider } from "@/context/CartContext";
 import { getCategoryTree } from "@/lib/categories";
+import { getMenu } from "@/lib/menu-api";
 import { hasPreOrderProducts } from "@/lib/preOrders";
 
 export const metadata: Metadata = {
@@ -20,17 +25,26 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const [categories, hasPreOrders] = await Promise.all([
+  const [categories, hasPreOrders, menuItems] = await Promise.all([
     getCategoryTree(),
     hasPreOrderProducts(),
+    getMenu(),
   ]);
   // Replace this with the WordPress seasonal menu payload when the endpoint is ready.
   const seasonalPromotions: PromotionMenuItem[] = [];
-  const navigation = buildNavigation({
-    hasPreOrders,
-    promotions: seasonalPromotions,
-    now: new Date(),
-  });
+  const navigation =
+    menuItems.length > 0
+      ? buildNavigationFromMenu({
+          menuItems,
+          hasPreOrders,
+          promotions: seasonalPromotions,
+          now: new Date(),
+        })
+      : buildNavigation({
+          hasPreOrders,
+          promotions: seasonalPromotions,
+          now: new Date(),
+        });
 
   return (
     <html lang="en" className="scroll-smooth">

@@ -1,21 +1,56 @@
 import { formatKWD } from "@/lib/formatCurrency";
 
-type PrinterOption = {
-  id: string;
-  name: string;
-  build_volume: string;
-};
-
 export type PrintTechnology = "FDM" | "Resin";
+export type PrintColor =
+  | "black"
+  | "white"
+  | "red"
+  | "blue"
+  | "green"
+  | "custom";
+
+export const PRINT_COLOR_OPTIONS = [
+  { value: "black", label: "Black", swatchClassName: "bg-black" },
+  {
+    value: "white",
+    label: "White",
+    swatchClassName: "bg-white",
+    swatchBorderClassName: "border-gray-300",
+  },
+  { value: "red", label: "Red", swatchClassName: "bg-red-500" },
+  { value: "blue", label: "Blue", swatchClassName: "bg-blue-500" },
+  { value: "green", label: "Green", swatchClassName: "bg-green-500" },
+  {
+    value: "custom",
+    label: "Custom (specify in notes)",
+    swatchClassName: "bg-gradient-to-br from-amber-300 via-pink-400 to-sky-500",
+  },
+] as const satisfies ReadonlyArray<{
+  value: PrintColor;
+  label: string;
+  swatchClassName: string;
+  swatchBorderClassName?: string;
+}>;
+
+export function getPrintColorLabel(color: PrintColor) {
+  return (
+    PRINT_COLOR_OPTIONS.find((option) => option.value === color)?.label ?? "Black"
+  );
+}
 
 export type PrintJobConfig = {
   material: string;
   technology: PrintTechnology;
-  printerId: string;
+  color: PrintColor;
   quantity: number;
-  deadline: string;
   description: string;
 };
+
+export const PRINT_PROVIDER_OPTIONS = [
+  { value: "Creality Kuwait", label: "Creality Kuwait" },
+  { value: "Partner 1", label: "Partner Provider 1" },
+  { value: "Partner 2", label: "Partner Provider 2" },
+] as const;
 
 type ConfigChangeHandler = <K extends keyof PrintJobConfig>(
   field: K,
@@ -26,42 +61,45 @@ type InlinePrintConfigProps = {
   dimensionsLabel: string;
   estimatedTime: string;
   materialGrams: number;
-  printerOptions: PrinterOption[];
+  hasCompatiblePrinters: boolean;
   materialOptions: readonly string[];
   config: PrintJobConfig;
+  provider: string;
   price: number;
   ordering: boolean;
   canProceed: boolean;
   errorMessage?: string | null;
   onConfigChange: ConfigChangeHandler;
+  onProviderChange: (value: string) => void;
   onProceed: () => void;
   onReset: () => void;
 };
 
 const inputClassName =
-  "mt-2 w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none";
+  "mt-2 box-border w-full max-w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none md:text-sm";
+
+const selectClassName = `${inputClassName} min-h-[52px] pr-11 appearance-none`;
 
 export default function InlinePrintConfig({
   dimensionsLabel,
   estimatedTime,
   materialGrams,
-  printerOptions,
+  hasCompatiblePrinters,
   materialOptions,
   config,
+  provider,
   price,
   ordering,
   canProceed,
   errorMessage,
   onConfigChange,
+  onProviderChange,
   onProceed,
   onReset,
 }: InlinePrintConfigProps) {
-  const selectedPrinter =
-    printerOptions.find((printer) => printer.id === config.printerId) ?? null;
-
   return (
-    <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
-      <div className="min-w-0">
+    <div className="mt-8 overflow-visible lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+      <div className="min-w-0 overflow-visible">
         <div className="max-w-2xl">
           <h3 className="text-2xl font-semibold text-gray-900">
             Configure your print
@@ -72,60 +110,101 @@ export default function InlinePrintConfig({
           </p>
         </div>
 
-        <div className="mt-8 grid gap-x-6 gap-y-6 md:grid-cols-2">
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+        <div className="mt-8 grid gap-x-6 gap-y-6 overflow-visible md:grid-cols-2">
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
             Material
-            <select
-              value={config.material}
-              onChange={(event) => onConfigChange("material", event.target.value)}
-              className={inputClassName}
-            >
-              {materialOptions.map((material) => (
-                <option key={material} value={material}>
-                  {material}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-            Technology
-            <select
-              value={config.technology}
-              onChange={(event) =>
-                onConfigChange(
-                  "technology",
-                  event.target.value as PrintJobConfig["technology"]
-                )
-              }
-              className={inputClassName}
-            >
-              <option value="FDM">FDM</option>
-              <option value="Resin">Resin</option>
-            </select>
-          </label>
-
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-            Printer
-            <select
-              value={config.printerId}
-              onChange={(event) => onConfigChange("printerId", event.target.value)}
-              className={inputClassName}
-              disabled={printerOptions.length === 0}
-            >
-              {printerOptions.length === 0 ? (
-                <option value="">No compatible printers</option>
-              ) : (
-                printerOptions.map((printer) => (
-                  <option key={printer.id} value={printer.id}>
-                    {printer.name} ({printer.build_volume})
+            <div className="relative mt-2 overflow-visible">
+              <select
+                value={config.material}
+                onChange={(event) => onConfigChange("material", event.target.value)}
+                className={selectClassName}
+              >
+                {materialOptions.map((material) => (
+                  <option key={material} value={material}>
+                    {material}
                   </option>
-                ))
-              )}
-            </select>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-400">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 7.5 5 5 5-5" />
+                </svg>
+              </span>
+            </div>
           </label>
 
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+            Technology
+            <div className="relative mt-2 overflow-visible">
+              <select
+                value={config.technology}
+                onChange={(event) =>
+                  onConfigChange(
+                    "technology",
+                    event.target.value as PrintJobConfig["technology"]
+                  )
+                }
+                className={selectClassName}
+              >
+                <option value="FDM">FDM</option>
+                <option value="Resin">Resin</option>
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-400">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 7.5 5 5 5-5" />
+                </svg>
+              </span>
+            </div>
+          </label>
+
+          <div className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+            <p>Color</p>
+            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {PRINT_COLOR_OPTIONS.map((option) => {
+                const selected = config.color === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onConfigChange("color", option.value)}
+                    className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                      selected
+                        ? "border-gray-900 bg-gray-50 text-gray-900 ring-2 ring-gray-900/10"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    <span
+                      className={`h-5 w-5 shrink-0 rounded-full border ${option.swatchClassName} ${
+                        "swatchBorderClassName" in option
+                          ? option.swatchBorderClassName
+                          : "border-transparent"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span className="leading-tight">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
             Quantity
             <input
               type="number"
@@ -141,19 +220,38 @@ export default function InlinePrintConfig({
             />
           </label>
 
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-            Deadline
-            <input
-              type="date"
-              value={config.deadline}
-              onChange={(event) => onConfigChange("deadline", event.target.value)}
-              className={inputClassName}
-            />
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] leading-relaxed text-gray-500">
+            3D Printing Service Provider
+            <div className="relative mt-2 overflow-visible">
+              <select
+                value={provider}
+                onChange={(event) => onProviderChange(event.target.value)}
+                className={selectClassName}
+              >
+                {PRINT_PROVIDER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-400">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 7.5 5 5 5-5" />
+                </svg>
+              </span>
+            </div>
           </label>
 
           <div className="hidden md:block" />
 
-          <label className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 md:col-span-2">
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 md:col-span-2">
             Description
             <textarea
               rows={6}
@@ -191,9 +289,9 @@ export default function InlinePrintConfig({
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="text-gray-500">Printer</dt>
+                <dt className="text-gray-500">Color</dt>
                 <dd className="text-right font-medium text-gray-900">
-                  {selectedPrinter?.name ?? "Not available"}
+                  {getPrintColorLabel(config.color)}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -203,9 +301,9 @@ export default function InlinePrintConfig({
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="text-gray-500">Deadline</dt>
+                <dt className="text-gray-500">Provider</dt>
                 <dd className="text-right font-medium text-gray-900">
-                  {config.deadline || "Select a date"}
+                  {provider}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -229,7 +327,7 @@ export default function InlinePrintConfig({
             </dl>
           </div>
 
-          {printerOptions.length === 0 ? (
+          {!hasCompatiblePrinters ? (
             <div className="mt-6 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
               This file exceeds the supported printer volume. Upload a smaller
               model or request a manual quote.

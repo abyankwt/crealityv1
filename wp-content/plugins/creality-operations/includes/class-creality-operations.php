@@ -901,6 +901,16 @@ final class Creality_Operations {
         $namespace = 'creality/v1';
 
         register_rest_route(
+            'custom/v1',
+            '/menu',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'rest_get_nextjs_menu' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        register_rest_route(
             $namespace,
             '/tickets',
             array(
@@ -1027,6 +1037,49 @@ final class Creality_Operations {
         }
 
         return true;
+    }
+
+    /**
+     * GET /custom/v1/menu.
+     *
+     * @return WP_REST_Response
+     */
+    public function rest_get_nextjs_menu() {
+        $menu = wp_get_nav_menu_object( 'NextJS Main Menu' );
+
+        if ( ! $menu ) {
+            return new WP_REST_Response( array(), 200 );
+        }
+
+        $items = wp_get_nav_menu_items( $menu->term_id );
+
+        if ( empty( $items ) || ! is_array( $items ) ) {
+            return new WP_REST_Response( array(), 200 );
+        }
+
+        usort(
+            $items,
+            static function ( $left, $right ) {
+                return (int) $left->menu_order <=> (int) $right->menu_order;
+            }
+        );
+
+        $menu_items = array();
+
+        foreach ( $items as $item ) {
+            if ( ! is_object( $item ) || ! isset( $item->ID ) ) {
+                continue;
+            }
+
+            $menu_items[] = array(
+                'id'     => (int) $item->ID,
+                'title'  => html_entity_decode( wp_strip_all_tags( (string) $item->title ), ENT_QUOTES, get_bloginfo( 'charset' ) ),
+                'url'    => $this->normalize_menu_item_url( (string) $item->url ),
+                'parent' => (int) $item->menu_item_parent,
+            );
+        }
+
+        return new WP_REST_Response( $menu_items, 200 );
     }
 
     /**
@@ -2352,5 +2405,58 @@ final class Creality_Operations {
         }
 
         return round( (float) $value, $precision );
+    }
+
+    /**
+     * Convert a WordPress menu URL to a frontend-friendly relative path.
+     *
+     * @param string $url Raw menu URL.
+     * @return string
+     */
+    private function normalize_menu_item_url( $url ) {
+        $url = trim( (string) $url );
+
+        if ( '' === $url ) {
+            return '/';
+        }
+
+        if ( 0 === strpos( $url, '#' ) ) {
+            return $url;
+        }
+
+        $parts = wp_parse_url( $url );
+
+        if ( false === $parts ) {
+            return '/';
+        }
+
+        $path = isset( $parts['path'] ) ? (string) $parts['path'] : '';
+        $query = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
+        $fragment = isset( $parts['fragment'] ) ? '#' . $parts['fragment'] : '';
+
+        if ( '' === $path && '' === $query && '' === $fragment ) {
+            return '/';
+        }
+
+        $site_parts = wp_parse_url( home_url( '/' ) );
+        $site_path  = '';
+
+        if ( is_array( $site_parts ) && ! empty( $site_parts['path'] ) ) {
+            $site_path = untrailingslashit( (string) $site_parts['path'] );
+        }
+
+        if ( '' !== $site_path && 0 === strpos( $path, $site_path . '/' ) ) {
+            $path = substr( $path, strlen( $site_path ) );
+        } elseif ( $site_path === $path ) {
+            $path = '/';
+        }
+
+        if ( '' === $path ) {
+            $path = '/';
+        } elseif ( '/' !== $path[0] ) {
+            $path = '/' . $path;
+        }
+
+        return $path . $query . $fragment;
     }
 }

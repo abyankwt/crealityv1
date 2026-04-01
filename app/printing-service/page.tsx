@@ -77,7 +77,7 @@ const workflowSteps = [
   },
   {
     title: "Configure",
-    description: "Choose material, technology, printer, and quantity.",
+    description: "Choose material, technology, color, and quantity.",
     icon: Settings,
   },
   {
