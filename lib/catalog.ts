@@ -6,6 +6,11 @@ import {
   getMockProductsByCategorySlug,
 } from "@/lib/mockCategoryProducts";
 import { fetchPreOrderProducts } from "@/lib/preOrders";
+import {
+  filterProductsForSection,
+  resolveProductSectionFromSlug,
+} from "@/lib/productLogic";
+import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 import type { FetchProductsResult } from "@/lib/woocommerce";
 import type { Product } from "@/lib/woocommerce-types";
 import type { ProductOrderType } from "@/lib/woocommerce-types";
@@ -96,8 +101,13 @@ function getMockCategoryFallback(
   const categoryProducts = getMockProductsByCategorySlug(categorySlug);
   const fallbackProducts =
     categoryProducts.length > 0 ? categoryProducts : getDefaultMockProducts();
+  const section = resolveProductSectionFromSlug(categorySlug);
 
-  return paginateProducts(sortMockProducts(fallbackProducts, sort), page, perPage);
+  return paginateProducts(
+    sortMockProducts(filterProductsForSection(fallbackProducts, section), sort),
+    page,
+    perPage
+  );
 }
 
 export async function fetchCatalogProducts({
@@ -114,8 +124,13 @@ export async function fetchCatalogProducts({
   }
 
   const { orderby, order } = resolveCatalogSort(sort);
+  const categorySection = resolveProductSectionFromSlug(categorySlug);
 
   if (categorySlug) {
+    if (categorySection === "used_printers") {
+      return fetchUsedPrinterProducts({ page, perPage });
+    }
+
     const result = await fetchProductsByCategory(categorySlug, page, {
       orderby,
       order,
@@ -123,13 +138,16 @@ export async function fetchCatalogProducts({
     });
 
     if (result.data.length > 0) {
-      return result;
+      return {
+        ...result,
+        data: filterProductsForSection(result.data, categorySection),
+      };
     }
 
     return getMockCategoryFallback(categorySlug, page, perPage, sort);
   }
 
-  return fetchProducts({
+  const result = await fetchProducts({
     page,
     perPage,
     orderby,
@@ -137,6 +155,11 @@ export async function fetchCatalogProducts({
     stock_status: stockStatus,
     tag,
   });
+
+  return {
+    ...result,
+    data: filterProductsForSection(result.data, "default"),
+  };
 }
 
 export function buildCatalogApiQuery({

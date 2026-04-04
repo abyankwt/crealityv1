@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCatalogProducts } from "@/lib/catalog";
+import {
+  filterProductsForSection,
+  resolveProductSectionFromSlug,
+  type ProductSection,
+} from "@/lib/productLogic";
 import { fetchProducts } from "@/lib/woocommerce";
 import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 import type { ProductOrderType } from "@/lib/woocommerce-types";
@@ -20,9 +25,15 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag") ?? searchParams.get("promotion") ?? undefined;
     const exclude = searchParams.get("exclude");
     const usedPrinters = searchParams.get("used_printers");
+    const section: ProductSection =
+      usedPrinters === "1" || usedPrinters === "true"
+        ? "used_printers"
+        : productOrderType === "pre_order"
+        ? "preorders"
+        : resolveProductSectionFromSlug(categorySlug);
 
     const result =
-      usedPrinters === "1" || usedPrinters === "true"
+      section === "used_printers"
         ? await fetchUsedPrinterProducts({
             page,
             perPage,
@@ -52,9 +63,10 @@ export async function GET(request: NextRequest) {
           });
 
     const excludedId = exclude ? Number(exclude) : undefined;
+    const sectionFilteredProducts = filterProductsForSection(result.data, section);
     const products = Number.isFinite(excludedId)
-      ? result.data.filter((product) => product.id !== excludedId)
-      : result.data;
+      ? sectionFilteredProducts.filter((product) => product.id !== excludedId)
+      : sectionFilteredProducts;
 
     return NextResponse.json({
       products,

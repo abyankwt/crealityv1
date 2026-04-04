@@ -9,12 +9,17 @@ import OrderWarningModal from "@/components/OrderWarningModal";
 import ProductActionButton from "@/components/ProductActionButton";
 import { useCart } from "@/context/CartContext";
 import { getProductAvailability } from "@/lib/productAvailability";
+import type { ProductAvailability } from "@/lib/productAvailability";
 import { formatPrice, getProductPriceInfo } from "@/lib/price";
-import { resolveProductOrderType } from "@/lib/productLogic";
+import {
+  resolveDisplayProductOrderType,
+  type ProductSection,
+} from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
 
 type ProductCardProps = {
   product: Product;
+  section?: ProductSection;
   product_order_type?: Product["product_order_type"];
   onAddToCart?: (message?: string) => void;
   onAddToCartError?: (message?: string) => void;
@@ -25,6 +30,7 @@ const fallbackImage =
 
 export default function ProductCard({
   product,
+  section = "default",
   product_order_type,
   onAddToCart,
   onAddToCartError,
@@ -44,16 +50,12 @@ export default function ProductCard({
   const priceInfo = getProductPriceInfo(product);
   const productOrderType =
     product_order_type ??
-    product.product_order_type ??
-    resolveProductOrderType(product);
-  const availability = getProductAvailability({
-    ...product,
-    product_order_type: productOrderType,
-  });
-  const isAvailable = productOrderType === "in_stock";
-  const isSpecialOrder = productOrderType === "special_order";
+    resolveDisplayProductOrderType(product, section);
+  const availability = getProductAvailability(product, section);
   const isPreOrder = productOrderType === "pre_order";
   const canAddToCart = Boolean(product.id);
+  const statusText =
+    availability.type === "available" ? "In Stock" : null;
   const successMessage =
     productOrderType === "pre_order"
       ? "Pre-order item added to cart"
@@ -73,15 +75,15 @@ export default function ProductCard({
     }, 1600);
   };
 
-  const modalAvailability = isPreOrder
+  const modalAvailability: ProductAvailability = isPreOrder
     ? {
-        type: "preorder" as const,
+        type: "preorder",
         label: "Pre-Order",
         badge: "Pre-Order",
         leadTime: product.lead_time ?? "~45 days",
       }
     : {
-        type: "special" as const,
+        type: "special",
         label: "Special Order",
         badge: "Special Order",
         leadTime: "10-12 days",
@@ -147,10 +149,15 @@ export default function ProductCard({
   return (
     <>
       <article className="product-card flex flex-col min-w-0 group relative h-full rounded-xl border border-gray-200 bg-white p-[10px] transition-all duration-200 hover:shadow-sm">
-        {availability.type !== "available" && (
-          <div className="product-badge absolute left-2 top-2 z-10 rounded-full bg-[#e5e7eb] px-[10px] py-1 text-[12px] text-gray-700">
-            {availability.badge}
+        {availability.type === "preorder" && (
+          <div className="product-badge absolute left-2 top-2 z-10 rounded-full bg-purple-600 px-[10px] py-1 text-[12px] font-semibold text-white">
+            Pre-order
           </div>
+        )}
+        {availability.type === "special" && (
+          <span className="absolute top-2 left-2 z-10 rounded-full bg-orange-500 px-2 py-1 text-xs font-medium text-white">
+            Special Order
+          </span>
         )}
         <Link
           href={`/product/${product.slug}`}
@@ -190,6 +197,16 @@ export default function ProductCard({
               </span>
             )}
           </div>
+
+          {statusText ? (
+            <p
+              className={`mt-2 text-sm font-semibold ${
+                statusText === "In Stock" ? "text-green-600" : "text-orange-600"
+              }`}
+            >
+              {statusText}
+            </p>
+          ) : null}
 
           <div className="product-actions mt-3">
             <ProductActionButton

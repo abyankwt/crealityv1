@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
+import { filterProductsForSection } from "@/lib/productLogic";
 import type { WCProduct } from "@/lib/api";
 
 type NewProductArrivalsProps = {
@@ -7,7 +8,8 @@ type NewProductArrivalsProps = {
 };
 
 export default function NewProductArrivals({ products }: NewProductArrivalsProps) {
-    if (!products || products.length === 0) return null;
+    const visibleProducts = filterProductsForSection(products, "default");
+    if (!visibleProducts || visibleProducts.length === 0) return null;
 
     return (
         <section className="bg-[#eef0f2] py-12 sm:py-16">
@@ -30,7 +32,7 @@ export default function NewProductArrivals({ products }: NewProductArrivalsProps
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {products.slice(0, 4).map((product) => (
+                    {visibleProducts.slice(0, 4).map((product) => (
                         <ProductCard key={product.id} product={product} />
                     ))}
                 </div>

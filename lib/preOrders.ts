@@ -1,14 +1,11 @@
 import "server-only";
 
 import { fetchProducts } from "@/lib/woocommerce";
+import { filterProductsForSection } from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
 
 const PRE_ORDER_SCAN_PAGE_SIZE = 12;
 const PRE_ORDER_NAV_SCAN_MAX_PAGES = 5;
-
-function isPreOrderProduct(product: Product) {
-  return product.product_order_type === "pre_order";
-}
 
 async function scanCatalogForPreOrders(maxPages?: number) {
   try {
@@ -18,7 +15,7 @@ async function scanCatalogForPreOrders(maxPages?: number) {
     });
     const hasBackendData =
       firstPage.totalProducts > 0 || firstPage.data.length > 0;
-    const preOrders = firstPage.data.filter(isPreOrderProduct);
+    const preOrders = filterProductsForSection(firstPage.data, "preorders");
 
     if (maxPages && preOrders.length > 0) {
       return { hasBackendData, preOrders };
@@ -34,7 +31,7 @@ async function scanCatalogForPreOrders(maxPages?: number) {
         page,
         perPage: PRE_ORDER_SCAN_PAGE_SIZE,
       });
-      preOrders.push(...pageResult.data.filter(isPreOrderProduct));
+      preOrders.push(...filterProductsForSection(pageResult.data, "preorders"));
 
       if (maxPages && preOrders.length > 0) {
         break;

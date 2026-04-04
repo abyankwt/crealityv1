@@ -1,11 +1,11 @@
 import CatalogPage from "@/components/CatalogPage";
 import {
-  buildCatalogApiQuery,
   fetchCatalogProducts,
   getCatalogParam,
   slugToTitle,
   type RawCatalogSearchParams,
 } from "@/lib/catalog";
+import { resolveProductSectionFromSlug } from "@/lib/productLogic";
 
 export async function generateMetadata({
   params,
@@ -32,22 +32,33 @@ export default async function CategoryPage({
     getCatalogParam(resolvedSearchParams, "stock") ??
     getCatalogParam(resolvedSearchParams, "stock_status");
   const title = slugToTitle(slug);
+  const section = resolveProductSectionFromSlug(slug);
   const { data: products, totalPages } = await fetchCatalogProducts({
     categorySlug: slug,
     sort,
     stockStatus: stock,
   });
+  const apiQuery =
+    section === "used_printers"
+      ? {
+          category_slug: slug,
+          used_printers: "1",
+          sort,
+          stock_status: stock,
+        }
+      : {
+          category_slug: slug,
+          sort,
+          stock_status: stock,
+        };
 
   return (
     <CatalogPage
       title={title}
       products={products}
       totalPages={totalPages}
-      apiQuery={buildCatalogApiQuery({
-        categorySlug: slug,
-        sort,
-        stockStatus: stock,
-      })}
+      section={section}
+      apiQuery={apiQuery}
       emptyMessage={`No products found in ${title}.`}
     />
   );

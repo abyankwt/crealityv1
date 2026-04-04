@@ -306,7 +306,9 @@ function CheckoutPageContent() {
                                             <p className="text-xs text-gray-500">
                                                 Qty: {item.quantity}
                                             </p>
-                                            {item.availability && item.availability.type !== "available" && (
+                                            {item.availability &&
+                                                item.availability.type !== "available" &&
+                                                item.availability.leadTime && (
                                                 <p className="text-xs text-gray-500">
                                                     Lead time: {item.availability.leadTime}
                                                 </p>

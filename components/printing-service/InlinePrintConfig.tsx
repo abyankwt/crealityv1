@@ -1,45 +1,21 @@
 import { formatKWD } from "@/lib/formatCurrency";
 
 export type PrintTechnology = "FDM" | "Resin";
-export type PrintColor =
-  | "black"
-  | "white"
-  | "red"
-  | "blue"
-  | "green"
-  | "custom";
+export const MATERIAL_COLOR_OPTIONS = {
+  PLA: ["Black", "White", "Red", "Blue", "Green"],
+  TPU: ["Black", "Blue"],
+  Resin: ["Transparent", "Gray", "White"],
+} as const;
 
-export const PRINT_COLOR_OPTIONS = [
-  { value: "black", label: "Black", swatchClassName: "bg-black" },
-  {
-    value: "white",
-    label: "White",
-    swatchClassName: "bg-white",
-    swatchBorderClassName: "border-gray-300",
-  },
-  { value: "red", label: "Red", swatchClassName: "bg-red-500" },
-  { value: "blue", label: "Blue", swatchClassName: "bg-blue-500" },
-  { value: "green", label: "Green", swatchClassName: "bg-green-500" },
-  {
-    value: "custom",
-    label: "Custom (specify in notes)",
-    swatchClassName: "bg-gradient-to-br from-amber-300 via-pink-400 to-sky-500",
-  },
-] as const satisfies ReadonlyArray<{
-  value: PrintColor;
-  label: string;
-  swatchClassName: string;
-  swatchBorderClassName?: string;
-}>;
+export type PrintMaterial = keyof typeof MATERIAL_COLOR_OPTIONS;
+export type PrintColor = (typeof MATERIAL_COLOR_OPTIONS)[PrintMaterial][number];
 
 export function getPrintColorLabel(color: PrintColor) {
-  return (
-    PRINT_COLOR_OPTIONS.find((option) => option.value === color)?.label ?? "Black"
-  );
+  return color;
 }
 
 export type PrintJobConfig = {
-  material: string;
+  material: PrintMaterial;
   technology: PrintTechnology;
   color: PrintColor;
   quantity: number;
@@ -62,7 +38,8 @@ type InlinePrintConfigProps = {
   estimatedTime: string;
   materialGrams: number;
   hasCompatiblePrinters: boolean;
-  materialOptions: readonly string[];
+  materialOptions: readonly PrintMaterial[];
+  colorOptions: readonly PrintColor[];
   config: PrintJobConfig;
   provider: string;
   price: number;
@@ -86,6 +63,7 @@ export default function InlinePrintConfig({
   materialGrams,
   hasCompatiblePrinters,
   materialOptions,
+  colorOptions,
   config,
   provider,
   price,
@@ -116,7 +94,12 @@ export default function InlinePrintConfig({
             <div className="relative mt-2 overflow-visible">
               <select
                 value={config.material}
-                onChange={(event) => onConfigChange("material", event.target.value)}
+                onChange={(event) =>
+                  onConfigChange(
+                    "material",
+                    event.target.value as PrintJobConfig["material"]
+                  )
+                }
                 className={selectClassName}
               >
                 {materialOptions.map((material) => (
@@ -171,38 +154,36 @@ export default function InlinePrintConfig({
             </div>
           </label>
 
-          <div className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
-            <p>Color</p>
-            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {PRINT_COLOR_OPTIONS.map((option) => {
-                const selected = config.color === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => onConfigChange("color", option.value)}
-                    className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                      selected
-                        ? "border-gray-900 bg-gray-50 text-gray-900 ring-2 ring-gray-900/10"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
-                    }`}
-                    aria-pressed={selected}
-                  >
-                    <span
-                      className={`h-5 w-5 shrink-0 rounded-full border ${option.swatchClassName} ${
-                        "swatchBorderClassName" in option
-                          ? option.swatchBorderClassName
-                          : "border-transparent"
-                      }`}
-                      aria-hidden="true"
-                    />
-                    <span className="leading-tight">{option.label}</span>
-                  </button>
-                );
-              })}
+          <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+            Color
+            <div className="relative mt-2 overflow-visible">
+              <select
+                value={config.color}
+                onChange={(event) =>
+                  onConfigChange("color", event.target.value as PrintJobConfig["color"])
+                }
+                className={selectClassName}
+              >
+                {colorOptions.map((color) => (
+                  <option key={color} value={color}>
+                    {color}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-400">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 7.5 5 5 5-5" />
+                </svg>
+              </span>
             </div>
-          </div>
+          </label>
 
           <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
             Quantity

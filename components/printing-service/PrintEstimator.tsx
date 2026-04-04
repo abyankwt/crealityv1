@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { ApiResponse } from "@/lib/types";
 import InlinePrintConfig, {
   getPrintColorLabel,
+  MATERIAL_COLOR_OPTIONS,
   type PrintJobConfig,
   type PrintColor,
+  type PrintMaterial,
   type PrintTechnology,
 } from "@/components/printing-service/InlinePrintConfig";
 
@@ -45,19 +47,24 @@ type OrderResponse = {
 const ALLOWED_EXTENSIONS = new Set(["stl", "obj"]);
 const MAX_SIZE = 50 * 1024 * 1024;
 
-const MATERIAL_OPTIONS: Record<PrintTechnology, readonly string[]> = {
-  FDM: ["PLA", "PETG", "ABS", "Nylon"],
-  Resin: ["Standard Resin", "Tough Resin", "High Detail Resin"],
+const MATERIAL_OPTIONS_BY_TECHNOLOGY: Record<
+  PrintTechnology,
+  readonly PrintMaterial[]
+> = {
+  FDM: ["PLA", "TPU"],
+  Resin: ["Resin"],
 };
 
-const MATERIAL_MULTIPLIERS: Record<string, number> = {
+const MATERIAL_TECHNOLOGY: Record<PrintMaterial, PrintTechnology> = {
+  PLA: "FDM",
+  TPU: "FDM",
+  Resin: "Resin",
+};
+
+const MATERIAL_MULTIPLIERS: Record<PrintMaterial, number> = {
   PLA: 1,
-  PETG: 1.05,
-  ABS: 1.1,
-  Nylon: 1.16,
-  "Standard Resin": 1.12,
-  "Tough Resin": 1.18,
-  "High Detail Resin": 1.26,
+  TPU: 1.08,
+  Resin: 1.12,
 };
 
 const TECHNOLOGY_MULTIPLIERS: Record<PrintTechnology, number> = {
@@ -66,11 +73,12 @@ const TECHNOLOGY_MULTIPLIERS: Record<PrintTechnology, number> = {
 };
 
 const INITIAL_TECHNOLOGY: PrintTechnology = "FDM";
-const INITIAL_COLOR: PrintColor = "black";
+const INITIAL_MATERIAL: PrintMaterial = "PLA";
+const INITIAL_COLOR: PrintColor = MATERIAL_COLOR_OPTIONS[INITIAL_MATERIAL][0];
 const DEFAULT_PROVIDER = "Creality Kuwait";
 
 const buildInitialConfig = (): PrintJobConfig => ({
-  material: MATERIAL_OPTIONS[INITIAL_TECHNOLOGY][0],
+  material: INITIAL_MATERIAL,
   technology: INITIAL_TECHNOLOGY,
   color: INITIAL_COLOR,
   quantity: 1,
@@ -135,7 +143,7 @@ export default function PrintEstimator() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const materialOptions = MATERIAL_OPTIONS[config.technology];
+    const materialOptions = MATERIAL_OPTIONS_BY_TECHNOLOGY[config.technology];
     if (!materialOptions.includes(config.material)) {
       setConfig((current) => ({
         ...current,
@@ -143,6 +151,18 @@ export default function PrintEstimator() {
       }));
     }
   }, [config.material, config.technology]);
+
+  useEffect(() => {
+    const availableColors = MATERIAL_COLOR_OPTIONS[
+      config.material
+    ] as readonly PrintColor[];
+    if (!availableColors.includes(config.color)) {
+      setConfig((current) => ({
+        ...current,
+        color: availableColors[0],
+      }));
+    }
+  }, [config.color, config.material]);
 
   useEffect(() => {
     if (!analysis || !fileUploaded) {
@@ -157,7 +177,33 @@ export default function PrintEstimator() {
     field: K,
     value: PrintJobConfig[K]
   ) => {
-    setConfig((current) => ({ ...current, [field]: value }));
+    setConfig((current) => {
+      if (field === "material") {
+        const nextMaterial = value as PrintMaterial;
+
+        return {
+          ...current,
+          material: nextMaterial,
+          technology: MATERIAL_TECHNOLOGY[nextMaterial],
+        };
+      }
+
+      if (field === "technology") {
+        const nextTechnology = value as PrintTechnology;
+        const allowedMaterials = MATERIAL_OPTIONS_BY_TECHNOLOGY[nextTechnology];
+        const nextMaterial = allowedMaterials.includes(current.material)
+          ? current.material
+          : allowedMaterials[0];
+
+        return {
+          ...current,
+          technology: nextTechnology,
+          material: nextMaterial,
+        };
+      }
+
+      return { ...current, [field]: value };
+    });
     setOrderError(null);
   };
 
@@ -418,7 +464,8 @@ export default function PrintEstimator() {
           estimatedTime={analysis.estimated_time_display}
           materialGrams={analysis.material_grams}
           hasCompatiblePrinters={analysis.compatible_printers.length > 0}
-          materialOptions={MATERIAL_OPTIONS[config.technology]}
+          materialOptions={Object.keys(MATERIAL_COLOR_OPTIONS) as PrintMaterial[]}
+          colorOptions={MATERIAL_COLOR_OPTIONS[config.material]}
           config={config}
           provider={provider}
           price={price}

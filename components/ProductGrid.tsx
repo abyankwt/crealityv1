@@ -3,12 +3,18 @@
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
+import { getProductAvailability } from "@/lib/productAvailability";
+import {
+  filterProductsForSection,
+  type ProductSection,
+} from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
 
 type ProductGridProps = {
   initialProducts: Product[];
   initialPage: number;
   totalPages: number;
+  section?: ProductSection;
   apiQuery?: Record<string, string | number | undefined>;
   emptyMessage?: string;
 };
@@ -195,6 +201,7 @@ export default function ProductGrid({
   initialProducts,
   initialPage,
   totalPages,
+  section = "default",
   apiQuery,
   emptyMessage = "No products found.",
 }: ProductGridProps) {
@@ -203,7 +210,9 @@ export default function ProductGrid({
       ? (apiQuery.sort as SortValue)
       : "popularity_desc";
 
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(
+    filterProductsForSection(initialProducts, section)
+  );
   const [page, setPage] = useState(initialPage);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialPage < totalPages);
@@ -257,13 +266,13 @@ export default function ProductGrid({
   }, []);
 
   useEffect(() => {
-    setProducts(initialProducts);
+    setProducts(filterProductsForSection(initialProducts, section));
     setPage(initialPage);
     setLoading(false);
     setHasMore(initialPage < totalPages);
     setToastMessage(null);
     setSortValue(defaultSort);
-  }, [defaultSort, initialPage, initialProducts, totalPages]);
+  }, [defaultSort, initialPage, initialProducts, section, totalPages]);
 
   const activeFilterCount = [
     search.trim(),
@@ -295,7 +304,9 @@ export default function ProductGrid({
         parsedMaxPrice === null ||
         Number.isNaN(parsedMaxPrice) ||
         product.price <= parsedMaxPrice;
-      const matchesStock = !inStockOnly || product.stock_status === "instock";
+      const matchesStock =
+        !inStockOnly ||
+        getProductAvailability(product, section).type === "available";
 
       return (
         matchesSearch &&
@@ -317,7 +328,7 @@ export default function ProductGrid({
     }
 
     return sortedProducts;
-  }, [categoryFilter, inStockOnly, maxPrice, minPrice, products, search, sortValue]);
+  }, [categoryFilter, inStockOnly, maxPrice, minPrice, products, search, section, sortValue]);
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -343,10 +354,11 @@ export default function ProductGrid({
         products: Product[];
         pagination: { totalPages: number };
       };
+      const nextPageProducts = filterProductsForSection(data.products, section);
 
       setProducts((prev) => {
         const seenIds = new Set(prev.map((product) => product.id));
-        const nextProducts = data.products.filter(
+        const nextProducts = nextPageProducts.filter(
           (product) => !seenIds.has(product.id)
         );
         return [...prev, ...nextProducts];
@@ -358,7 +370,7 @@ export default function ProductGrid({
     } finally {
       setLoading(false);
     }
-  }, [apiQuery, hasMore, loading, page]);
+  }, [apiQuery, hasMore, loading, page, section]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
@@ -461,6 +473,7 @@ export default function ProductGrid({
                     <ProductCard
                       key={product.id}
                       product={product}
+                      section={section}
                       onAddToCart={handleAddedToCart}
                       onAddToCartError={handleAddToCartError}
                     />

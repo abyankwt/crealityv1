@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
 import { fetchProducts } from "@/lib/api";
+import { filterProductsForSection } from "@/lib/productLogic";
 
 type SearchPageProps = {
   searchParams: Promise<{ q?: string }>;
@@ -46,7 +47,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { data: products } = await fetchProducts(
     { search: query } as FetchProductsParams
   );
-
+  const visibleProducts = filterProductsForSection(products, "default");
 
 
   return (
@@ -59,17 +60,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           Search results for &quot;{query}&quot;
         </h1>
         <p className="text-sm text-gray-500">
-          {products.length} result{products.length === 1 ? "" : "s"}
+          {visibleProducts.length} result{visibleProducts.length === 1 ? "" : "s"}
         </p>
       </div>
 
-      {products.length === 0 ? (
+      {visibleProducts.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-border bg-white p-12 text-center text-sm text-gray-500">
           No products found for &quot;{query}&quot;.
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {products.map((product) => (
+          {visibleProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

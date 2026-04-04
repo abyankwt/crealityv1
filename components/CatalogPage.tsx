@@ -1,10 +1,12 @@
 import ProductGrid from "@/components/ProductGrid";
+import type { ProductSection } from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
 
 type CatalogPageProps = {
   title: string;
   products: Product[];
   totalPages: number;
+  section?: ProductSection;
   apiQuery?: Record<string, string | number | undefined>;
   emptyMessage?: string;
 };
@@ -13,6 +15,7 @@ export default function CatalogPage({
   title,
   products,
   totalPages,
+  section = "default",
   apiQuery,
   emptyMessage,
 }: CatalogPageProps) {
@@ -30,6 +33,7 @@ export default function CatalogPage({
         initialProducts={products}
         initialPage={1}
         totalPages={totalPages}
+        section={section}
         apiQuery={apiQuery}
         emptyMessage={emptyMessage}
       />

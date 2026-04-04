@@ -2,6 +2,7 @@ import "server-only";
 
 import { formatPrice } from "@/lib/price";
 import {
+  filterProductsForSection,
   isPreOrderProduct,
   resolveProductLeadTime,
   resolveProductOrderType,
@@ -443,7 +444,10 @@ export async function fetchUsedPrinterProducts({
   );
 
   return {
-    data: result.data.map(normalizeWooRestProduct),
+    data: filterProductsForSection(
+      result.data.map(normalizeWooRestProduct),
+      "used_printers"
+    ),
     totalPages: result.totalPages,
     totalProducts: result.totalProducts,
   };
@@ -466,5 +470,15 @@ export async function fetchUsedPrinterProductBySlug(slug: string) {
   );
 
   const matched = products[0];
-  return matched ? normalizeWooRestProduct(matched) : null;
+  if (!matched) {
+    return null;
+  }
+
+  const normalizedProduct = normalizeWooRestProduct(matched);
+  const visibleProducts = filterProductsForSection(
+    [normalizedProduct],
+    "used_printers"
+  );
+
+  return visibleProducts[0] ?? null;
 }

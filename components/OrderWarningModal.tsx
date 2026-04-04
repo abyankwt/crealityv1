@@ -100,6 +100,9 @@ export default function OrderWarningModal({
     availability.type === "special" && shippingData
       ? calculateSpecialOrderFee(shippingData)
       : null;
+  const resolvedLeadTime =
+    availability.leadTime ??
+    (availability.type === "special" ? "10-12 days" : null);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
@@ -140,9 +143,11 @@ export default function OrderWarningModal({
               This item is ordered specifically for you and cannot be canceled,
               replaced, or refunded before arrival.
             </p>
-            <p className="mt-3 text-sm font-medium text-gray-700">
-              Estimated lead time: {availability.leadTime}
-            </p>
+            {resolvedLeadTime ? (
+              <p className="mt-3 text-sm font-medium text-gray-700">
+                Estimated lead time: {resolvedLeadTime}
+              </p>
+            ) : null}
             {shippingLoading && availability.type === "special" && (
               <p className="mt-2 text-sm font-medium text-gray-500">
                 Calculating special order delivery charge...

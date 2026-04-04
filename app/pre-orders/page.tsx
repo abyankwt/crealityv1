@@ -15,6 +15,7 @@ export default async function PreOrdersPage() {
       title="Pre-Orders"
       products={products}
       totalPages={totalPages}
+      section="preorders"
       apiQuery={buildCatalogApiQuery({
         orderType: "pre_order",
       })}

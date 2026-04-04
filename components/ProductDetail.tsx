@@ -4,15 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddToCartConfirmationModal from "@/components/AddToCartConfirmationModal";
-import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import ProductCard from "@/components/ProductCard";
 import ProductGridSkeleton from "@/components/ProductGridSkeleton";
 import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
+import { getProductAvailability } from "@/lib/availability";
+import {
+  filterProductsForSection,
+  resolveDisplayProductOrderType,
+  resolveProductSection,
+} from "@/lib/productLogic";
 import { formatPrice, getProductPriceInfo } from "@/lib/price";
-import { getProductAvailability } from "@/lib/productLogic";
-import { isProductInStock } from "@/lib/productStock";
 import { sanitizeWooDescription } from "@/lib/sanitizeWooDescription";
 import type {
   StoreProduct,
@@ -70,11 +73,6 @@ const getAttributeValues = (attribute: StoreProductAttribute) => {
   return [];
 };
 
-const getStockLabel = (inStock: boolean) => {
-  if (inStock) return "In stock";
-  return "Out of stock";
-};
-
 const truncate = (value: string, max = 32) =>
   value.length > max ? `${value.slice(0, max)}...` : value;
 
@@ -114,22 +112,21 @@ export default function ProductDetail({ product }: ProductDetailProps) {
       : [{ id: 0, src: FALLBACK_IMAGE, alt: product.name }];
 
   const mainImage = selectedImage || galleryImages[0]?.src || FALLBACK_IMAGE;
-  const availability = getProductAvailability(product);
-  const isInStock = isProductInStock(product);
+  const section = resolveProductSection(product);
+  const availability = getProductAvailability(product, section);
+  const displayOrderType = resolveDisplayProductOrderType(product, section);
   const cleanDescription = sanitizeWooDescription(product.description);
   const stockLabel =
-    availability.type === "available"
-      ? getStockLabel(isInStock)
-      : availability.label;
+    availability.type === "available" ? "In Stock" : availability.label;
   const canOrder = Boolean(product.id);
   const modalAvailability = {
     type: availability.type,
     label: availability.label,
-    badge: availability.label,
+    badge: availability.badge,
     leadTime:
-      product.lead_time ??
-      availability.lead?.replace(/^Delivery:\s*/, "") ??
-      null,
+      availability.type === "special"
+        ? "10-12 days"
+        : product.lead_time ?? availability.leadTime ?? null,
   };
   const videoUrl = extractVideoUrl(product.meta_data);
   const embedUrl = getEmbedUrl(videoUrl);
@@ -170,14 +167,24 @@ export default function ProductDetail({ product }: ProductDetailProps) {
         params.set("per_page", "8");
         params.set("category", String(categoryId));
         params.set("exclude", String(product.id));
+        if (section === "used_printers") {
+          params.set("used_printers", "1");
+        } else if (section === "preorders") {
+          params.set("product_order_type", "pre_order");
+        }
 
         const response = await fetch(`/api/products?${params.toString()}`);
         const data = await response.json();
-        const products = Array.isArray(data) ? data : data?.products ?? [];
-        const filtered = products.filter(
-          (item: StoreProduct) =>
+        const products = (Array.isArray(data) ? data : data?.products ?? []) as StoreProduct[];
+        const relatedSection =
+          section === "used_printers" ? "used_printers" : section;
+        const filtered = filterProductsForSection<StoreProduct>(
+          products,
+          relatedSection
+        ).filter(
+          (item) =>
             item.id !== product.id &&
-            isProductInStock(item) &&
+            getProductAvailability(item, relatedSection).type !== "unavailable" &&
             item.purchasable
         );
 
@@ -199,7 +206,7 @@ export default function ProductDetail({ product }: ProductDetailProps) {
     return () => {
       isActive = false;
     };
-  }, [product.categories, product.id]);
+  }, [product.categories, product.id, section]);
 
   useEffect(() => {
     const target = primaryActionsRef.current;
@@ -394,12 +401,14 @@ export default function ProductDetail({ product }: ProductDetailProps) {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {availability.type !== "available" && (
-                  <AvailabilityBadge availability={modalAvailability} />
+                {availability.type === "preorder" && (
+                  <span className="inline-flex items-center rounded-full bg-purple-600 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Pre-order
+                  </span>
                 )}
-                {availability.lead && (
+                {availability.leadTime && (
                   <span className="text-sm font-medium text-gray-500">
-                    {availability.lead}
+                    Delivery: {availability.leadTime}
                   </span>
                 )}
               </div>
@@ -434,9 +443,9 @@ export default function ProductDetail({ product }: ProductDetailProps) {
                   onClick={() => void handleAddToCart(quantity)}
                   disabled={adding || !canOrder}
                   className={`w-full rounded-lg px-5 py-3.5 text-sm font-semibold text-white transition ${
-                    availability.type === "available"
+                    displayOrderType === "in_stock"
                       ? "bg-black hover:bg-gray-900"
-                      : availability.type === "special"
+                      : displayOrderType === "special_order"
                       ? "bg-[#f97316] hover:bg-[#ea580c]"
                       : PRE_ORDER_BUTTON_STYLE
                   } disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400`}
@@ -446,20 +455,18 @@ export default function ProductDetail({ product }: ProductDetailProps) {
               </div>
 
               <div className="flex flex-col gap-1 text-sm">
-                <span
-                  className={`font-semibold ${
-                    availability.type === "available"
-                      ? stockLabel === "In stock"
+                {availability.type !== "preorder" ? (
+                  <span
+                    className={`font-semibold ${
+                      availability.type === "available"
                         ? "text-green-600"
-                        : "text-red-500"
-                      : availability.type === "special"
-                      ? "text-orange-600"
-                      : "text-purple-600"
-                  }`}
-                >
-                  {stockLabel}
-                </span>
-                {availability.type !== "available" && (
+                        : "text-orange-600"
+                    }`}
+                  >
+                    {stockLabel}
+                  </span>
+                ) : null}
+                {availability.type === "preorder" && (
                   <span className="text-xs text-orange-600">
                     Special handling. Non-refundable before arrival.
                   </span>
@@ -589,7 +596,11 @@ export default function ProductDetail({ product }: ProductDetailProps) {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {relatedProducts.slice(0, 4).map((related) => (
-                <ProductCard key={related.id} product={related} />
+                <ProductCard
+                  key={related.id}
+                  product={related}
+                  section={section === "used_printers" ? "used_printers" : section}
+                />
               ))}
             </div>
           )}
@@ -629,9 +640,9 @@ export default function ProductDetail({ product }: ProductDetailProps) {
             onClick={() => void handleAddToCart(1)}
             disabled={adding || !canOrder}
             className={`flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition ${
-              availability.type === "available"
+              displayOrderType === "in_stock"
                 ? "bg-black hover:bg-gray-900"
-                : availability.type === "special"
+                : displayOrderType === "special_order"
                 ? "bg-[#f97316] hover:bg-[#ea580c]"
                 : PRE_ORDER_BUTTON_STYLE
             } disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400`}

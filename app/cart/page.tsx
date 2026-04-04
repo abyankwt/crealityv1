@@ -139,7 +139,8 @@ export default function CartPage() {
                                         {item.availability && (
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <AvailabilityBadge availability={item.availability} />
-                                                {item.availability.type !== "available" && (
+                                                {item.availability.type !== "available" &&
+                                                    item.availability.leadTime && (
                                                     <span className="text-xs text-gray-500">
                                                         Lead time: {item.availability.leadTime}
                                                     </span>

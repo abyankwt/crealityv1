@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts, fetchHeroImages } from "@/lib/api";
+import { filterProductsForSection } from "@/lib/productLogic";
 import CampaignHero from "@/components/CampaignHero";
 import { CAMPAIGN_SLIDES } from "@/config/campaigns";
 
@@ -47,8 +48,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   });
 
   const wpHeroImages = await fetchHeroImages();
+  const visibleProducts = filterProductsForSection(products, "default");
+  const visibleNewProducts = filterProductsForSection(newProducts, "default");
 
-  const featuredProducts = products.filter(
+  const featuredProducts = visibleProducts.filter(
     (p) => p.featured
   );
 
@@ -73,7 +76,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     };
   });
 
-  const displayProducts = featuredProducts.length ? featuredProducts : products;
+  const displayProducts = featuredProducts.length ? featuredProducts : visibleProducts;
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
@@ -132,7 +135,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {newProducts.slice(0, 4).map((product) => (
+            {visibleNewProducts.slice(0, 4).map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
@@ -168,6 +171,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             initialProducts={displayProducts}
             initialPage={1}
             totalPages={totalPages}
+            section="default"
           />
         </div>
       </section>

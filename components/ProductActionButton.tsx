@@ -31,9 +31,7 @@ const BUTTON_LABELS: Record<ProductOrderType, string> = {
   pre_order: "Pre-Order",
 };
 
-const SHIPPING_MESSAGES: Record<ProductOrderType, string> = {
-  in_stock: "In stock",
-  special_order: "Delivery 10-12 days",
+const SHIPPING_MESSAGES: Partial<Record<ProductOrderType, string>> = {
   pre_order: "Delivery: ~45 days",
 };
 
@@ -97,9 +95,11 @@ export default function ProductActionButton({
         {buttonLabel}
       </button>
 
-      <p className="text-[12px] text-[#6b7280]">
-        {SHIPPING_MESSAGES[product_order_type]}
-      </p>
+      {SHIPPING_MESSAGES[product_order_type] ? (
+        <p className="text-[12px] text-[#6b7280]">
+          {SHIPPING_MESSAGES[product_order_type]}
+        </p>
+      ) : null}
 
       {blockedMessage && (
         <p className="text-[12px] text-[#9333EA]">{blockedMessage}</p>
