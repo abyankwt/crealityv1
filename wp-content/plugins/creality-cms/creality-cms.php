@@ -32,7 +32,7 @@ final class Creality_CMS {
 	const POPUP_NONCE_ACTION = 'creality_cms_save_popup';
 
 	/** Hero slider settings nonce action. */
-	const HERO_NONCE_ACTION = 'creality_cms_save_hero';
+	const HERO_NONCE_ACTION = 'creality_cms_save';
 
 	/** @var self|null */
 	private static $instance = null;
@@ -191,7 +191,19 @@ final class Creality_CMS {
 			wp_die( esc_html__( 'You do not have permission to manage these settings.', 'creality-cms' ) );
 		}
 
-		check_admin_referer( self::HERO_NONCE_ACTION );
+		$nonce = isset( $_POST['creality_cms_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['creality_cms_nonce'] ) ) : '';
+
+		if ( ! $nonce || ! wp_verify_nonce( $nonce, self::HERO_NONCE_ACTION ) ) {
+			creality_cms_log_hero_debug(
+				'save_nonce_failed',
+				array(
+					'page'        => self::HERO_MENU_SLUG,
+					'has_nonce'   => ! empty( $nonce ),
+					'action'      => self::HERO_NONCE_ACTION,
+				)
+			);
+			wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'creality-cms' ) );
+		}
 
 		$raw_slides = array();
 
@@ -199,9 +211,19 @@ final class Creality_CMS {
 			$raw_slides = wp_unslash( $_POST['creality_hero_slides'] );
 		}
 
-		$slides = $this->sanitize_hero_slides( $raw_slides );
-
-		update_option( 'creality_hero_slides', $slides );
+		$slides = array_values( $this->sanitize_hero_slides( $raw_slides ) );
+		$updated = update_option( 'creality_hero_slides', $slides );
+		creality_cms_log_hero_debug(
+			'save',
+			array(
+				'raw_count'     => count( $raw_slides ),
+				'saved_count'   => count( $slides ),
+				'updated'       => (bool) $updated,
+				'stored_type'   => gettype( get_option( 'creality_hero_slides', array() ) ),
+				'saved_titles'  => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+				'redirect_page' => self::HERO_MENU_SLUG,
+			)
+		);
 
 		$redirect_url = add_query_arg(
 			array(
@@ -273,6 +295,12 @@ final class Creality_CMS {
 	 */
 	private function get_hero_slides() {
 		$raw_value = get_option( 'creality_hero_slides', '[]' );
+		creality_cms_log_hero_debug(
+			'admin_read',
+			array(
+				'stored_type' => gettype( $raw_value ),
+			)
+		);
 
 		if ( is_array( $raw_value ) ) {
 			$decoded = $raw_value;
@@ -631,14 +659,14 @@ final class Creality_CMS {
 				<?php endif; ?>
 
 				<form id="creality-cms-hero-form" method="post" action="">
-					<?php wp_nonce_field( self::HERO_NONCE_ACTION ); ?>
+					<?php wp_nonce_field( self::HERO_NONCE_ACTION, 'creality_cms_nonce' ); ?>
 					<input type="hidden" name="creality_cms_action" value="save_hero_settings" />
 
 					<div class="creality-cms-card">
 						<div class="creality-cms-card-header creality-cms-card-header-row">
 							<div>
 								<h2><?php echo esc_html__( 'Creality CMS Hero Slider', 'creality-cms' ); ?></h2>
-								<p><?php echo esc_html__( 'Each slide is stored in the single creality_hero_slides JSON option and exposed through /wp-json/creality/v1/hero.', 'creality-cms' ); ?></p>
+								<p><?php echo esc_html__( 'Each slide is stored in the single creality_hero_slides option array and exposed through /wp-json/creality/v1/hero.', 'creality-cms' ); ?></p>
 							</div>
 							<button type="button" class="button button-secondary creality-cms-add-slide">
 								<?php echo esc_html__( 'Add New Slide', 'creality-cms' ); ?>
@@ -1291,6 +1319,29 @@ CSS;
 	}
 }
 
+if ( ! function_exists( 'creality_cms_log_hero_debug' ) ) {
+	/**
+	 * Log hero slider save/read details for debugging.
+	 *
+	 * @param string $event   Event name.
+	 * @param array  $payload Debug payload.
+	 * @return void
+	 */
+	function creality_cms_log_hero_debug( $event, $payload = array() ) {
+		if ( ! function_exists( 'wp_json_encode' ) ) {
+			return;
+		}
+
+		error_log(
+			sprintf(
+				'[Creality CMS][hero][%s] %s',
+				(string) $event,
+				wp_json_encode( $payload )
+			)
+		);
+	}
+}
+
 if ( ! function_exists( 'creality_get_hero_slides' ) ) {
 	/**
 	 * Public REST callback for hero slides.
@@ -1299,9 +1350,12 @@ if ( ! function_exists( 'creality_get_hero_slides' ) ) {
 	 */
 	function creality_get_hero_slides() {
 		$slides = get_option( 'creality_hero_slides', array() );
+		$stored_type = gettype( $slides );
+		$decoded_from_legacy_json = false;
 
 		if ( is_string( $slides ) ) {
 			$slides = json_decode( $slides, true );
+			$decoded_from_legacy_json = true;
 		}
 
 		if ( ! is_array( $slides ) ) {
@@ -1313,6 +1367,16 @@ if ( ! function_exists( 'creality_get_hero_slides' ) ) {
 			static function ( $a, $b ) {
 				return intval( $a['order'] ?? 0 ) - intval( $b['order'] ?? 0 );
 			}
+		);
+
+		creality_cms_log_hero_debug(
+			'rest_read',
+			array(
+				'stored_type'              => $stored_type,
+				'decoded_from_legacy_json' => $decoded_from_legacy_json,
+				'count'                    => count( $slides ),
+				'titles'                   => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+			)
 		);
 
 		return rest_ensure_response( $slides );

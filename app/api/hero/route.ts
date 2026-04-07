@@ -1,29 +1,27 @@
-import { NextResponse } from "next/server";
-
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(): Promise<NextResponse> {
+export async function GET() {
   try {
-    const response = await fetch(
+    const res = await fetch(
       "https://creality.com.kw/site/wp-json/creality/v1/hero",
       {
         cache: "no-store",
       }
     );
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Hero API error: ${response.status}` },
-        { status: response.status }
-      );
+    if (!res.ok) {
+      console.error("Hero API upstream error:", res.status);
+      return Response.json([]);
     }
 
-    return NextResponse.json(await response.json(), { status: 200 });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch hero slides.";
+    const data = await res.json();
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.log("FULL HERO DATA:", data);
+
+    return Response.json(data);
+  } catch (error) {
+    console.error("Hero API error:", error);
+    return Response.json([]);
   }
 }
