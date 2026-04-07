@@ -19,3 +19,17 @@ export type CrealityHeroSlideData = {
   button2_link: string;
   order: number;
 };
+
+export type CrealitySeasonalCampaignHero = {
+  title: string;
+  subtitle: string;
+  image: string;
+};
+
+export type CrealitySeasonalCampaignData = {
+  enabled: boolean;
+  slug: string;
+  nav_label: string;
+  hero: CrealitySeasonalCampaignHero;
+  products: number[];
+};

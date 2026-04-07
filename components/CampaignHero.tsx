@@ -109,19 +109,19 @@ export default function CampaignHero() {
     return (
       <section className="mx-auto w-full max-w-6xl px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
         <div className="overflow-hidden rounded-[28px] border border-[#dfe6dc] bg-gradient-to-br from-white via-[#f8fbf5] to-[#eef5ea] shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-          <div className="grid min-h-[420px] animate-pulse gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] md:px-10 md:py-10">
-            <div className="flex flex-col justify-center gap-4">
+          <div className="relative min-h-[420px] animate-pulse md:min-h-[500px]">
+            <div className="absolute inset-0 bg-gray-100" />
+            <div className="relative z-10 flex min-h-[420px] flex-col justify-center gap-4 px-6 py-8 md:max-w-[55%] md:min-h-[500px] md:px-10 md:py-10">
               <div className="h-4 w-32 rounded-full bg-gray-200" />
               <div className="h-12 w-3/4 rounded-2xl bg-gray-200" />
               <div className="h-12 w-2/3 rounded-2xl bg-gray-200" />
-              <div className="h-4 w-full rounded-full bg-gray-100" />
-              <div className="h-4 w-5/6 rounded-full bg-gray-100" />
+              <div className="h-4 w-full rounded-full bg-gray-200/60" />
+              <div className="h-4 w-5/6 rounded-full bg-gray-200/60" />
               <div className="mt-4 flex gap-3">
                 <div className="h-11 w-32 rounded-full bg-gray-200" />
                 <div className="h-11 w-32 rounded-full bg-gray-200" />
               </div>
             </div>
-            <div className="rounded-[24px] bg-white/70" />
           </div>
         </div>
       </section>
@@ -151,8 +151,21 @@ export default function CampaignHero() {
                   key={`${slide.title}-${slide.order}-${index}`}
                   className="embla__slide min-w-0 flex-[0_0_100%]"
                 >
-                  <div className="grid min-h-[420px] gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] md:px-10 md:py-10">
-                    <div className="flex flex-col justify-center">
+                  <div className="relative min-h-[420px] md:min-h-[500px]">
+                    {/* Background image — fills entire slide */}
+                    {imageUrl && (
+                      <img
+                        src={imageUrl}
+                        alt={slide.title}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    )}
+
+                    {/* Subtle gradient — only behind text area for readability */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/50 to-transparent md:via-white/30" />
+
+                    {/* Text content positioned over the gradient */}
+                    <div className="relative z-10 flex min-h-[420px] flex-col justify-center px-6 py-8 md:max-w-[55%] md:min-h-[500px] md:px-10 md:py-10">
                       {slide.subtitle ? (
                         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6BBE45] sm:text-sm">
                           {slide.subtitle}
@@ -164,7 +177,7 @@ export default function CampaignHero() {
                       </h2>
 
                       {slide.description ? (
-                        <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-600 sm:text-base">
+                        <p className="mt-4 max-w-lg text-sm leading-7 text-gray-600 sm:text-base">
                           {slide.description}
                         </p>
                       ) : null}
@@ -188,14 +201,6 @@ export default function CampaignHero() {
                           </a>
                         ) : null}
                       </div>
-                    </div>
-
-                    <div className="relative h-[420px] w-full overflow-hidden rounded-[24px] bg-white/80 shadow-inner shadow-[#dce8d4]">
-                      <img
-                        src={imageUrl}
-                        alt={slide.title}
-                        className="h-full w-full object-cover"
-                      />
                     </div>
                   </div>
                 </div>

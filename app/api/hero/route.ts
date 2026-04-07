@@ -19,12 +19,17 @@ export async function GET() {
       return Response.json([]);
     }
 
-    const upstreamUrl = `${baseUrl}/wp-json/creality/v1/hero`;
+    // Cache-bust upstream to bypass LiteSpeed / Cloudflare / WordPress object cache
+    const upstreamUrl = `${baseUrl}/wp-json/creality/v1/hero?t=${Date.now()}`;
 
     console.log("[hero-api] Fetching hero slides from:", upstreamUrl);
 
     const res = await fetch(upstreamUrl, {
       cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+      },
     });
 
     if (!res.ok) {
@@ -36,7 +41,16 @@ export async function GET() {
 
     console.log("FULL HERO DATA:", data);
 
-    return Response.json(data);
+    // Set no-cache headers on our proxy response so CDN/browser never caches
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch (error) {
     console.error("Hero API error:", error);
     return Response.json([]);

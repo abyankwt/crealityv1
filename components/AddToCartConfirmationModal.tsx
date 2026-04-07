@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
+import SmartImage from "@/components/SmartImage";
 import { resolveImageSource } from "@/lib/image";
 import { formatPrice } from "@/lib/price";
 
@@ -65,13 +65,13 @@ export default function AddToCartConfirmationModal({
         <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <div className="flex items-center gap-4">
             <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
-              <Image
+              <SmartImage
                 src={imageSrc}
                 alt={imageAlt}
-                width={160}
-                height={160}
-                loading="lazy"
-                className="h-full w-full object-contain"
+                mode="product"
+                sizes="80px"
+                className="h-full w-full rounded-none bg-white"
+                imageClassName="object-contain"
               />
             </div>
             <div className="min-w-0">

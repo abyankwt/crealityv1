@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Script from "next/script";
 import Footer from "@/components/Footer";
 import GlobalClientUI from "@/components/GlobalClientUI";
 import Navbar from "@/components/navigation/Navbar";
@@ -11,7 +12,10 @@ import {
 } from "@/config/navigation";
 import { CartProvider } from "@/context/CartContext";
 import { getCategoryTree } from "@/lib/categories";
-import { fetchHomepagePopup } from "@/lib/creality-cms";
+import {
+  fetchHomepagePopup,
+  fetchSeasonalCampaign,
+} from "@/lib/creality-cms";
 import { getMenu } from "@/lib/menu-api";
 import { hasPreOrderProducts } from "@/lib/preOrders";
 
@@ -21,19 +25,89 @@ export const metadata: Metadata = {
     "Official Creality 3D printer store in Kuwait. FDM, resin printers, materials, and spare parts.",
 };
 
+const hydrationAttributeCleanupScript = `
+  (() => {
+    const attrs = ["bis_skin_checked", "fdprocessedid"];
+    const selector = attrs.map((attr) => "[" + attr + "]").join(",");
+
+    const stripAttributes = (element) => {
+      if (!(element instanceof Element)) {
+        return;
+      }
+
+      for (const attr of attrs) {
+        if (element.hasAttribute(attr)) {
+          element.removeAttribute(attr);
+        }
+      }
+    };
+
+    const stripTree = (root) => {
+      stripAttributes(root);
+
+      if (!(root instanceof Element)) {
+        return;
+      }
+
+      root.querySelectorAll(selector).forEach(stripAttributes);
+    };
+
+    stripTree(document.documentElement);
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "attributes") {
+          stripAttributes(mutation.target);
+        }
+
+        if (mutation.type === "childList") {
+          mutation.addedNodes.forEach(stripTree);
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: attrs,
+    });
+
+    window.addEventListener(
+      "load",
+      () => {
+        stripTree(document.documentElement);
+        observer.disconnect();
+      },
+      { once: true }
+    );
+  })();
+`;
+
 export default async function RootLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const [categories, hasPreOrders, menuItems, popupData] = await Promise.all([
+  const [categories, hasPreOrders, menuItems, popupData, seasonalCampaign] = await Promise.all([
     getCategoryTree(),
     hasPreOrderProducts(),
     getMenu(),
     fetchHomepagePopup(),
+    fetchSeasonalCampaign(),
   ]);
-  // Replace this with the WordPress seasonal menu payload when the endpoint is ready.
-  const seasonalPromotions: PromotionMenuItem[] = [];
+  const seasonalPromotions: PromotionMenuItem[] =
+    seasonalCampaign?.enabled && seasonalCampaign.slug && seasonalCampaign.nav_label
+      ? [
+          {
+            id: `season-${seasonalCampaign.slug}`,
+            label: seasonalCampaign.nav_label,
+            href: `/season/${seasonalCampaign.slug}`,
+            startDate: "2000-01-01",
+            endDate: "2099-12-31",
+          },
+        ]
+      : [];
   const navigation =
     menuItems.length > 0
       ? buildNavigationFromMenu({
@@ -51,6 +125,11 @@ export default async function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className="bg-white text-gray-900" suppressHydrationWarning>
+        <Script
+          id="hydration-attribute-cleanup"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: hydrationAttributeCleanupScript }}
+        />
         <CartProvider>
           <Navbar categories={categories} navigation={navigation} />
           <main className="min-h-screen">{children}</main>

@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
-import RouteProgressBar from "@/components/RouteProgressBar";
 import type { CrealityPopupData } from "@/types/creality-cms";
 
 // Lazy-load floating client-only UI — must be in a Client Component
 // because `ssr: false` is only allowed in Client Components in App Router
+const RouteProgressBar = dynamic(() => import("@/components/RouteProgressBar"), {
+    ssr: false,
+});
+
 const CompareBar = dynamic(() => import("@/components/compare/CompareBar"), {
     ssr: false,
 });

@@ -27,6 +27,12 @@ type AuthUser = { userId: number; name: string; email: string } | null;
 type AuthMeResponse =
     | { authenticated: false }
     | { authenticated: true; user: { id: number; name: string; email: string } };
+type CustomerProfileResponse = {
+    data?: {
+        billing?: Partial<BillingAddress>;
+        shipping?: Partial<BillingAddress>;
+    };
+};
 
 const PAYMENT_METHODS = [
     {
@@ -36,13 +42,13 @@ const PAYMENT_METHODS = [
         icon: CreditCard,
     },
     {
-        id: "deema-pay",
+        id: "deema_payment",
         label: "Deema",
         description: "Pay with Deema",
         icon: Banknote,
     },
     {
-        id: "taly_gateway",
+        id: "talypayment",
         label: "Taly",
         description: "Buy Now, Pay Later",
         icon: Clock,
@@ -88,11 +94,63 @@ function CheckoutPageContent() {
                         };
                         setUser(sessionUser);
                         const nameParts = (sessionUser.name || "").split(" ");
+                        const customerResponse = await fetch("/api/account/customer", {
+                            credentials: "include",
+                        });
+                        const customerPayload = customerResponse.ok
+                            ? ((await customerResponse.json()) as CustomerProfileResponse)
+                            : null;
+                        const billingAddress = customerPayload?.data?.billing ?? {};
+                        const shippingAddress = customerPayload?.data?.shipping ?? {};
+
                         setBilling((previous) => ({
                             ...previous,
-                            first_name: previous.first_name || nameParts[0] || "",
-                            last_name: previous.last_name || nameParts.slice(1).join(" ") || "",
-                            email: previous.email || sessionUser.email || "",
+                            first_name:
+                                previous.first_name ||
+                                billingAddress.first_name ||
+                                shippingAddress.first_name ||
+                                nameParts[0] ||
+                                "",
+                            last_name:
+                                previous.last_name ||
+                                billingAddress.last_name ||
+                                shippingAddress.last_name ||
+                                nameParts.slice(1).join(" ") ||
+                                "",
+                            email:
+                                previous.email ||
+                                billingAddress.email ||
+                                sessionUser.email ||
+                                "",
+                            phone:
+                                previous.phone ||
+                                billingAddress.phone ||
+                                "",
+                            country:
+                                billingAddress.country ||
+                                shippingAddress.country ||
+                                previous.country ||
+                                "KW",
+                            state:
+                                shippingAddress.state ||
+                                billingAddress.state ||
+                                previous.state,
+                            city:
+                                shippingAddress.city ||
+                                billingAddress.city ||
+                                previous.city,
+                            address_1:
+                                shippingAddress.address_1 ||
+                                billingAddress.address_1 ||
+                                previous.address_1,
+                            address_2:
+                                shippingAddress.address_2 ||
+                                billingAddress.address_2 ||
+                                previous.address_2,
+                            postcode:
+                                shippingAddress.postcode ||
+                                billingAddress.postcode ||
+                                previous.postcode,
                         }));
                     }
                 }
@@ -170,8 +228,26 @@ function CheckoutPageContent() {
         setSubmitting(true);
 
         try {
+            const normalizedBilling: BillingAddress = {
+                ...billing,
+                country: billing.country || "KW",
+                state: billing.state || "",
+                address_2: billing.address_2 || "",
+                postcode: billing.postcode || "",
+            };
+            const shippingAddress = {
+                first_name: normalizedBilling.first_name,
+                last_name: normalizedBilling.last_name,
+                country: normalizedBilling.country,
+                state: normalizedBilling.state,
+                city: normalizedBilling.city,
+                address_1: normalizedBilling.address_1,
+                address_2: normalizedBilling.address_2,
+                postcode: normalizedBilling.postcode,
+            };
             const result = await submitCheckout({
-                billing_address: billing,
+                billing_address: normalizedBilling,
+                shipping_address: shippingAddress,
                 payment_method: paymentMethod,
                 order_warning_acknowledged: protectedItems.length === 0 || warningAccepted,
             });

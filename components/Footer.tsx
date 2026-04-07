@@ -277,7 +277,10 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 border-t border-gray-200 pt-6 text-[11px] font-semibold uppercase tracking-[0.15em] text-gray-400">
+        <div
+          suppressHydrationWarning
+          className="mt-16 border-t border-gray-200 pt-6 text-[11px] font-semibold uppercase tracking-[0.15em] text-gray-400"
+        >
           © {new Date().getFullYear()} Kites Holding Group. All rights reserved.
         </div>
       </div>

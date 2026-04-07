@@ -67,6 +67,7 @@ type WooProductDetailResponse = WooProductSummaryResponse & {
   slug: string;
   price?: string;
   regular_price?: string;
+  short_description?: string;
   catalog_visibility?: string;
   images?: WooProductImageResponse[];
 };
@@ -237,6 +238,56 @@ export const getWooDetailedProductsByIds = async (productIds: number[]) => {
   )}`;
 
   return wooRequest<WooProductDetailResponse[]>(path);
+};
+
+export const getWooProductsBySlug = async (slug: string) => {
+  const normalizedSlug = slug.trim().toLowerCase();
+
+  if (!normalizedSlug) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooProductDetailResponse[],
+    };
+  }
+
+  return wooRequest<WooProductDetailResponse[]>(
+    `products?slug=${encodeURIComponent(normalizedSlug)}&per_page=1`,
+    {
+      next: { revalidate: 60 },
+    }
+  );
+};
+
+export const getWooProductsBySlugs = async (slugs: string[]) => {
+  const uniqueSlugs = [...new Set(slugs.map((slug) => slug.trim().toLowerCase()))].filter(
+    Boolean
+  );
+
+  if (!uniqueSlugs.length) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooProductDetailResponse[],
+    };
+  }
+
+  // Some WooCommerce installs only honor a single slug in wc/v3 product queries,
+  // so fetch each slug explicitly and preserve the requested order.
+  const responses = await Promise.all(
+    uniqueSlugs.map((slug) => getWooProductsBySlug(slug))
+  );
+
+  const failedResponse = responses.find((response) => !response.ok);
+  if (failedResponse && !failedResponse.ok) {
+    return failedResponse as FetchResult<WooProductDetailResponse[]>;
+  }
+
+  return {
+    ok: true as const,
+    status: 200,
+    data: responses.flatMap((response) => (response.ok ? response.data : [])),
+  };
 };
 
 export const getWooProductsByTagSlug = async (tagSlug: string) => {

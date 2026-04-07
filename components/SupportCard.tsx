@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
+import { formatPrice } from "@/lib/price";
 
 const FALLBACK_IMAGE = "/images/product-placeholder.svg";
 
@@ -15,7 +16,7 @@ type SupportCardProps = {
   description?: string;
   icon?: IconComponent;
   image?: string;
-  price?: string;
+  price?: number;
   buttonLabel?: string;
   onButtonClick?: () => void;
   buttonDisabled?: boolean;
@@ -64,9 +65,9 @@ export default function SupportCard({
       {description ? (
         <p className="mt-2 text-sm leading-relaxed text-gray-500">{description}</p>
       ) : null}
-      {price ? (
+      {price !== undefined ? (
         <p className={`${description ? "mt-4" : "mt-3"} text-sm font-bold text-text sm:text-base`}>
-          {Number(price).toFixed(2)} KWD
+          {formatPrice(price)}
         </p>
       ) : null}
       {buttonLabel ? (

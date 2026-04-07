@@ -45,6 +45,59 @@ type WooCheckoutResponse = {
     };
 };
 
+type WooStoreShippingRate = {
+    rate_id?: string;
+    selected?: boolean;
+};
+
+type WooStoreShippingPackage = {
+    package_id?: number | string;
+    shipping_rates?: WooStoreShippingRate[];
+};
+
+type WooStoreCartResponse = {
+    needs_shipping?: boolean;
+    shipping_rates?: WooStoreShippingPackage[];
+    payment_methods?: string[];
+    message?: string;
+    code?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function syncStoreHeaders(headers: Record<string, string>, response: Response) {
+    const nextCartToken = response.headers.get("Cart-Token");
+    if (nextCartToken) {
+        headers["Cart-Token"] = nextCartToken;
+    }
+
+    const nextNonce = response.headers.get("Nonce");
+    if (nextNonce) {
+        headers["Nonce"] = nextNonce;
+    }
+}
+
+function getShippingRateSummary(cart: unknown) {
+    if (!isRecord(cart)) {
+        return { needsShipping: false, rateCount: 0 };
+    }
+
+    const needsShipping = Boolean(cart.needs_shipping);
+    const packages = Array.isArray(cart.shipping_rates)
+        ? (cart.shipping_rates as WooStoreShippingPackage[])
+        : [];
+    const rateCount = packages.reduce((count, shippingPackage) => {
+        const rates = Array.isArray(shippingPackage?.shipping_rates)
+            ? shippingPackage.shipping_rates
+            : [];
+        return count + rates.length;
+    }, 0);
+
+    return { needsShipping, rateCount };
+}
+
 /**
  * POST /api/store/checkout
  *
@@ -152,26 +205,99 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
 
-    // Use shipping = billing if not provided
-    const shippingAddress = body.shipping_address || {
-        first_name: body.billing_address.first_name,
-        last_name: body.billing_address.last_name,
-        country: body.billing_address.country,
+    const normalizedBillingAddress = {
+        ...body.billing_address,
+        country: body.billing_address.country || "KW",
         state: body.billing_address.state || "",
-        city: body.billing_address.city,
-        address_1: body.billing_address.address_1,
         address_2: body.billing_address.address_2 || "",
         postcode: body.billing_address.postcode || "",
     };
 
+    // Use shipping = billing if not provided
+    const shippingAddress = {
+        first_name:
+            body.shipping_address?.first_name || normalizedBillingAddress.first_name,
+        last_name:
+            body.shipping_address?.last_name || normalizedBillingAddress.last_name,
+        country: body.shipping_address?.country || normalizedBillingAddress.country,
+        state: body.shipping_address?.state || normalizedBillingAddress.state,
+        city: body.shipping_address?.city || normalizedBillingAddress.city,
+        address_1: body.shipping_address?.address_1 || normalizedBillingAddress.address_1,
+        address_2:
+            body.shipping_address?.address_2 || normalizedBillingAddress.address_2 || "",
+        postcode:
+            body.shipping_address?.postcode || normalizedBillingAddress.postcode || "",
+    };
+
+    let customerCartData: WooStoreCartResponse | null = null;
+    try {
+        const updateCustomerResponse = await fetch(
+            `${baseUrl}/wp-json/wc/store/v1/cart/update-customer`,
+            {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    billing_address: normalizedBillingAddress,
+                    shipping_address: shippingAddress,
+                }),
+                cache: "no-store",
+            }
+        );
+
+        syncStoreHeaders(headers, updateCustomerResponse);
+
+        const updateCustomerText = await updateCustomerResponse.text();
+        customerCartData = updateCustomerText
+            ? (JSON.parse(updateCustomerText) as WooStoreCartResponse)
+            : null;
+
+        if (!updateCustomerResponse.ok) {
+            const errorMessage =
+                customerCartData?.message ||
+                "Unable to validate shipping for this address.";
+            console.error("[Checkout] Shipping validation failed:", errorMessage);
+            return NextResponse.json(
+                { error: errorMessage },
+                { status: updateCustomerResponse.status }
+            );
+        }
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "Unable to validate shipping.";
+        console.error("[Checkout] Shipping validation request failed:", message);
+        return NextResponse.json(
+            { error: message },
+            { status: 502 }
+        );
+    }
+
+    const shippingRateSummary = getShippingRateSummary(customerCartData);
+    if (shippingRateSummary.needsShipping && shippingRateSummary.rateCount === 0) {
+        return NextResponse.json(
+            {
+                error:
+                    "No shipping rates are available for this Kuwait address. Verify the Kuwait shipping zone and at least one enabled WooCommerce shipping method.",
+            },
+            { status: 400 }
+        );
+    }
+
+    if (
+        Array.isArray(customerCartData?.payment_methods) &&
+        customerCartData.payment_methods.length > 0 &&
+        !customerCartData.payment_methods.includes(body.payment_method)
+    ) {
+        return NextResponse.json(
+            {
+                error: `Unsupported payment method. Available methods: ${customerCartData.payment_methods.join(", ")}`,
+            },
+            { status: 400 }
+        );
+    }
+
     // Build the Store API checkout payload
     const checkoutPayload = {
-        billing_address: {
-            ...body.billing_address,
-            state: body.billing_address.state || "",
-            address_2: body.billing_address.address_2 || "",
-            postcode: body.billing_address.postcode || "",
-        },
+        billing_address: normalizedBillingAddress,
         shipping_address: shippingAddress,
         payment_method: body.payment_method,
         customer_id: customerId,

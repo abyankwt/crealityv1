@@ -54,6 +54,8 @@ const DEFAULT_SERVICE_ICON = Wrench;
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const SERVICE_ICONS: Record<string, IconComponent> = {
+  "check-up": ShieldAlert,
+  "printing-service": ShieldAlert,
   "maintenance-service": Wrench,
   "maintenance-service-2": Wrench,
   "home-service": House,

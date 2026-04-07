@@ -2,6 +2,10 @@
 
 import Image from "next/image";
 import clsx from "clsx";
+import {
+  normalizeImageUrl,
+  shouldBypassImageOptimization,
+} from "@/lib/image";
 
 type SmartImageProps = {
   src: string;
@@ -22,6 +26,7 @@ export default function SmartImage({
   className,
   imageClassName,
 }: SmartImageProps) {
+  const resolvedSrc = normalizeImageUrl(src);
   const containerClassName =
     mode === "product"
       ? "aspect-square"
@@ -48,12 +53,13 @@ export default function SmartImage({
       )}
     >
       <Image
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         fill
         priority={priority}
         loading={priority ? "eager" : "lazy"}
         sizes={resolvedSizes}
+        unoptimized={shouldBypassImageOptimization(resolvedSrc)}
         className={clsx(defaultImageClassName, imageClassName)}
       />
     </div>

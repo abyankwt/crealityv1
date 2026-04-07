@@ -27,14 +27,23 @@ final class Creality_CMS {
 	/** Hero slider submenu slug. */
 	const HERO_MENU_SLUG = 'creality-cms-hero-slider';
 
+	/** Seasonal campaign submenu slug. */
+	const SEASON_MENU_SLUG = 'creality-cms-seasonal-campaign';
+
 	/** Popup settings nonce action. */
 	const POPUP_NONCE_ACTION = 'creality_cms_save_popup';
 
 	/** Hero slider settings nonce action. */
 	const HERO_NONCE_ACTION = 'creality_cms_save';
 
+	/** Seasonal campaign settings nonce action. */
+	const SEASON_NONCE_ACTION = 'creality_cms_save_season';
+
 	/** Hero slider option name. */
 	const HERO_SLIDES_OPTION = 'creality_hero_slides';
+
+	/** Seasonal campaign option name. */
+	const SEASON_OPTION = 'creality_seasonal_campaign';
 
 	/** @var self|null */
 	private static $instance = null;
@@ -69,6 +78,7 @@ final class Creality_CMS {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_init', array( $this, 'handle_popup_form_submission' ) );
 		add_action( 'admin_init', array( $this, 'handle_hero_form_submission' ) );
+		add_action( 'admin_init', array( $this, 'handle_season_form_submission' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 	}
 
@@ -105,6 +115,15 @@ final class Creality_CMS {
 			self::HERO_MENU_SLUG,
 			array( $this, 'render_hero_settings_page' )
 		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Seasonal Campaign', 'creality-cms' ),
+			__( 'Seasonal Campaign', 'creality-cms' ),
+			'manage_options',
+			self::SEASON_MENU_SLUG,
+			array( $this, 'render_season_settings_page' )
+		);
 	}
 
 	/**
@@ -117,6 +136,7 @@ final class Creality_CMS {
 		$allowed_hooks = array(
 			'toplevel_page_' . self::MENU_SLUG,
 			self::MENU_SLUG . '_page_' . self::HERO_MENU_SLUG,
+			self::MENU_SLUG . '_page_' . self::SEASON_MENU_SLUG,
 		);
 
 		if ( ! in_array( $hook_suffix, $allowed_hooks, true ) ) {
@@ -166,6 +186,53 @@ final class Creality_CMS {
 		$redirect_url = add_query_arg(
 			array(
 				'page'    => self::MENU_SLUG,
+				'updated' => '1',
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	/**
+	 * Handle seasonal campaign settings save.
+	 *
+	 * @return void
+	 */
+	public function handle_season_form_submission() {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		if ( ! isset( $_POST['creality_cms_action'] ) || 'save_season_settings' !== wp_unslash( $_POST['creality_cms_action'] ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage these settings.', 'creality-cms' ) );
+		}
+
+		check_admin_referer( self::SEASON_NONCE_ACTION, 'creality_cms_season_nonce' );
+
+		$product_ids_raw = isset( $_POST['creality_season_products'] ) ? wp_unslash( $_POST['creality_season_products'] ) : '';
+		$settings = array(
+			'enabled'   => isset( $_POST['creality_season_enabled'] ) ? '1' : '0',
+			'slug'      => isset( $_POST['creality_season_slug'] ) ? sanitize_title( wp_unslash( $_POST['creality_season_slug'] ) ) : '',
+			'nav_label' => isset( $_POST['creality_season_nav_label'] ) ? sanitize_text_field( wp_unslash( $_POST['creality_season_nav_label'] ) ) : '',
+			'hero'      => array(
+				'title'    => isset( $_POST['creality_season_hero_title'] ) ? sanitize_text_field( wp_unslash( $_POST['creality_season_hero_title'] ) ) : '',
+				'subtitle' => isset( $_POST['creality_season_hero_subtitle'] ) ? sanitize_textarea_field( wp_unslash( $_POST['creality_season_hero_subtitle'] ) ) : '',
+				'image'    => isset( $_POST['creality_season_hero_image'] ) ? esc_url_raw( wp_unslash( $_POST['creality_season_hero_image'] ) ) : '',
+			),
+			'products'  => $this->sanitize_product_ids( $product_ids_raw ),
+		);
+
+		update_option( self::SEASON_OPTION, $settings, false );
+
+		$redirect_url = add_query_arg(
+			array(
+				'page'    => self::SEASON_MENU_SLUG,
 				'updated' => '1',
 			),
 			admin_url( 'admin.php' )
@@ -302,6 +369,16 @@ final class Creality_CMS {
 				'permission_callback' => '__return_true',
 			)
 		);
+
+		register_rest_route(
+			'creality/v1',
+			'/season',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'rest_get_season_settings' ),
+				'permission_callback' => '__return_true',
+			)
+		);
 	}
 
 	/**
@@ -311,6 +388,20 @@ final class Creality_CMS {
 	 */
 	public function rest_get_popup_settings() {
 		return new WP_REST_Response( $this->get_popup_settings(), 200 );
+	}
+
+	/**
+	 * REST callback for seasonal campaign settings.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_get_season_settings() {
+		$response = new WP_REST_Response( $this->get_season_settings(), 200 );
+		$response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+		$response->header( 'Pragma', 'no-cache' );
+		$response->header( 'Expires', '0' );
+
+		return $response;
 	}
 
 	/**
@@ -383,6 +474,43 @@ final class Creality_CMS {
 			'image'       => esc_url_raw( (string) get_option( 'creality_popup_image', '' ) ),
 			'button_text' => (string) get_option( 'creality_popup_button_text', '' ),
 			'button_link' => (string) get_option( 'creality_popup_button_link', '' ),
+		);
+	}
+
+	/**
+	 * Get seasonal campaign settings with safe defaults.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_season_settings() {
+		$defaults = array(
+			'enabled'   => false,
+			'slug'      => '',
+			'nav_label' => '',
+			'hero'      => array(
+				'title'    => '',
+				'subtitle' => '',
+				'image'    => '',
+			),
+			'products'  => array(),
+		);
+
+		$stored = get_option( self::SEASON_OPTION, array() );
+		$stored = is_array( $stored ) ? $stored : array();
+		$settings = wp_parse_args( $stored, $defaults );
+		$hero = isset( $settings['hero'] ) && is_array( $settings['hero'] ) ? $settings['hero'] : array();
+		$hero = wp_parse_args( $hero, $defaults['hero'] );
+
+		return array(
+			'enabled'   => $this->sanitize_checkbox_value( $settings['enabled'] ?? false ),
+			'slug'      => sanitize_title( (string) $settings['slug'] ),
+			'nav_label' => sanitize_text_field( (string) $settings['nav_label'] ),
+			'hero'      => array(
+				'title'    => sanitize_text_field( (string) $hero['title'] ),
+				'subtitle' => sanitize_textarea_field( (string) $hero['subtitle'] ),
+				'image'    => esc_url_raw( (string) $hero['image'] ),
+			),
+			'products'  => $this->sanitize_product_ids( $settings['products'] ?? array() ),
 		);
 	}
 
@@ -563,6 +691,36 @@ final class Creality_CMS {
 		$normalized = strtolower( sanitize_text_field( trim( (string) $value ) ) );
 
 		return in_array( $normalized, array( '1', 'true', 'on', 'yes' ), true );
+	}
+
+	/**
+	 * Normalize a product-id list from textarea or array input.
+	 *
+	 * @param mixed $value Raw product ID payload.
+	 * @return array<int,int>
+	 */
+	private function sanitize_product_ids( $value ) {
+		if ( is_array( $value ) ) {
+			$parts = $value;
+		} elseif ( is_scalar( $value ) ) {
+			$parts = preg_split( '/[\s,]+/', (string) $value );
+		} else {
+			$parts = array();
+		}
+
+		if ( ! is_array( $parts ) ) {
+			return array();
+		}
+
+		$product_ids = array_map( 'absint', $parts );
+		$product_ids = array_filter(
+			$product_ids,
+			static function ( $product_id ) {
+				return $product_id > 0;
+			}
+		);
+
+		return array_values( array_unique( $product_ids ) );
 	}
 
 	/**
@@ -819,6 +977,184 @@ final class Creality_CMS {
 								value="<?php echo esc_attr( $settings['button_link'] ); ?>"
 								placeholder="<?php echo esc_attr__( '/category/3d-printers or https://creality.com.kw/page', 'creality-cms' ); ?>"
 							/>
+						</div>
+					</div>
+
+					<div class="creality-cms-footer-actions">
+						<button type="submit" class="button button-primary button-large">
+							<?php echo esc_html__( 'Save Settings', 'creality-cms' ); ?>
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the seasonal campaign settings page.
+	 *
+	 * @return void
+	 */
+	public function render_season_settings_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'creality-cms' ) );
+		}
+
+		$settings = $this->get_season_settings();
+		$product_ids_text = implode( ', ', $settings['products'] );
+		?>
+		<div class="wrap creality-cms-admin">
+			<div class="creality-cms-shell">
+				<div class="creality-cms-header">
+					<div>
+						<h1><?php echo esc_html__( 'Seasonal Campaign', 'creality-cms' ); ?></h1>
+						<p><?php echo esc_html__( 'Manage the seasonal landing page, navigation link, and featured WooCommerce products shown on the Next.js frontend.', 'creality-cms' ); ?></p>
+					</div>
+					<div class="creality-cms-header-actions">
+						<button type="submit" form="creality-cms-season-form" class="button button-primary button-large">
+							<?php echo esc_html__( 'Save Settings', 'creality-cms' ); ?>
+						</button>
+					</div>
+				</div>
+
+				<?php if ( isset( $_GET['updated'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['updated'] ) ) ) : ?>
+					<div class="notice notice-success is-dismissible creality-cms-notice">
+						<p><?php echo esc_html__( 'Seasonal campaign settings saved successfully.', 'creality-cms' ); ?></p>
+					</div>
+				<?php endif; ?>
+
+				<form id="creality-cms-season-form" method="post" action="">
+					<?php wp_nonce_field( self::SEASON_NONCE_ACTION, 'creality_cms_season_nonce' ); ?>
+					<input type="hidden" name="creality_cms_action" value="save_season_settings" />
+
+					<div class="creality-cms-card">
+						<div class="creality-cms-card-header">
+							<h2><?php echo esc_html__( 'Campaign Settings', 'creality-cms' ); ?></h2>
+							<p><?php echo esc_html__( 'This campaign is exposed through /wp-json/creality/v1/season and powers the dynamic header link and /season/[slug] landing page.', 'creality-cms' ); ?></p>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_enabled"><?php echo esc_html__( 'Enable Campaign', 'creality-cms' ); ?></label>
+								<p><?php echo esc_html__( 'Turn the seasonal campaign on or off without removing any content.', 'creality-cms' ); ?></p>
+							</div>
+							<label class="creality-cms-switch" for="creality_season_enabled">
+								<input
+									type="checkbox"
+									id="creality_season_enabled"
+									name="creality_season_enabled"
+									value="1"
+									<?php checked( $settings['enabled'] ); ?>
+								/>
+								<span class="creality-cms-switch-slider" aria-hidden="true"></span>
+							</label>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_slug"><?php echo esc_html__( 'Campaign Slug', 'creality-cms' ); ?></label>
+								<p><?php echo esc_html__( 'Used for the frontend route: /season/[slug].', 'creality-cms' ); ?></p>
+							</div>
+							<input
+								type="text"
+								class="regular-text"
+								id="creality_season_slug"
+								name="creality_season_slug"
+								value="<?php echo esc_attr( $settings['slug'] ); ?>"
+								placeholder="<?php echo esc_attr__( 'summer-sale', 'creality-cms' ); ?>"
+							/>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_nav_label"><?php echo esc_html__( 'Navigation Label', 'creality-cms' ); ?></label>
+								<p><?php echo esc_html__( 'Shown in both desktop and mobile navigation when the campaign is enabled.', 'creality-cms' ); ?></p>
+							</div>
+							<input
+								type="text"
+								class="regular-text"
+								id="creality_season_nav_label"
+								name="creality_season_nav_label"
+								value="<?php echo esc_attr( $settings['nav_label'] ); ?>"
+								placeholder="<?php echo esc_attr__( 'Spring Sale', 'creality-cms' ); ?>"
+							/>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_hero_title"><?php echo esc_html__( 'Hero Title', 'creality-cms' ); ?></label>
+							</div>
+							<input
+								type="text"
+								class="regular-text"
+								id="creality_season_hero_title"
+								name="creality_season_hero_title"
+								value="<?php echo esc_attr( $settings['hero']['title'] ); ?>"
+								placeholder="<?php echo esc_attr__( 'Upgrade Your Print Farm', 'creality-cms' ); ?>"
+							/>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_hero_subtitle"><?php echo esc_html__( 'Hero Subtitle', 'creality-cms' ); ?></label>
+							</div>
+							<textarea
+								id="creality_season_hero_subtitle"
+								name="creality_season_hero_subtitle"
+								rows="4"
+								class="large-text"
+								placeholder="<?php echo esc_attr__( 'Highlight the seasonal offer, timing, or featured product mix.', 'creality-cms' ); ?>"
+							><?php echo esc_textarea( $settings['hero']['subtitle'] ); ?></textarea>
+						</div>
+
+						<div class="creality-cms-field creality-cms-field-image">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_hero_image"><?php echo esc_html__( 'Hero Image', 'creality-cms' ); ?></label>
+								<p><?php echo esc_html__( 'Choose a hero image for the seasonal landing page banner.', 'creality-cms' ); ?></p>
+							</div>
+							<div class="creality-cms-image-manager" data-image-manager="season">
+								<input
+									type="url"
+									class="large-text creality-cms-image-input"
+									id="creality_season_hero_image"
+									name="creality_season_hero_image"
+									value="<?php echo esc_attr( $settings['hero']['image'] ); ?>"
+									placeholder="<?php echo esc_attr__( 'https://example.com/season-hero.jpg', 'creality-cms' ); ?>"
+								/>
+								<div class="creality-cms-image-actions">
+									<button type="button" class="button creality-cms-upload-button" data-media-title="<?php echo esc_attr__( 'Select Seasonal Hero Image', 'creality-cms' ); ?>" data-media-button="<?php echo esc_attr__( 'Use this image', 'creality-cms' ); ?>">
+										<?php echo esc_html__( 'Choose Image', 'creality-cms' ); ?>
+									</button>
+									<button type="button" class="button creality-cms-remove-button">
+										<?php echo esc_html__( 'Remove Image', 'creality-cms' ); ?>
+									</button>
+								</div>
+								<div class="creality-cms-image-preview-wrap <?php echo empty( $settings['hero']['image'] ) ? 'is-empty' : ''; ?>">
+									<img
+										class="creality-cms-image-preview creality-cms-image-preview-cover"
+										src="<?php echo esc_url( $settings['hero']['image'] ); ?>"
+										alt="<?php echo esc_attr__( 'Seasonal campaign hero image preview', 'creality-cms' ); ?>"
+									/>
+									<span class="creality-cms-image-placeholder">
+										<?php echo esc_html__( 'No image selected yet.', 'creality-cms' ); ?>
+									</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="creality-cms-field">
+							<div class="creality-cms-field-copy">
+								<label for="creality_season_products"><?php echo esc_html__( 'Product IDs', 'creality-cms' ); ?></label>
+								<p><?php echo esc_html__( 'Enter WooCommerce product IDs separated by commas or spaces. The frontend preserves this order on the campaign page.', 'creality-cms' ); ?></p>
+							</div>
+							<textarea
+								id="creality_season_products"
+								name="creality_season_products"
+								rows="5"
+								class="large-text"
+								placeholder="<?php echo esc_attr__( '41745, 42175, 43001', 'creality-cms' ); ?>"
+							><?php echo esc_textarea( $product_ids_text ); ?></textarea>
 						</div>
 					</div>
 
@@ -1137,13 +1473,67 @@ jQuery(function ($) {
 		});
 	}
 
-	function refreshSlideNumbers() {
+	/**
+	 * Re-index every form input/textarea/label inside each slide card
+	 * so name attributes are always creality_hero_slides[0][field],
+	 * creality_hero_slides[1][field], etc. — sequential with no gaps.
+	 *
+	 * This MUST run after every add or remove to prevent stale indexes
+	 * from causing POST data that doesn't match what the admin sees.
+	 */
+	function reindexAllSlides() {
 		var cards = $('.creality-cms-slide-card');
 		var emptyState = $('.creality-cms-empty-state');
+		var prefix = 'creality_hero_slides';
 
-		cards.each(function (index) {
-			$(this).find('.creality-cms-slide-title').text('Slide ' + (index + 1));
+		cards.each(function (newIndex) {
+			var card = $(this);
+			var newIndexStr = String(newIndex);
+
+			// Update visual slide title
+			card.find('.creality-cms-slide-title').text('Slide ' + (newIndex + 1));
+
+			// Re-index all inputs and textareas
+			card.find('input, textarea').each(function () {
+				var el = $(this);
+
+				// Fix name: creality_hero_slides[OLD][field] → creality_hero_slides[NEW][field]
+				var currentName = el.attr('name');
+				if (currentName && currentName.indexOf(prefix + '[') === 0) {
+					var newName = currentName.replace(
+						/^creality_hero_slides\[[^\]]*\]/,
+						prefix + '[' + newIndexStr + ']'
+					);
+					el.attr('name', newName);
+				}
+
+				// Fix id: creality_hero_slides_OLD_field → creality_hero_slides_NEW_field
+				var currentId = el.attr('id');
+				if (currentId && currentId.indexOf(prefix + '_') === 0) {
+					var newId = currentId.replace(
+						/^creality_hero_slides_[^_]+_/,
+						prefix + '_' + newIndexStr + '_'
+					);
+					el.attr('id', newId);
+				}
+			});
+
+			// Fix label[for] attributes to match new input IDs
+			card.find('label[for]').each(function () {
+				var lbl = $(this);
+				var currentFor = lbl.attr('for');
+				if (currentFor && currentFor.indexOf(prefix + '_') === 0) {
+					var newFor = currentFor.replace(
+						/^creality_hero_slides_[^_]+_/,
+						prefix + '_' + newIndexStr + '_'
+					);
+					lbl.attr('for', newFor);
+				}
+			});
 		});
+
+		// Keep data-next-index in sync — always equals current card count
+		$('.creality-cms-repeater').attr('data-next-index', String(cards.length));
 
 		emptyState.toggleClass('is-hidden', cards.length > 0);
 	}
@@ -1196,28 +1586,32 @@ jQuery(function ($) {
 			return;
 		}
 
-		var nextIndex = parseInt(repeater.attr('data-next-index') || '0', 10);
-		var nextOrder = repeater.find('.creality-cms-slide-card').length + 1;
+		// Use the current card count as the next index (always sequential after reindex)
+		var nextIndex = repeater.find('.creality-cms-slide-card').length;
+		var nextOrder = nextIndex + 1;
 		var html = template
 			.replace(/__index__/g, String(nextIndex))
 			.replace(/__order__/g, String(nextOrder));
 
 		repeater.append(html);
-		repeater.attr('data-next-index', String(nextIndex + 1));
 
 		var newCard = repeater.find('.creality-cms-slide-card').last();
 		syncAllPreviews(newCard);
-		refreshSlideNumbers();
+
+		// Re-index everything (including the new card) to guarantee consistency
+		reindexAllSlides();
 	});
 
 	$(document).on('click', '.creality-cms-remove-slide', function (event) {
 		event.preventDefault();
 		$(this).closest('.creality-cms-slide-card').remove();
-		refreshSlideNumbers();
+
+		// Re-index remaining cards so POST indexes are sequential
+		reindexAllSlides();
 	});
 
 	syncAllPreviews();
-	refreshSlideNumbers();
+	reindexAllSlides();
 });
 JS;
 	}
@@ -1358,6 +1752,13 @@ JS;
 	max-width: 100%;
 	max-height: 320px;
 	object-fit: contain;
+}
+
+.creality-cms-image-preview-cover {
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	object-fit: cover;
 }
 
 .creality-cms-image-preview-wrap.is-empty .creality-cms-image-preview {

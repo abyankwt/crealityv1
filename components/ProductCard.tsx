@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import AddToCartConfirmationModal from "@/components/AddToCartConfirmationModal";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import ProductActionButton from "@/components/ProductActionButton";
+import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
 import { resolveImageSource } from "@/lib/image";
 import { getProductAvailability } from "@/lib/productAvailability";
@@ -50,6 +50,25 @@ export default function ProductCard({
     product_order_type ??
     resolveDisplayProductOrderType(product, section);
   const availability = getProductAvailability(product, section);
+  const optimisticCartItem =
+    product.id > 0
+      ? {
+          id: product.id,
+          name: product.name,
+          images: (product.images ?? []).map((image) => ({
+            id: image.id,
+            src: image.src,
+            thumbnail: image.thumbnail ?? undefined,
+            alt: image.alt ?? undefined,
+            name: image.name ?? undefined,
+          })),
+          prices: product.prices,
+          availability,
+          permalink: product.permalink,
+          short_description: product.short_description,
+          description: product.description,
+        }
+      : undefined;
   const isPreOrder = productOrderType === "pre_order";
   const canAddToCart = Boolean(product.id);
   const statusText =
@@ -112,7 +131,7 @@ export default function ProductCard({
 
     try {
       setLoading(true);
-      await addItem(product.id, 1);
+      await addItem(product.id, 1, { optimisticItem: optimisticCartItem });
       setAddedFeedback(true);
       setConfirmationOpen(true);
       if (onAddToCart) {
@@ -164,13 +183,13 @@ export default function ProductCard({
           aria-label={`View ${product.name}`}
         >
           <div className="product-image-wrapper relative rounded-xl bg-[#f5f5f5]">
-            <Image
+            <SmartImage
               src={resolvedImage}
               alt={product.name}
-              width={600}
-              height={600}
-              loading="lazy"
-              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
+              mode="product"
+              sizes="(max-width: 768px) 50vw, 25vw"
+              className="h-full w-full rounded-xl"
+              imageClassName="transition duration-300 group-hover:scale-[1.03]"
             />
           </div>
         </Link>

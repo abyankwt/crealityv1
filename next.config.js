@@ -1,15 +1,12 @@
-const remotePatterns = [
-  {
-    protocol: "https",
-    hostname: "**",
-  },
+const imageHosts = [
   "https://creality.com.kw",
   "https://www.creality.com.kw",
   process.env.WC_BASE_URL,
   process.env.NEXT_PUBLIC_WC_BASE_URL,
   process.env.WORDPRESS_URL,
-]
-  .filter(Boolean)
+].filter(Boolean);
+
+const remotePatterns = imageHosts
   .flatMap((value) => {
     try {
       const url = new URL(value);
@@ -38,6 +35,24 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns,
+    minimumCacheTTL: 0,
+  },
+  async headers() {
+    return [
+      {
+        source: "/site/wp-content/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+        ],
+      },
+    ];
   },
   async rewrites() {
     return [

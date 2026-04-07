@@ -86,7 +86,7 @@ export default function ProductDetail({
   relatedProducts,
 }: ProductDetailProps) {
   const router = useRouter();
-  const { addItem, refreshCart } = useCart();
+  const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState<string>(
     product.images?.[0]?.src ?? FALLBACK_PRODUCT_IMAGE
   );
@@ -109,6 +109,25 @@ export default function ProductDetail({
   const mainImage = selectedImage || galleryImages[0]?.src || FALLBACK_PRODUCT_IMAGE;
   const section = resolveProductSection(product);
   const availability = getProductAvailability(product, section);
+  const optimisticCartItem =
+    product.id > 0
+      ? {
+          id: product.id,
+          name: product.name,
+          images: (product.images ?? []).map((image) => ({
+            id: image.id,
+            src: image.src,
+            thumbnail: image.thumbnail ?? undefined,
+            alt: image.alt ?? undefined,
+            name: image.name ?? undefined,
+          })),
+          prices: product.prices,
+          availability,
+          permalink: product.permalink,
+          short_description: product.short_description,
+          description: product.description,
+        }
+      : undefined;
   const displayOrderType = resolveDisplayProductOrderType(product, section);
   const cleanDescription = sanitizeWooDescription(product.description);
   const stockLabel =
@@ -170,8 +189,9 @@ export default function ProductDetail({
   const performAddToCart = async (itemQuantity: number) => {
     try {
       setAdding(true);
-      await addItem(product.id, itemQuantity);
-      await refreshCart();
+      await addItem(product.id, itemQuantity, {
+        optimisticItem: optimisticCartItem,
+      });
       setToast({
         message:
           availability.type === "preorder"

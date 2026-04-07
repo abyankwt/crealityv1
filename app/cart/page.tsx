@@ -16,7 +16,7 @@ import {
 
 export default function CartPage() {
     const router = useRouter();
-    const { cart, loading, removeItem, updateItem, itemCount } = useCart();
+    const { cart, loading, removeItem, updateItem, itemCount, isItemPending } = useCart();
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
 
@@ -117,6 +117,7 @@ export default function CartPage() {
                         : null;
                     const min = item.quantity_limits?.minimum ?? 1;
                     const max = item.quantity_limits?.maximum ?? 999;
+                    const itemPending = isItemPending(item.key);
 
                     return (
                         <div key={item.key} className="flex gap-4 py-6 sm:gap-6">
@@ -165,7 +166,7 @@ export default function CartPage() {
                                             onClick={() =>
                                                 updateItem(item.key, Math.max(min, item.quantity - 1))
                                             }
-                                            disabled={loading || item.quantity <= min}
+                                            disabled={itemPending || item.quantity <= min}
                                             className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Decrease quantity"
                                         >
@@ -179,7 +180,7 @@ export default function CartPage() {
                                             onClick={() =>
                                                 updateItem(item.key, Math.min(max, item.quantity + 1))
                                             }
-                                            disabled={loading || item.quantity >= max}
+                                            disabled={itemPending || item.quantity >= max}
                                             className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Increase quantity"
                                         >
@@ -190,7 +191,7 @@ export default function CartPage() {
                                     <button
                                         type="button"
                                         onClick={() => removeItem(item.key)}
-                                        disabled={loading}
+                                        disabled={itemPending}
                                         className="flex items-center gap-1 text-xs text-gray-500 transition hover:text-red-600 disabled:opacity-40"
                                         aria-label={`Remove ${item.name}`}
                                     >
@@ -256,7 +257,7 @@ export default function CartPage() {
                     }}
                     className="mt-6 flex w-full items-center justify-center rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition hover:opacity-90"
                 >
-                    {loading ? "Processing..." : "Proceed to Checkout"}
+                    {loading ? "Loading cart..." : "Proceed to Checkout"}
                 </button>
 
                 <Link
