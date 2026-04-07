@@ -4,10 +4,9 @@ import CategoryNavigation from "@/components/CategoryNavigation";
 import ProductCard from "@/components/ProductCard";
 import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
-import { fetchProducts, fetchHeroImages } from "@/lib/api";
+import { fetchProducts } from "@/lib/api";
 import { filterProductsForSection } from "@/lib/productLogic";
 import CampaignHero from "@/components/CampaignHero";
-import { CAMPAIGN_SLIDES } from "@/config/campaigns";
 
 export const revalidate = 60;
 
@@ -39,7 +38,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const shouldReusePrimaryProductsForNewArrivals =
     !stock && orderby === "date" && order === "desc";
 
-  const [productResult, newProductsResult, wpHeroImages] = await Promise.all([
+  const [productResult, newProductsResult] = await Promise.all([
     fetchProducts({
       orderby,
       order,
@@ -52,7 +51,6 @@ export default async function HomePage({ searchParams }: PageProps) {
           order: "desc",
           perPage: 8,
         }),
-    fetchHeroImages(),
   ]);
 
   const { data: products, totalPages, totalProducts } = productResult;
@@ -66,32 +64,11 @@ export default async function HomePage({ searchParams }: PageProps) {
     (p) => p.featured
   );
 
-  // Hydrate campaign slides with images from WordPress backend
-  // WP newhome slider order: [0]=K2 Plus, [1]=SPARKX i7, [2]=SpacePi, [3]=Halot Sky
-  // Our slides order:        [0]=SPARKX i7, [1]=K2 Series, [2]=SpacePi X4L, [3]=HALOT-SKY
-  // So we map: slide 0 -> WP 1, slide 1 -> WP 0, slide 2 -> WP 2, slide 3 -> WP 3
-  const wpToSlideMap: Record<number, number> = { 0: 1, 1: 0, 2: 2, 3: 3 };
-
-  const dynamicSlides = CAMPAIGN_SLIDES.map((slide, index) => {
-    const wpIndex = wpToSlideMap[index] ?? index;
-    const wpImg = wpHeroImages[wpIndex] || wpHeroImages[0];
-
-    const p = featuredProducts[index];
-    const featuredProImg = p?.images?.[0]?.src;
-
-    const resolvedImage = wpImg || featuredProImg || slide.backgroundImage;
-
-    return {
-      ...slide,
-      backgroundImage: resolvedImage,
-    };
-  });
-
   const displayProducts = featuredProducts.length ? featuredProducts : visibleProducts;
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
-      <CampaignHero slides={dynamicSlides} />
+      <CampaignHero />
 
       <section className="bg-[#f8f8f8] py-6 sm:py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">

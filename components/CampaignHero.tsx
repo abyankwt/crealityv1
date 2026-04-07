@@ -1,38 +1,58 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { CampaignSlide } from "@/config/campaigns";
-import SmartImage from "@/components/SmartImage";
+import type { CrealityHeroSlideData } from "@/types/creality-cms";
 
-type CampaignHeroProps = {
-  slides: CampaignSlide[];
-};
+const HERO_API_URL = "/api/hero";
 
-export default function CampaignHero({ slides }: CampaignHeroProps) {
-  const active = slides.filter((slide) => slide.isActive);
+export default function CampaignHero() {
+  const [slides, setSlides] = useState<CrealityHeroSlideData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [current, setCurrent] = useState(0);
+  const [cacheBuster] = useState(() => Date.now());
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
     align: "start",
   });
 
-  const scrollTo = useCallback(
-    (index: number) => {
-      emblaApi?.scrollTo(index);
-    },
-    [emblaApi]
-  );
+  useEffect(() => {
+    const controller = new AbortController();
 
-  const next = useCallback(() => {
-    emblaApi?.scrollNext();
-  }, [emblaApi]);
+    async function loadSlides() {
+      try {
+        setIsLoading(true);
 
-  const prev = useCallback(() => {
-    emblaApi?.scrollPrev();
-  }, [emblaApi]);
+        const response = await fetch(HERO_API_URL, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Hero slider request failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as CrealityHeroSlideData[];
+        const nextSlides = Array.isArray(data) ? data : [];
+        console.log("🔥 API HERO:", data);
+        setSlides(nextSlides);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          console.error("Failed to load homepage hero slides:", error);
+          setSlides([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadSlides();
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!emblaApi) {
@@ -53,13 +73,28 @@ export default function CampaignHero({ slides }: CampaignHeroProps) {
     };
   }, [emblaApi]);
 
-  useEffect(() => {
-    setCurrent(0);
-    emblaApi?.scrollTo(0, true);
-  }, [emblaApi, active.length]);
+  const activeSlides = slides
+    .filter((slide) => slide.enabled)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const slidesKey = JSON.stringify(slides);
 
   useEffect(() => {
-    if (!emblaApi || active.length <= 1) {
+    console.log("API DATA:", slides);
+    console.log("ACTIVE:", activeSlides);
+  }, [slides, activeSlides]);
+
+  useEffect(() => {
+    if (!emblaApi) {
+      return;
+    }
+
+    setCurrent(0);
+    emblaApi.reInit();
+    emblaApi.scrollTo(0, true);
+  }, [emblaApi, slidesKey]);
+
+  useEffect(() => {
+    if (!emblaApi || activeSlides.length <= 1) {
       return;
     }
 
@@ -68,64 +103,99 @@ export default function CampaignHero({ slides }: CampaignHeroProps) {
     }, 5000);
 
     return () => window.clearInterval(id);
-  }, [active.length, emblaApi]);
+  }, [activeSlides.length, emblaApi]);
 
-  if (active.length === 0) return null;
+  if (isLoading) {
+    return (
+      <section className="mx-auto w-full max-w-6xl px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+        <div className="overflow-hidden rounded-[28px] border border-[#dfe6dc] bg-gradient-to-br from-white via-[#f8fbf5] to-[#eef5ea] shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <div className="grid min-h-[420px] animate-pulse gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] md:px-10 md:py-10">
+            <div className="flex flex-col justify-center gap-4">
+              <div className="h-4 w-32 rounded-full bg-gray-200" />
+              <div className="h-12 w-3/4 rounded-2xl bg-gray-200" />
+              <div className="h-12 w-2/3 rounded-2xl bg-gray-200" />
+              <div className="h-4 w-full rounded-full bg-gray-100" />
+              <div className="h-4 w-5/6 rounded-full bg-gray-100" />
+              <div className="mt-4 flex gap-3">
+                <div className="h-11 w-32 rounded-full bg-gray-200" />
+                <div className="h-11 w-32 rounded-full bg-gray-200" />
+              </div>
+            </div>
+            <div className="rounded-[24px] bg-white/70" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!activeSlides.length) return null;
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
-      <div className="group relative w-full overflow-hidden rounded-2xl bg-neutral-100 shadow-sm">
-        <div className="embla overflow-hidden rounded-2xl" ref={emblaRef}>
+      <div
+        className="group relative overflow-hidden rounded-[28px] border border-[#dfe6dc] bg-gradient-to-br from-white via-[#f9fbf7] to-[#eef5ea] shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+      >
+        <div className="embla overflow-hidden" ref={emblaRef}>
           <div className="embla__container flex">
-            {active.map((slide, index) => {
-              const overlay = Math.min(slide.overlayOpacity ?? 0.05, 0.1);
-              const isLight = slide.textColor === "light";
+            {activeSlides.map((slide, index) => {
+              const btn1Text = slide.button1_text;
+              const btn1Link = slide.button1_link || "#";
+              const btn2Text = slide.button2_text;
+              const btn2Link = slide.button2_link || "#";
+              const imageUrl = slide.image
+                ? `${slide.image}${slide.image.includes("?") ? "&" : "?"}v=${cacheBuster}`
+                : "";
 
               return (
                 <div
-                  key={`${slide.title}-${index}`}
+                  key={`${slide.title}-${slide.order}-${index}`}
                   className="embla__slide min-w-0 flex-[0_0_100%]"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden md:aspect-[16/7]">
-                    <div className="absolute inset-0">
-                      <SmartImage
-                        src={slide.backgroundImage}
-                        alt={slide.title}
-                        mode="banner"
-                        priority={index === 0}
-                        sizes="(max-width: 768px) 100vw, 1152px"
-                        className="h-full rounded-none"
-                        imageClassName="transition-transform duration-500 ease-out"
-                      />
+                  <div className="grid min-h-[420px] gap-8 px-6 py-8 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] md:px-10 md:py-10">
+                    <div className="flex flex-col justify-center">
+                      {slide.subtitle ? (
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#6BBE45] sm:text-sm">
+                          {slide.subtitle}
+                        </p>
+                      ) : null}
+
+                      <h2 className="mt-3 max-w-xl text-3xl font-semibold leading-tight text-gray-900 sm:text-4xl md:text-5xl">
+                        {slide.title}
+                      </h2>
+
+                      {slide.description ? (
+                        <p className="mt-4 max-w-2xl text-sm leading-7 text-gray-600 sm:text-base">
+                          {slide.description}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-8 flex flex-wrap gap-3">
+                        {btn1Text ? (
+                          <a
+                            href={btn1Link}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0ed145] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0cb73b] md:text-base"
+                          >
+                            {btn1Text}
+                          </a>
+                        ) : null}
+
+                        {btn2Text ? (
+                          <a
+                            href={btn2Link}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 md:text-base"
+                          >
+                            {btn2Text}
+                          </a>
+                        ) : null}
+                      </div>
                     </div>
 
-                    <div
-                      className="absolute inset-0"
-                      style={{ backgroundColor: `rgba(0,0,0,${overlay})` }}
-                    />
-
-                    <div className="relative z-20 flex h-full flex-col justify-end px-5 pb-10 sm:px-8 sm:pb-12 md:px-12 md:pb-14 lg:px-16">
-                      <div className="flex flex-row flex-wrap items-center gap-3 md:gap-4">
-                        <Link
-                          href={slide.primaryCTA.link}
-                          className="inline-flex items-center justify-center rounded-full bg-[#0ed145] px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#0cb73b] md:text-base"
-                        >
-                          {slide.primaryCTA.text}
-                        </Link>
-
-                        {slide.secondaryCTA && (
-                          <Link
-                            href={slide.secondaryCTA.link}
-                            className={`inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-medium transition-colors md:text-base ${
-                              isLight
-                                ? "border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
-                                : "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                            }`}
-                          >
-                            {slide.secondaryCTA.text}
-                          </Link>
-                        )}
-                      </div>
+                    <div className="relative h-[420px] w-full overflow-hidden rounded-[24px] bg-white/80 shadow-inner shadow-[#dce8d4]">
+                      <img
+                        src={imageUrl}
+                        alt={slide.title}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                   </div>
                 </div>
@@ -134,20 +204,20 @@ export default function CampaignHero({ slides }: CampaignHeroProps) {
           </div>
         </div>
 
-        {active.length > 1 && (
+        {activeSlides.length > 1 && (
           <>
             <button
               type="button"
-              onClick={prev}
-              className="absolute left-3 top-1/2 z-30 hidden -translate-y-1/2 rounded-full bg-white/70 p-1.5 text-gray-700 shadow-sm backdrop-blur transition-opacity hover:bg-white md:block md:opacity-0 md:group-hover:opacity-100"
+              onClick={() => emblaApi?.scrollPrev()}
+              className="absolute left-4 top-1/2 z-30 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/90 p-2 text-gray-700 shadow-lg backdrop-blur transition hover:bg-white md:block"
               aria-label="Previous slide"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               type="button"
-              onClick={next}
-              className="absolute right-3 top-1/2 z-30 hidden -translate-y-1/2 rounded-full bg-white/70 p-1.5 text-gray-700 shadow-sm backdrop-blur transition-opacity hover:bg-white md:block md:opacity-0 md:group-hover:opacity-100"
+              onClick={() => emblaApi?.scrollNext()}
+              className="absolute right-4 top-1/2 z-30 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/90 p-2 text-gray-700 shadow-lg backdrop-blur transition hover:bg-white md:block"
               aria-label="Next slide"
             >
               <ChevronRight className="h-5 w-5" />
@@ -155,17 +225,17 @@ export default function CampaignHero({ slides }: CampaignHeroProps) {
           </>
         )}
 
-        {active.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
-            {active.map((_, index) => (
+        {activeSlides.length > 1 && (
+          <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 gap-2">
+            {activeSlides.map((_, index) => (
               <button
                 key={index}
                 type="button"
-                onClick={() => scrollTo(index)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
+                onClick={() => emblaApi?.scrollTo(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
                   index === current
-                    ? "w-5 bg-gray-900"
-                    : "w-1.5 bg-gray-900/25 hover:bg-gray-900/50"
+                    ? "w-8 bg-[#111827]"
+                    : "w-2 bg-gray-300 hover:bg-gray-400"
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
               />

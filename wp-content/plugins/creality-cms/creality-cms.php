@@ -3,7 +3,7 @@
  * Plugin Name: Creality CMS
  * Plugin URI:  https://creality.com.kw
  * Description: Lightweight CMS controls for dynamic Next.js frontend content.
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Creality Kuwait
  * Author URI:  https://creality.com.kw
  * Requires at least: 5.8
@@ -20,13 +20,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Creality_CMS {
 
 	/** Plugin version. */
-	const VERSION = '1.0.0';
+	const VERSION = '1.1.0';
 
 	/** Main menu slug. */
 	const MENU_SLUG = 'creality-cms';
 
-	/** Settings nonce action. */
-	const NONCE_ACTION = 'creality_cms_save_popup';
+	/** Hero slider submenu slug. */
+	const HERO_MENU_SLUG = 'creality-cms-hero-slider';
+
+	/** Popup settings nonce action. */
+	const POPUP_NONCE_ACTION = 'creality_cms_save_popup';
+
+	/** Hero slider settings nonce action. */
+	const HERO_NONCE_ACTION = 'creality_cms_save_hero';
 
 	/** @var self|null */
 	private static $instance = null;
@@ -60,6 +66,7 @@ final class Creality_CMS {
 		add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_init', array( $this, 'handle_popup_form_submission' ) );
+		add_action( 'admin_init', array( $this, 'handle_hero_form_submission' ) );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 	}
 
@@ -87,16 +94,30 @@ final class Creality_CMS {
 			self::MENU_SLUG,
 			array( $this, 'render_popup_settings_page' )
 		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Hero Slider', 'creality-cms' ),
+			__( 'Hero Slider', 'creality-cms' ),
+			'manage_options',
+			self::HERO_MENU_SLUG,
+			array( $this, 'render_hero_settings_page' )
+		);
 	}
 
 	/**
-	 * Enqueue admin assets for the popup settings page only.
+	 * Enqueue admin assets for CMS settings pages only.
 	 *
 	 * @param string $hook_suffix Current admin page hook.
 	 * @return void
 	 */
 	public function enqueue_admin_assets( $hook_suffix ) {
-		if ( 'toplevel_page_' . self::MENU_SLUG !== $hook_suffix ) {
+		$allowed_hooks = array(
+			'toplevel_page_' . self::MENU_SLUG,
+			self::MENU_SLUG . '_page_' . self::HERO_MENU_SLUG,
+		);
+
+		if ( ! in_array( $hook_suffix, $allowed_hooks, true ) ) {
 			return;
 		}
 
@@ -124,7 +145,7 @@ final class Creality_CMS {
 			wp_die( esc_html__( 'You do not have permission to manage these settings.', 'creality-cms' ) );
 		}
 
-		check_admin_referer( self::NONCE_ACTION );
+		check_admin_referer( self::POPUP_NONCE_ACTION );
 
 		$enabled     = isset( $_POST['creality_popup_enabled'] ) ? '1' : '0';
 		$title       = isset( $_POST['creality_popup_title'] ) ? sanitize_text_field( wp_unslash( $_POST['creality_popup_title'] ) ) : '';
@@ -143,6 +164,48 @@ final class Creality_CMS {
 		$redirect_url = add_query_arg(
 			array(
 				'page'    => self::MENU_SLUG,
+				'updated' => '1',
+			),
+			admin_url( 'admin.php' )
+		);
+
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	/**
+	 * Handle hero slider settings save.
+	 *
+	 * @return void
+	 */
+	public function handle_hero_form_submission() {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		if ( ! isset( $_POST['creality_cms_action'] ) || 'save_hero_settings' !== wp_unslash( $_POST['creality_cms_action'] ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage these settings.', 'creality-cms' ) );
+		}
+
+		check_admin_referer( self::HERO_NONCE_ACTION );
+
+		$raw_slides = array();
+
+		if ( isset( $_POST['creality_hero_slides'] ) && is_array( $_POST['creality_hero_slides'] ) ) {
+			$raw_slides = wp_unslash( $_POST['creality_hero_slides'] );
+		}
+
+		$slides = $this->sanitize_hero_slides( $raw_slides );
+
+		update_option( 'creality_hero_slides', $slides );
+
+		$redirect_url = add_query_arg(
+			array(
+				'page'    => self::HERO_MENU_SLUG,
 				'updated' => '1',
 			),
 			admin_url( 'admin.php' )
@@ -179,6 +242,15 @@ final class Creality_CMS {
 	}
 
 	/**
+	 * REST callback for hero slider settings.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function rest_get_hero_slides() {
+		return creality_get_hero_slides();
+	}
+
+	/**
 	 * Get popup settings with safe defaults.
 	 *
 	 * @return array<string,mixed>
@@ -191,6 +263,177 @@ final class Creality_CMS {
 			'image'       => esc_url_raw( (string) get_option( 'creality_popup_image', '' ) ),
 			'button_text' => (string) get_option( 'creality_popup_button_text', '' ),
 			'button_link' => (string) get_option( 'creality_popup_button_link', '' ),
+		);
+	}
+
+	/**
+	 * Get hero slider settings with safe defaults.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function get_hero_slides() {
+		$raw_value = get_option( 'creality_hero_slides', '[]' );
+
+		if ( is_array( $raw_value ) ) {
+			$decoded = $raw_value;
+		} else {
+			$decoded = json_decode( (string) $raw_value, true );
+		}
+
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		return $this->sanitize_hero_slides( $decoded );
+	}
+
+	/**
+	 * Sanitize hero slide data before storage or output.
+	 *
+	 * @param array<int|string,mixed> $slides Raw slide payload.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function sanitize_hero_slides( $slides ) {
+		if ( ! is_array( $slides ) ) {
+			return array();
+		}
+
+		$sanitized = array();
+
+		foreach ( $slides as $index => $slide ) {
+			if ( ! is_array( $slide ) ) {
+				continue;
+			}
+
+			$order = isset( $slide['order'] ) ? intval( $slide['order'] ) : ( count( $sanitized ) + 1 );
+
+			$normalized = array(
+				'enabled'      => ! empty( $slide['enabled'] ),
+				'title'        => isset( $slide['title'] ) ? sanitize_text_field( (string) $slide['title'] ) : '',
+				'subtitle'     => isset( $slide['subtitle'] ) ? sanitize_text_field( (string) $slide['subtitle'] ) : '',
+				'description'  => isset( $slide['description'] ) ? sanitize_textarea_field( (string) $slide['description'] ) : '',
+				'image'        => isset( $slide['image'] ) ? esc_url_raw( (string) $slide['image'] ) : '',
+				'button1_text' => isset( $slide['button1_text'] ) ? sanitize_text_field( (string) $slide['button1_text'] ) : '',
+				'button1_link' => $this->sanitize_link_value( isset( $slide['button1_link'] ) ? (string) $slide['button1_link'] : '' ),
+				'button2_text' => isset( $slide['button2_text'] ) ? sanitize_text_field( (string) $slide['button2_text'] ) : '',
+				'button2_link' => $this->sanitize_link_value( isset( $slide['button2_link'] ) ? (string) $slide['button2_link'] : '' ),
+				'order'        => $order < 0 ? 0 : $order,
+			);
+
+			if ( ! $normalized['enabled'] && ! $this->hero_slide_has_content( $normalized ) ) {
+				continue;
+			}
+
+			$sanitized[] = $normalized;
+		}
+
+		return array_values( $sanitized );
+	}
+
+	/**
+	 * Determine whether a hero slide contains content worth saving.
+	 *
+	 * @param array<string,mixed> $slide Sanitized slide.
+	 * @return bool
+	 */
+	private function hero_slide_has_content( $slide ) {
+		$fields = array(
+			'title',
+			'subtitle',
+			'description',
+			'image',
+			'button1_text',
+			'button1_link',
+			'button2_text',
+			'button2_link',
+		);
+
+		foreach ( $fields as $field ) {
+			if ( ! empty( $slide[ $field ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Sanitize CTA links while allowing internal relative paths.
+	 *
+	 * @param string $value Raw link value.
+	 * @return string
+	 */
+	private function sanitize_link_value( $value ) {
+		$value = sanitize_text_field( trim( $value ) );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( 0 === strpos( $value, '/' ) || 0 === strpos( $value, '#' ) || 0 === strpos( $value, '?' ) ) {
+			return $value;
+		}
+
+		return esc_url_raw( $value );
+	}
+
+	/**
+	 * Sort hero slides by order while keeping sort stable for ties.
+	 *
+	 * @param array<int,array<string,mixed>> $slides Slide payload.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function sort_hero_slides_by_order( $slides ) {
+		$indexed_slides = array();
+
+		foreach ( $slides as $index => $slide ) {
+			$indexed_slides[] = array(
+				'index' => $index,
+				'slide' => $slide,
+			);
+		}
+
+		usort(
+			$indexed_slides,
+			static function ( $left, $right ) {
+				$left_order  = isset( $left['slide']['order'] ) ? intval( $left['slide']['order'] ) : 0;
+				$right_order = isset( $right['slide']['order'] ) ? intval( $right['slide']['order'] ) : 0;
+
+				if ( $left_order === $right_order ) {
+					return intval( $left['index'] ) <=> intval( $right['index'] );
+				}
+
+				return $left_order <=> $right_order;
+			}
+		);
+
+		return array_values(
+			array_map(
+				static function ( $item ) {
+					return $item['slide'];
+				},
+				$indexed_slides
+			)
+		);
+	}
+
+	/**
+	 * Default hero slide payload.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_default_hero_slide() {
+		return array(
+			'enabled'      => false,
+			'title'        => '',
+			'subtitle'     => '',
+			'description'  => '',
+			'image'        => '',
+			'button1_text' => '',
+			'button1_link' => '',
+			'button2_text' => '',
+			'button2_link' => '',
+			'order'        => 1,
 		);
 	}
 
@@ -227,7 +470,7 @@ final class Creality_CMS {
 				<?php endif; ?>
 
 				<form id="creality-cms-popup-form" method="post" action="">
-					<?php wp_nonce_field( self::NONCE_ACTION ); ?>
+					<?php wp_nonce_field( self::POPUP_NONCE_ACTION ); ?>
 					<input type="hidden" name="creality_cms_action" value="save_popup_settings" />
 
 					<div class="creality-cms-card">
@@ -285,17 +528,17 @@ final class Creality_CMS {
 								<label for="creality_popup_image"><?php echo esc_html__( 'Popup Image', 'creality-cms' ); ?></label>
 								<p><?php echo esc_html__( 'Select an image from the WordPress media library.', 'creality-cms' ); ?></p>
 							</div>
-							<div class="creality-cms-image-manager">
+							<div class="creality-cms-image-manager" data-image-manager="popup">
 								<input
 									type="url"
-									class="large-text"
+									class="large-text creality-cms-image-input"
 									id="creality_popup_image"
 									name="creality_popup_image"
 									value="<?php echo esc_attr( $settings['image'] ); ?>"
 									placeholder="<?php echo esc_attr__( 'https://example.com/popup-image.jpg', 'creality-cms' ); ?>"
 								/>
 								<div class="creality-cms-image-actions">
-									<button type="button" class="button creality-cms-upload-button">
+									<button type="button" class="button creality-cms-upload-button" data-media-title="<?php echo esc_attr__( 'Select Popup Image', 'creality-cms' ); ?>" data-media-button="<?php echo esc_attr__( 'Use this image', 'creality-cms' ); ?>">
 										<?php echo esc_html__( 'Choose Image', 'creality-cms' ); ?>
 									</button>
 									<button type="button" class="button creality-cms-remove-button">
@@ -356,6 +599,275 @@ final class Creality_CMS {
 	}
 
 	/**
+	 * Render the hero slider settings page.
+	 *
+	 * @return void
+	 */
+	public function render_hero_settings_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'creality-cms' ) );
+		}
+
+		$slides = $this->sort_hero_slides_by_order( $this->get_hero_slides() );
+		?>
+		<div class="wrap creality-cms-admin">
+			<div class="creality-cms-shell">
+				<div class="creality-cms-header">
+					<div>
+						<h1><?php echo esc_html__( 'Hero Slider', 'creality-cms' ); ?></h1>
+						<p><?php echo esc_html__( 'Manage the homepage hero slider content shown on the Next.js frontend.', 'creality-cms' ); ?></p>
+					</div>
+					<div class="creality-cms-header-actions">
+						<button type="submit" form="creality-cms-hero-form" class="button button-primary button-large">
+							<?php echo esc_html__( 'Save Settings', 'creality-cms' ); ?>
+						</button>
+					</div>
+				</div>
+
+				<?php if ( isset( $_GET['updated'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['updated'] ) ) ) : ?>
+					<div class="notice notice-success is-dismissible creality-cms-notice">
+						<p><?php echo esc_html__( 'Hero slider settings saved successfully.', 'creality-cms' ); ?></p>
+					</div>
+				<?php endif; ?>
+
+				<form id="creality-cms-hero-form" method="post" action="">
+					<?php wp_nonce_field( self::HERO_NONCE_ACTION ); ?>
+					<input type="hidden" name="creality_cms_action" value="save_hero_settings" />
+
+					<div class="creality-cms-card">
+						<div class="creality-cms-card-header creality-cms-card-header-row">
+							<div>
+								<h2><?php echo esc_html__( 'Creality CMS Hero Slider', 'creality-cms' ); ?></h2>
+								<p><?php echo esc_html__( 'Each slide is stored in the single creality_hero_slides JSON option and exposed through /wp-json/creality/v1/hero.', 'creality-cms' ); ?></p>
+							</div>
+							<button type="button" class="button button-secondary creality-cms-add-slide">
+								<?php echo esc_html__( 'Add New Slide', 'creality-cms' ); ?>
+							</button>
+						</div>
+
+						<div class="creality-cms-empty-state <?php echo empty( $slides ) ? '' : 'is-hidden'; ?>">
+							<p><?php echo esc_html__( 'No hero slides yet. Add a slide to start building the homepage slider.', 'creality-cms' ); ?></p>
+						</div>
+
+						<div class="creality-cms-repeater" data-next-index="<?php echo esc_attr( (string) count( $slides ) ); ?>">
+							<?php foreach ( $slides as $index => $slide ) : ?>
+								<?php $this->render_hero_slide_card( $slide, $index ); ?>
+							<?php endforeach; ?>
+						</div>
+					</div>
+
+					<div class="creality-cms-footer-actions">
+						<button type="submit" class="button button-primary button-large">
+							<?php echo esc_html__( 'Save Settings', 'creality-cms' ); ?>
+						</button>
+					</div>
+				</form>
+
+				<script type="text/template" id="tmpl-creality-hero-slide-card">
+					<?php $this->render_hero_slide_card( $this->get_default_hero_slide(), '__index__', '__order__' ); ?>
+				</script>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render a hero slide card.
+	 *
+	 * @param array<string,mixed> $slide Slide data.
+	 * @param int|string          $index Slide index.
+	 * @param int|string|null     $order Default order override.
+	 * @return void
+	 */
+	private function render_hero_slide_card( $slide, $index, $order = null ) {
+		$slide = wp_parse_args( $slide, $this->get_default_hero_slide() );
+
+		$field_index = (string) $index;
+		$order_value = null === $order ? $slide['order'] : $order;
+		$order_value = '' === $order_value ? '' : (string) $order_value;
+		?>
+		<div class="creality-cms-slide-card">
+			<div class="creality-cms-slide-card-header">
+				<div>
+					<h3 class="creality-cms-slide-title"><?php echo esc_html__( 'Slide', 'creality-cms' ); ?></h3>
+					<p><?php echo esc_html__( 'Control the public slider order with the Order field.', 'creality-cms' ); ?></p>
+				</div>
+				<button type="button" class="button button-link-delete creality-cms-remove-slide">
+					<?php echo esc_html__( 'Remove', 'creality-cms' ); ?>
+				</button>
+			</div>
+
+			<div class="creality-cms-slide-grid">
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_enabled' ); ?>"><?php echo esc_html__( 'Enable Slide', 'creality-cms' ); ?></label>
+						<p><?php echo esc_html__( 'Disable the slide without deleting its content.', 'creality-cms' ); ?></p>
+					</div>
+					<label class="creality-cms-switch" for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_enabled' ); ?>">
+						<input
+							type="checkbox"
+							id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_enabled' ); ?>"
+							name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][enabled]' ); ?>"
+							value="1"
+							<?php checked( ! empty( $slide['enabled'] ) ); ?>
+						/>
+						<span class="creality-cms-switch-slider" aria-hidden="true"></span>
+					</label>
+				</div>
+
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_order' ); ?>"><?php echo esc_html__( 'Order', 'creality-cms' ); ?></label>
+						<p><?php echo esc_html__( 'Lower numbers appear first in the API response.', 'creality-cms' ); ?></p>
+					</div>
+					<input
+						type="number"
+						min="0"
+						step="1"
+						class="small-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_order' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][order]' ); ?>"
+						value="<?php echo esc_attr( $order_value ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item creality-cms-slide-grid-item-full">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_title' ); ?>"><?php echo esc_html__( 'Title', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_title' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][title]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['title'] ); ?>"
+						placeholder="<?php echo esc_attr__( 'K2 Plus Combo', 'creality-cms' ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item creality-cms-slide-grid-item-full">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_subtitle' ); ?>"><?php echo esc_html__( 'Subtitle', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_subtitle' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][subtitle]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['subtitle'] ); ?>"
+						placeholder="<?php echo esc_attr__( 'Epic Leap of Color & Size', 'creality-cms' ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item creality-cms-slide-grid-item-full">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_description' ); ?>"><?php echo esc_html__( 'Description', 'creality-cms' ); ?></label>
+					</div>
+					<textarea
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_description' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][description]' ); ?>"
+						rows="4"
+						class="large-text"
+						placeholder="<?php echo esc_attr__( 'Describe the campaign and why it matters on the homepage.', 'creality-cms' ); ?>"
+					><?php echo esc_textarea( (string) $slide['description'] ); ?></textarea>
+				</div>
+
+				<div class="creality-cms-slide-grid-item creality-cms-slide-grid-item-full">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_image' ); ?>"><?php echo esc_html__( 'Image', 'creality-cms' ); ?></label>
+						<p><?php echo esc_html__( 'Choose an image from the media library. Preview updates instantly.', 'creality-cms' ); ?></p>
+					</div>
+					<div class="creality-cms-image-manager" data-image-manager="hero-slide">
+						<input
+							type="url"
+							class="large-text creality-cms-image-input"
+							id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_image' ); ?>"
+							name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][image]' ); ?>"
+							value="<?php echo esc_attr( (string) $slide['image'] ); ?>"
+							placeholder="<?php echo esc_attr__( 'https://example.com/hero-slide.jpg', 'creality-cms' ); ?>"
+						/>
+						<div class="creality-cms-image-actions">
+							<button type="button" class="button creality-cms-upload-button" data-media-title="<?php echo esc_attr__( 'Select Hero Slide Image', 'creality-cms' ); ?>" data-media-button="<?php echo esc_attr__( 'Use this image', 'creality-cms' ); ?>">
+								<?php echo esc_html__( 'Choose Image', 'creality-cms' ); ?>
+							</button>
+							<button type="button" class="button creality-cms-remove-button">
+								<?php echo esc_html__( 'Remove Image', 'creality-cms' ); ?>
+							</button>
+						</div>
+						<div class="creality-cms-image-preview-wrap <?php echo empty( $slide['image'] ) ? 'is-empty' : ''; ?>">
+							<img
+								class="creality-cms-image-preview"
+								src="<?php echo esc_url( (string) $slide['image'] ); ?>"
+								alt="<?php echo esc_attr__( 'Hero slide image preview', 'creality-cms' ); ?>"
+							/>
+							<span class="creality-cms-image-placeholder">
+								<?php echo esc_html__( 'No image selected yet.', 'creality-cms' ); ?>
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button1_text' ); ?>"><?php echo esc_html__( 'Button 1 Text', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button1_text' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][button1_text]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['button1_text'] ); ?>"
+						placeholder="<?php echo esc_attr__( 'Learn More', 'creality-cms' ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button1_link' ); ?>"><?php echo esc_html__( 'Button 1 Link', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button1_link' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][button1_link]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['button1_link'] ); ?>"
+						placeholder="<?php echo esc_attr__( '/product/k2-plus-combo or https://creality.com.kw/page', 'creality-cms' ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button2_text' ); ?>"><?php echo esc_html__( 'Button 2 Text', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button2_text' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][button2_text]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['button2_text'] ); ?>"
+						placeholder="<?php echo esc_attr__( 'Buy Now', 'creality-cms' ); ?>"
+					/>
+				</div>
+
+				<div class="creality-cms-slide-grid-item">
+					<div class="creality-cms-field-copy">
+						<label for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button2_link' ); ?>"><?php echo esc_html__( 'Button 2 Link', 'creality-cms' ); ?></label>
+					</div>
+					<input
+						type="text"
+						class="regular-text"
+						id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_button2_link' ); ?>"
+						name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][button2_link]' ); ?>"
+						value="<?php echo esc_attr( (string) $slide['button2_link'] ); ?>"
+						placeholder="<?php echo esc_attr__( '/checkout or https://creality.com.kw/page', 'creality-cms' ); ?>"
+					/>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Inline admin script.
 	 *
 	 * @return string
@@ -363,14 +875,14 @@ final class Creality_CMS {
 	private function get_admin_script() {
 		return <<<JS
 jQuery(function ($) {
-	var frame;
-	var imageInput = $('#creality_popup_image');
-	var previewWrap = $('.creality-cms-image-preview-wrap');
-	var previewImage = $('.creality-cms-image-preview');
+	function syncManagerPreview(manager) {
+		var input = manager.find('.creality-cms-image-input');
+		var previewWrap = manager.find('.creality-cms-image-preview-wrap');
+		var previewImage = manager.find('.creality-cms-image-preview');
+		var value = $.trim(input.val() || '');
 
-	function syncPreview(url) {
-		if (url) {
-			previewImage.attr('src', url);
+		if (value) {
+			previewImage.attr('src', value);
 			previewWrap.removeClass('is-empty');
 			return;
 		}
@@ -379,18 +891,33 @@ jQuery(function ($) {
 		previewWrap.addClass('is-empty');
 	}
 
-	$('.creality-cms-upload-button').on('click', function (event) {
+	function syncAllPreviews(context) {
+		(context || $(document)).find('[data-image-manager]').each(function () {
+			syncManagerPreview($(this));
+		});
+	}
+
+	function refreshSlideNumbers() {
+		var cards = $('.creality-cms-slide-card');
+		var emptyState = $('.creality-cms-empty-state');
+
+		cards.each(function (index) {
+			$(this).find('.creality-cms-slide-title').text('Slide ' + (index + 1));
+		});
+
+		emptyState.toggleClass('is-hidden', cards.length > 0);
+	}
+
+	$(document).on('click', '.creality-cms-upload-button', function (event) {
 		event.preventDefault();
 
-		if (frame) {
-			frame.open();
-			return;
-		}
-
-		frame = wp.media({
-			title: 'Select Popup Image',
+		var button = $(this);
+		var manager = button.closest('[data-image-manager]');
+		var input = manager.find('.creality-cms-image-input');
+		var frame = wp.media({
+			title: button.data('media-title') || 'Select Image',
 			button: {
-				text: 'Use this image'
+				text: button.data('media-button') || 'Use this image'
 			},
 			library: {
 				type: 'image'
@@ -400,25 +927,57 @@ jQuery(function ($) {
 
 		frame.on('select', function () {
 			var attachment = frame.state().get('selection').first().toJSON();
-			var imageUrl = attachment.url || '';
-			imageInput.val(imageUrl);
-			syncPreview(imageUrl);
+			input.val(attachment.url || '');
+			syncManagerPreview(manager);
 		});
 
 		frame.open();
 	});
 
-	$('.creality-cms-remove-button').on('click', function (event) {
+	$(document).on('click', '.creality-cms-remove-button', function (event) {
 		event.preventDefault();
-		imageInput.val('');
-		syncPreview('');
+
+		var manager = $(this).closest('[data-image-manager]');
+		manager.find('.creality-cms-image-input').val('');
+		syncManagerPreview(manager);
 	});
 
-	imageInput.on('input change', function () {
-		syncPreview($(this).val());
+	$(document).on('input change', '.creality-cms-image-input', function () {
+		syncManagerPreview($(this).closest('[data-image-manager]'));
 	});
 
-	syncPreview(imageInput.val());
+	$(document).on('click', '.creality-cms-add-slide', function (event) {
+		event.preventDefault();
+
+		var repeater = $('.creality-cms-repeater');
+		var template = $('#tmpl-creality-hero-slide-card').html();
+
+		if (!repeater.length || !template) {
+			return;
+		}
+
+		var nextIndex = parseInt(repeater.attr('data-next-index') || '0', 10);
+		var nextOrder = repeater.find('.creality-cms-slide-card').length + 1;
+		var html = template
+			.replace(/__index__/g, String(nextIndex))
+			.replace(/__order__/g, String(nextOrder));
+
+		repeater.append(html);
+		repeater.attr('data-next-index', String(nextIndex + 1));
+
+		var newCard = repeater.find('.creality-cms-slide-card').last();
+		syncAllPreviews(newCard);
+		refreshSlideNumbers();
+	});
+
+	$(document).on('click', '.creality-cms-remove-slide', function (event) {
+		event.preventDefault();
+		$(this).closest('.creality-cms-slide-card').remove();
+		refreshSlideNumbers();
+	});
+
+	syncAllPreviews();
+	refreshSlideNumbers();
 });
 JS;
 	}
@@ -474,6 +1033,13 @@ JS;
 	margin-bottom: 8px;
 }
 
+.creality-cms-card-header-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+}
+
 .creality-cms-card-header h2 {
 	margin: 0 0 6px;
 	font-size: 18px;
@@ -513,7 +1079,12 @@ JS;
 
 .creality-cms-field input[type="text"],
 .creality-cms-field input[type="url"],
-.creality-cms-field textarea {
+.creality-cms-field input[type="number"],
+.creality-cms-field textarea,
+.creality-cms-slide-grid-item input[type="text"],
+.creality-cms-slide-grid-item input[type="url"],
+.creality-cms-slide-grid-item input[type="number"],
+.creality-cms-slide-grid-item textarea {
 	width: 100%;
 	max-width: 100%;
 }
@@ -618,6 +1189,76 @@ JS;
 	margin: 0 0 20px;
 }
 
+.creality-cms-empty-state {
+	margin-top: 16px;
+	padding: 20px;
+	border: 1px dashed #c3c4c7;
+	border-radius: 14px;
+	background: #f6f7f7;
+	color: #646970;
+	text-align: center;
+}
+
+.creality-cms-empty-state.is-hidden {
+	display: none;
+}
+
+.creality-cms-repeater {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	margin-top: 20px;
+}
+
+.creality-cms-slide-card {
+	border: 1px solid #dcdcde;
+	border-radius: 16px;
+	background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+	padding: 20px;
+}
+
+.creality-cms-slide-card-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding-bottom: 18px;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.creality-cms-slide-card-header h3 {
+	margin: 0 0 6px;
+	font-size: 18px;
+}
+
+.creality-cms-slide-card-header p {
+	margin: 0;
+	color: #646970;
+	font-size: 13px;
+}
+
+.creality-cms-slide-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 18px 20px;
+	padding-top: 18px;
+}
+
+.creality-cms-slide-grid-item {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.creality-cms-slide-grid-item-full {
+	grid-column: 1 / -1;
+}
+
+.creality-cms-slide-grid-item .creality-cms-switch {
+	margin-top: 4px;
+}
+
 @media (max-width: 782px) {
 	.creality-cms-header {
 		flex-direction: column;
@@ -636,10 +1277,77 @@ JS;
 		grid-template-columns: 1fr;
 		gap: 12px;
 	}
+
+	.creality-cms-card-header-row,
+	.creality-cms-slide-card-header {
+		flex-direction: column;
+	}
+
+	.creality-cms-slide-grid {
+		grid-template-columns: 1fr;
+	}
 }
 CSS;
 	}
 }
+
+if ( ! function_exists( 'creality_get_hero_slides' ) ) {
+	/**
+	 * Public REST callback for hero slides.
+	 *
+	 * @return WP_REST_Response
+	 */
+	function creality_get_hero_slides() {
+		$slides = get_option( 'creality_hero_slides', array() );
+
+		if ( is_string( $slides ) ) {
+			$slides = json_decode( $slides, true );
+		}
+
+		if ( ! is_array( $slides ) ) {
+			$slides = array();
+		}
+
+		usort(
+			$slides,
+			static function ( $a, $b ) {
+				return intval( $a['order'] ?? 0 ) - intval( $b['order'] ?? 0 );
+			}
+		);
+
+		return rest_ensure_response( $slides );
+	}
+}
+
+if ( ! function_exists( 'creality_cms_register_hero_rest_route' ) ) {
+	/**
+	 * Register the public hero slider REST route.
+	 *
+	 * @return void
+	 */
+	function creality_cms_register_hero_rest_route() {
+		error_log( 'HERO ROUTE REGISTERED' );
+
+		register_rest_route(
+			'creality/v1',
+			'/hero',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => 'creality_get_hero_slides',
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+}
+
+add_action(
+	'init',
+	function () {
+		error_log( 'CREALITY CMS LOADED' );
+	}
+);
+
+add_action( 'rest_api_init', 'creality_cms_register_hero_rest_route' );
 
 add_action(
 	'plugins_loaded',

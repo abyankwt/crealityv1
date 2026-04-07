@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { CrealityPopupData } from "@/types/creality-cms";
+import type {
+  CrealityHeroSlideData,
+  CrealityPopupData,
+} from "@/types/creality-cms";
 
 function getWordPressBaseUrl() {
   return (
@@ -20,7 +23,7 @@ export async function fetchHomepagePopup(): Promise<CrealityPopupData | null> {
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/creality/v1/popup`, {
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     if (!res.ok) {
@@ -39,5 +42,36 @@ export async function fetchHomepagePopup(): Promise<CrealityPopupData | null> {
   } catch (error) {
     console.error("Failed to fetch homepage popup settings:", error);
     return null;
+  }
+}
+
+export async function fetchHomepageHeroSlides(): Promise<CrealityHeroSlideData[]> {
+  const baseUrl = getWordPressBaseUrl();
+
+  if (!baseUrl) {
+    return [];
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/wp-json/creality/v1/hero`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = (await res.json()) as unknown;
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.filter((slide): slide is CrealityHeroSlideData => {
+      return Boolean(slide && typeof slide === "object" && !Array.isArray(slide));
+    });
+  } catch (error) {
+    console.error("Failed to fetch homepage hero slider settings:", error);
+    return [];
   }
 }

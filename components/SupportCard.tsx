@@ -3,15 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 
 const FALLBACK_IMAGE = "/images/product-placeholder.svg";
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 type SupportCardProps = {
   href?: string;
   title: string;
   description?: string;
-  icon?: LucideIcon;
+  icon?: IconComponent;
   image?: string;
   price?: string;
   buttonLabel?: string;

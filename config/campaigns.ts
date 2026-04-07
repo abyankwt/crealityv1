@@ -7,7 +7,8 @@ export type CampaignSlide = {
     label?: string;
     title: string;
     subtitle: string;
-    primaryCTA: CampaignCTA;
+    description?: string;
+    primaryCTA?: CampaignCTA;
     secondaryCTA?: CampaignCTA;
     backgroundImage: string;
     overlayOpacity?: number;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import {
   Box,
   Cog,
@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import type { CategoryNode } from "@/lib/categories";
 
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
 type CategoryColumnProps = {
   category: CategoryNode;
   onNavigate?: () => void;
 };
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
+const CATEGORY_ICONS: Record<string, IconComponent> = {
   "3d-printers": Printer,
   "3d-scanners": ScanLine,
   accessories: Wrench,

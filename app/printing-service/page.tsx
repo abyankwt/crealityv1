@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import {
   Box,
   Boxes,
@@ -17,10 +17,12 @@ import {
 import PrintEstimator from "@/components/printing-service/PrintEstimator";
 import FaqAccordion from "@/components/printing-service/FaqAccordion";
 
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
 type InfoCard = {
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: IconComponent;
 };
 
 const offerCards = [

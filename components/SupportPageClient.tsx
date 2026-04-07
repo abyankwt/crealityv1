@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,7 +13,6 @@ import {
   Search,
   ShieldAlert,
   Wrench,
-  type LucideIcon,
 } from "lucide-react";
 import SupportCard from "@/components/SupportCard";
 import SupportFaqAccordion, {
@@ -52,7 +51,9 @@ const QUICK_ACTIONS = [
 
 const DEFAULT_SERVICE_ICON = Wrench;
 
-const SERVICE_ICONS: Record<string, LucideIcon> = {
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+const SERVICE_ICONS: Record<string, IconComponent> = {
   "maintenance-service": Wrench,
   "maintenance-service-2": Wrench,
   "home-service": House,
