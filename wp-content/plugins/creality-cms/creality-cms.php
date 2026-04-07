@@ -9,7 +9,6 @@
  * Requires at least: 5.8
  * Requires PHP: 7.4
  * Text Domain: creality-cms
- *
  * @package Creality_CMS
  */
 
@@ -33,6 +32,9 @@ final class Creality_CMS {
 
 	/** Hero slider settings nonce action. */
 	const HERO_NONCE_ACTION = 'creality_cms_save';
+
+	/** Hero slider option name. */
+	const HERO_SLIDES_OPTION = 'creality_hero_slides';
 
 	/** @var self|null */
 	private static $instance = null;
@@ -205,23 +207,71 @@ final class Creality_CMS {
 			wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'creality-cms' ) );
 		}
 
+		// --- DEBUG: Log raw POST data to verify form is sending updated values ---
 		$raw_slides = array();
 
 		if ( isset( $_POST['creality_hero_slides'] ) && is_array( $_POST['creality_hero_slides'] ) ) {
 			$raw_slides = wp_unslash( $_POST['creality_hero_slides'] );
 		}
 
-		$slides = array_values( $this->sanitize_hero_slides( $raw_slides ) );
-		$updated = update_option( 'creality_hero_slides', $slides );
 		creality_cms_log_hero_debug(
-			'save',
+			'save_raw_post',
 			array(
-				'raw_count'     => count( $raw_slides ),
-				'saved_count'   => count( $slides ),
-				'updated'       => (bool) $updated,
-				'stored_type'   => gettype( get_option( 'creality_hero_slides', array() ) ),
-				'saved_titles'  => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
-				'redirect_page' => self::HERO_MENU_SLUG,
+				'has_post_key'   => isset( $_POST['creality_hero_slides'] ),
+				'is_array'       => is_array( $_POST['creality_hero_slides'] ?? null ),
+				'raw_count'      => count( $raw_slides ),
+				'raw_slides'     => $raw_slides,
+				'raw_titles'     => array_values( array_map(
+					function ( $s ) {
+						return isset( $s['title'] ) ? (string) $s['title'] : '(missing)';
+					},
+					$raw_slides
+				) ),
+			)
+		);
+
+		$slides = $this->sort_hero_slides_by_order( array_values( $this->sanitize_hero_slides( $raw_slides ) ) );
+
+		creality_cms_log_hero_debug(
+			'save_sanitized',
+			array(
+				'sanitized_count'  => count( $slides ),
+				'sanitized_titles' => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+				'sanitized_hash'   => $this->get_hero_slides_hash( $slides ),
+			)
+		);
+
+		$updated = $this->replace_hero_slides_option( $slides );
+
+		// --- DEBUG: Direct DB readback to verify the write landed ---
+		$stored = $this->get_hero_slides_payload( 'save_readback' );
+
+		global $wpdb;
+		$db_raw = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+				self::HERO_SLIDES_OPTION
+			)
+		);
+
+		creality_cms_log_hero_debug(
+			'save_complete',
+			array_merge(
+				$this->get_hero_debug_context(),
+				array(
+					'raw_count'      => count( $raw_slides ),
+					'saved_count'    => count( $slides ),
+					'updated'        => (bool) $updated,
+					'stored_count'   => count( $stored ),
+					'saved_hash'     => $this->get_hero_slides_hash( $slides ),
+					'stored_hash'    => $this->get_hero_slides_hash( $stored ),
+					'hashes_match'   => $this->get_hero_slides_hash( $slides ) === $this->get_hero_slides_hash( $stored ),
+					'saved_titles'   => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+					'stored_titles'  => array_values( array_map( 'strval', wp_list_pluck( $stored, 'title' ) ) ),
+					'db_raw_length'  => is_string( $db_raw ) ? strlen( $db_raw ) : 0,
+					'db_raw_preview' => is_string( $db_raw ) ? substr( $db_raw, 0, 500 ) : '(null)',
+					'redirect_page'  => self::HERO_MENU_SLUG,
+				)
 			)
 		);
 
@@ -273,6 +323,54 @@ final class Creality_CMS {
 	}
 
 	/**
+	 * Get a sanitized hero slide payload for API or admin consumers.
+	 *
+	 * @param string $debug_event Debug event label.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function get_hero_slides_payload( $debug_event = 'hero_read' ) {
+		// Always flush cache before reading to guarantee fresh DB data,
+		// especially critical for REST API requests.
+		$this->clear_hero_slides_option_cache( true );
+
+		$raw_value = get_option( self::HERO_SLIDES_OPTION, array() );
+		$stored_type = gettype( $raw_value );
+		$decoded_from_legacy_json = false;
+
+		if ( is_array( $raw_value ) ) {
+			$decoded = $raw_value;
+		} elseif ( is_string( $raw_value ) ) {
+			$decoded = json_decode( $raw_value, true );
+			$decoded_from_legacy_json = true;
+		} else {
+			$decoded = array();
+		}
+
+		if ( ! is_array( $decoded ) ) {
+			$decoded = array();
+		}
+
+		$slides = $this->sort_hero_slides_by_order( $this->sanitize_hero_slides( $decoded ) );
+
+		creality_cms_log_hero_debug(
+			$debug_event,
+			array_merge(
+				$this->get_hero_debug_context(),
+				array(
+					'stored_type'              => $stored_type,
+					'decoded_from_legacy_json' => $decoded_from_legacy_json,
+					'count'                    => count( $slides ),
+					'slides_hash'              => $this->get_hero_slides_hash( $slides ),
+					'titles'                   => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+					'slides'                   => $slides,
+				)
+			)
+		);
+
+		return $slides;
+	}
+
+	/**
 	 * Get popup settings with safe defaults.
 	 *
 	 * @return array<string,mixed>
@@ -294,25 +392,7 @@ final class Creality_CMS {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function get_hero_slides() {
-		$raw_value = get_option( 'creality_hero_slides', '[]' );
-		creality_cms_log_hero_debug(
-			'admin_read',
-			array(
-				'stored_type' => gettype( $raw_value ),
-			)
-		);
-
-		if ( is_array( $raw_value ) ) {
-			$decoded = $raw_value;
-		} else {
-			$decoded = json_decode( (string) $raw_value, true );
-		}
-
-		if ( ! is_array( $decoded ) ) {
-			return array();
-		}
-
-		return $this->sanitize_hero_slides( $decoded );
+		return $this->get_hero_slides_payload( 'admin_read' );
 	}
 
 	/**
@@ -333,18 +413,18 @@ final class Creality_CMS {
 				continue;
 			}
 
-			$order = isset( $slide['order'] ) ? intval( $slide['order'] ) : ( count( $sanitized ) + 1 );
+			$order = isset( $slide['order'] ) ? intval( $this->get_slide_scalar( $slide, 'order' ) ) : ( count( $sanitized ) + 1 );
 
 			$normalized = array(
-				'enabled'      => ! empty( $slide['enabled'] ),
-				'title'        => isset( $slide['title'] ) ? sanitize_text_field( (string) $slide['title'] ) : '',
-				'subtitle'     => isset( $slide['subtitle'] ) ? sanitize_text_field( (string) $slide['subtitle'] ) : '',
-				'description'  => isset( $slide['description'] ) ? sanitize_textarea_field( (string) $slide['description'] ) : '',
-				'image'        => isset( $slide['image'] ) ? esc_url_raw( (string) $slide['image'] ) : '',
-				'button1_text' => isset( $slide['button1_text'] ) ? sanitize_text_field( (string) $slide['button1_text'] ) : '',
-				'button1_link' => $this->sanitize_link_value( isset( $slide['button1_link'] ) ? (string) $slide['button1_link'] : '' ),
-				'button2_text' => isset( $slide['button2_text'] ) ? sanitize_text_field( (string) $slide['button2_text'] ) : '',
-				'button2_link' => $this->sanitize_link_value( isset( $slide['button2_link'] ) ? (string) $slide['button2_link'] : '' ),
+				'enabled'      => $this->sanitize_checkbox_value( $slide['enabled'] ?? '0' ),
+				'title'        => sanitize_text_field( $this->get_slide_scalar( $slide, 'title' ) ),
+				'subtitle'     => sanitize_text_field( $this->get_slide_scalar( $slide, 'subtitle' ) ),
+				'description'  => sanitize_textarea_field( $this->get_slide_scalar( $slide, 'description' ) ),
+				'image'        => esc_url_raw( $this->get_slide_scalar( $slide, 'image' ) ),
+				'button1_text' => sanitize_text_field( $this->get_slide_scalar( $slide, 'button1_text' ) ),
+				'button1_link' => $this->sanitize_link_value( $this->get_slide_scalar( $slide, 'button1_link' ) ),
+				'button2_text' => sanitize_text_field( $this->get_slide_scalar( $slide, 'button2_text' ) ),
+				'button2_link' => $this->sanitize_link_value( $this->get_slide_scalar( $slide, 'button2_link' ) ),
 				'order'        => $order < 0 ? 0 : $order,
 			);
 
@@ -356,6 +436,133 @@ final class Creality_CMS {
 		}
 
 		return array_values( $sanitized );
+	}
+
+	/**
+	 * Replace the hero slider option so WordPress always persists the latest payload.
+	 *
+	 * Uses delete_option + add_option instead of update_option to bypass
+	 * the WordPress comparison check that silently skips writes when
+	 * old === new after serialization.
+	 *
+	 * @param array<int,array<string,mixed>> $slides Sanitized slides.
+	 * @return bool
+	 */
+	private function replace_hero_slides_option( $slides ) {
+		// Flush all caches BEFORE the write so stale cached values
+		// cannot interfere with the comparison inside update_option.
+		$this->clear_hero_slides_option_cache( true );
+
+		// Force-write: delete first, then add.
+		// update_option() returns false if old === new (no DB write).
+		// By deleting first we guarantee the value is always written.
+		delete_option( self::HERO_SLIDES_OPTION );
+		$added = add_option( self::HERO_SLIDES_OPTION, $slides, '', 'no' );
+
+		// Flush caches AFTER the write so the next read hits the DB.
+		$this->clear_hero_slides_option_cache( true );
+
+		creality_cms_log_hero_debug(
+			'replace_option',
+			array(
+				'added'       => (bool) $added,
+				'slide_count' => count( $slides ),
+				'titles'      => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
+			)
+		);
+
+		return (bool) $added;
+	}
+
+	/**
+	 * Clear the hero slider option from WordPress object cache.
+	 *
+	 * @param bool $flush Whether to flush the full object cache after invalidation.
+	 * @return void
+	 */
+	private function clear_hero_slides_option_cache( $flush = false ) {
+		wp_cache_delete( self::HERO_SLIDES_OPTION, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		if ( function_exists( 'wp_cache_flush_group' ) ) {
+			wp_cache_flush_group( 'options' );
+		}
+
+		if ( $flush ) {
+			wp_cache_flush();
+		}
+	}
+
+	/**
+	 * Build a debug context to verify admin and REST requests share the same site.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_hero_debug_context() {
+		global $wpdb;
+
+		return array(
+			'option_key' => self::HERO_SLIDES_OPTION,
+			'admin_url'  => admin_url( 'admin.php?page=' . self::HERO_MENU_SLUG ),
+			'site_url'   => site_url(),
+			'home_url'   => home_url(),
+			'rest_url'   => rest_url( 'creality/v1/hero' ),
+			'db_name'    => defined( 'DB_NAME' ) ? DB_NAME : '',
+			'db_prefix'  => isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '',
+			'blog_id'    => function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 0,
+		);
+	}
+
+	/**
+	 * Create a stable payload fingerprint for hero slide debug logging.
+	 *
+	 * @param array<int,array<string,mixed>> $slides Sanitized slides.
+	 * @return string
+	 */
+	private function get_hero_slides_hash( $slides ) {
+		return md5( wp_json_encode( $slides ) );
+	}
+
+	/**
+	 * Read a scalar slide field and discard unexpected nested arrays or objects.
+	 *
+	 * @param array<string,mixed> $slide Slide payload.
+	 * @param string              $key   Slide field key.
+	 * @return string
+	 */
+	private function get_slide_scalar( $slide, $key ) {
+		if ( ! array_key_exists( $key, $slide ) ) {
+			return '';
+		}
+
+		$value = $slide[ $key ];
+
+		if ( is_scalar( $value ) ) {
+			return (string) $value;
+		}
+
+		return '';
+	}
+
+	/**
+	 * Normalize checkbox-like values to strict booleans.
+	 *
+	 * @param mixed $value Raw checkbox value.
+	 * @return bool
+	 */
+	private function sanitize_checkbox_value( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		if ( ! is_scalar( $value ) ) {
+			return false;
+		}
+
+		$normalized = strtolower( sanitize_text_field( trim( (string) $value ) ) );
+
+		return in_array( $normalized, array( '1', 'true', 'on', 'yes' ), true );
 	}
 
 	/**
@@ -732,6 +939,11 @@ final class Creality_CMS {
 						<p><?php echo esc_html__( 'Disable the slide without deleting its content.', 'creality-cms' ); ?></p>
 					</div>
 					<label class="creality-cms-switch" for="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_enabled' ); ?>">
+						<input
+							type="hidden"
+							name="<?php echo esc_attr( 'creality_hero_slides[' . $field_index . '][enabled]' ); ?>"
+							value="0"
+						/>
 						<input
 							type="checkbox"
 							id="<?php echo esc_attr( 'creality_hero_slides_' . $field_index . '_enabled' ); ?>"
@@ -1346,40 +1558,22 @@ if ( ! function_exists( 'creality_get_hero_slides' ) ) {
 	/**
 	 * Public REST callback for hero slides.
 	 *
+	 * Sends no-cache headers so proxies / CDNs / browsers never
+	 * serve a stale copy of the hero payload.
+	 *
 	 * @return WP_REST_Response
 	 */
 	function creality_get_hero_slides() {
-		$slides = get_option( 'creality_hero_slides', array() );
-		$stored_type = gettype( $slides );
-		$decoded_from_legacy_json = false;
+		$slides = Creality_CMS::instance()->get_hero_slides_payload( 'rest_read' );
 
-		if ( is_string( $slides ) ) {
-			$slides = json_decode( $slides, true );
-			$decoded_from_legacy_json = true;
-		}
+		$response = rest_ensure_response( $slides );
 
-		if ( ! is_array( $slides ) ) {
-			$slides = array();
-		}
+		// Prevent any HTTP-level caching of this endpoint.
+		$response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+		$response->header( 'Pragma', 'no-cache' );
+		$response->header( 'Expires', '0' );
 
-		usort(
-			$slides,
-			static function ( $a, $b ) {
-				return intval( $a['order'] ?? 0 ) - intval( $b['order'] ?? 0 );
-			}
-		);
-
-		creality_cms_log_hero_debug(
-			'rest_read',
-			array(
-				'stored_type'              => $stored_type,
-				'decoded_from_legacy_json' => $decoded_from_legacy_json,
-				'count'                    => count( $slides ),
-				'titles'                   => array_values( array_map( 'strval', wp_list_pluck( $slides, 'title' ) ) ),
-			)
-		);
-
-		return rest_ensure_response( $slides );
+		return $response;
 	}
 }
 
