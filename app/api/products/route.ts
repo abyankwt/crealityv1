@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCatalogProducts } from "@/lib/catalog";
+import { fetchPrinterSubmenuProducts } from "@/lib/catalog";
 import {
   filterProductsForSection,
   resolveProductSectionFromSlug,
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag") ?? searchParams.get("promotion") ?? undefined;
     const exclude = searchParams.get("exclude");
     const usedPrinters = searchParams.get("used_printers");
+    const printerSubmenuSlug = searchParams.get("printer_submenu_slug") ?? undefined;
+    const cacheMode = searchParams.get("cache") === "no-store" ? "no-store" : undefined;
     const section: ProductSection =
       usedPrinters === "1" || usedPrinters === "true"
         ? "used_printers"
@@ -38,6 +41,15 @@ export async function GET(request: NextRequest) {
             page,
             perPage,
           })
+        : printerSubmenuSlug
+        ? await fetchPrinterSubmenuProducts({
+            submenuSlug: printerSubmenuSlug,
+            page,
+            perPage,
+            sort,
+            stockStatus: stock_status,
+            cache: cacheMode,
+          })
         : search || category || orderby || order
         ? await fetchProducts({
             page,
@@ -48,6 +60,7 @@ export async function GET(request: NextRequest) {
             order: order ?? undefined,
             category: category ? Number(category) : undefined,
             tag,
+            cache: cacheMode,
           })
         : await fetchCatalogProducts({
             page,
@@ -63,12 +76,14 @@ export async function GET(request: NextRequest) {
           });
 
     const excludedId = exclude ? Number(exclude) : undefined;
-    const sectionFilteredProducts = filterProductsForSection(result.data, section);
+    const baseProducts = printerSubmenuSlug
+      ? result.data
+      : filterProductsForSection(result.data, section);
     const products = Number.isFinite(excludedId)
-      ? sectionFilteredProducts.filter((product) => product.id !== excludedId)
-      : sectionFilteredProducts;
+      ? baseProducts.filter((product) => product.id !== excludedId)
+      : baseProducts;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       products,
       pagination: {
         page,
@@ -77,6 +92,12 @@ export async function GET(request: NextRequest) {
         totalProducts: result.totalProducts,
       },
     });
+
+    if (cacheMode === "no-store") {
+      response.headers.set("Cache-Control", "no-store");
+    }
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

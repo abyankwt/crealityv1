@@ -7,9 +7,16 @@ import {
 } from "@/lib/mockCategoryProducts";
 import { fetchPreOrderProducts } from "@/lib/preOrders";
 import {
+  filterProductsByCategorySlugs,
   filterProductsForSection,
+  isPreOrderSectionProduct,
+  productMatchesAnyToken,
   resolveProductSectionFromSlug,
 } from "@/lib/productLogic";
+import {
+  getPrinterSubmenuProductCategorySlugs,
+  getPrinterSubmenuProductMatchTokens,
+} from "@/lib/categories";
 import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 import type { FetchProductsResult } from "@/lib/woocommerce";
 import type { Product } from "@/lib/woocommerce-types";
@@ -30,6 +37,15 @@ export type CatalogRequest = {
   sort?: string;
   stockStatus?: string;
   tag?: string;
+};
+
+type FetchPrinterSubmenuProductsRequest = {
+  submenuSlug: string;
+  page?: number;
+  perPage?: number;
+  sort?: string;
+  stockStatus?: string;
+  cache?: RequestCache;
 };
 
 export function getCatalogParam(
@@ -92,6 +108,45 @@ function paginateProducts(
   };
 }
 
+async function fetchAllProductsForFiltering({
+  perPage,
+  orderby,
+  order,
+  stockStatus,
+  cache,
+}: {
+  perPage: number;
+  orderby: string;
+  order: SortOrder;
+  stockStatus?: string;
+  cache?: RequestCache;
+}) {
+  const firstPage = await fetchProducts({
+    page: 1,
+    perPage,
+    orderby,
+    order,
+    stock_status: stockStatus,
+    cache,
+  });
+
+  const products = [...firstPage.data];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const result = await fetchProducts({
+      page,
+      perPage,
+      orderby,
+      order,
+      stock_status: stockStatus,
+      cache,
+    });
+    products.push(...result.data);
+  }
+
+  return products;
+}
+
 function getMockCategoryFallback(
   categorySlug: string,
   page: number,
@@ -108,6 +163,48 @@ function getMockCategoryFallback(
     page,
     perPage
   );
+}
+
+export async function fetchPrinterSubmenuProducts({
+  submenuSlug,
+  page = 1,
+  perPage = 12,
+  sort,
+  stockStatus,
+  cache = "no-store",
+}: FetchPrinterSubmenuProductsRequest): Promise<FetchProductsResult> {
+  const matchedSlugs = getPrinterSubmenuProductCategorySlugs(submenuSlug);
+  const matchedTokens = getPrinterSubmenuProductMatchTokens(submenuSlug);
+
+  if (matchedSlugs.length === 0 && matchedTokens.length === 0) {
+    return {
+      data: [],
+      totalPages: 0,
+      totalProducts: 0,
+    };
+  }
+
+  const { orderby, order } = resolveCatalogSort(sort);
+  const allProducts = await fetchAllProductsForFiltering({
+    perPage: 100,
+    orderby,
+    order,
+    stockStatus,
+    cache,
+  });
+
+  const filteredProducts = allProducts.filter((product) => {
+    if (filterProductsByCategorySlugs([product], matchedSlugs).length > 0) {
+      return true;
+    }
+
+    return (
+      isPreOrderSectionProduct(product) &&
+      productMatchesAnyToken(product, matchedTokens)
+    );
+  });
+
+  return paginateProducts(filteredProducts, page, perPage);
 }
 
 export async function fetchCatalogProducts({

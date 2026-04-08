@@ -40,6 +40,10 @@ function getCategoryLinks(category: CategoryNode) {
       id: child.id,
       name: child.name,
       slug: child.slug,
+      href:
+        category.slug === "3d-printers"
+          ? `/3d-printers/${child.slug}`
+          : `/category/${child.slug}`,
     }));
   }
 
@@ -48,6 +52,7 @@ function getCategoryLinks(category: CategoryNode) {
       id: category.id,
       name: category.name,
       slug: category.slug,
+      href: `/category/${category.slug}`,
     },
   ];
 }
@@ -75,7 +80,7 @@ export default function CategoryColumn({
           {links.map((link) => (
             <Link
               key={link.id}
-              href={`/category/${link.slug}`}
+              href={link.href}
               prefetch
               className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-gray-700 transition duration-150 ease-out hover:translate-x-1 hover:bg-gray-50 hover:text-black"
               role="menuitem"

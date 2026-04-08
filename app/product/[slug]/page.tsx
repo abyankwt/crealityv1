@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { fetchRelatedStoreProducts, fetchStoreProductBySlug } from "@/lib/store";
+import {
+  fetchRelatedStoreProducts,
+  fetchStoreProductBySlugNoStore,
+} from "@/lib/store";
 import ProductDetail from "@/components/ProductDetail";
+
+export const dynamic = "force-dynamic";
 
 type ProductPageProps = {
   params: Promise<{
@@ -16,7 +21,7 @@ export async function generateMetadata(
   { params }: ProductPageProps
 ): Promise<Metadata> {
   const { slug } = await params;
-  const product = await fetchStoreProductBySlug(slug);
+  const product = await fetchStoreProductBySlugNoStore(slug);
   if (!product) {
     return {
       title: "Product not found | Creality Kuwait",
@@ -34,7 +39,7 @@ export async function generateMetadata(
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await fetchStoreProductBySlug(slug);
+  const product = await fetchStoreProductBySlugNoStore(slug);
 
   if (!product) {
     console.warn(`[ProductPage] Missing product slug: ${slug}`);

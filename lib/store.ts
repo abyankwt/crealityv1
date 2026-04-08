@@ -12,8 +12,10 @@ import type { Product } from "@/lib/woocommerce-types";
 import { fetchProducts, fetchProductBySlug } from "@/lib/woocommerce";
 import { fetchUsedPrinterProductBySlug, fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 
-export const fetchStoreProductBySlug = cache(async (slug: string) => {
-  const product = await fetchProductBySlug(slug);
+async function fetchStoreProduct(slug: string, cacheMode?: RequestCache) {
+  const product = await fetchProductBySlug(slug, {
+    cache: cacheMode,
+  });
   if (product) {
     if (isUsedPrinterProduct(product) && !isVisibleUsedPrinterProduct(product)) {
       return null;
@@ -23,7 +25,15 @@ export const fetchStoreProductBySlug = cache(async (slug: string) => {
   }
 
   return fetchUsedPrinterProductBySlug(slug);
-});
+}
+
+export const fetchStoreProductBySlug = cache(async (slug: string) =>
+  fetchStoreProduct(slug)
+);
+
+export async function fetchStoreProductBySlugNoStore(slug: string) {
+  return fetchStoreProduct(slug, "no-store");
+}
 
 export async function fetchRelatedStoreProducts(
   product: Product,

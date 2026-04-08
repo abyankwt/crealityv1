@@ -13,6 +13,7 @@ import { getProductAvailability } from "@/lib/productAvailability";
 import type { ProductAvailability } from "@/lib/productAvailability";
 import { formatPrice, getProductPriceInfo } from "@/lib/price";
 import {
+  resolveProductSection,
   resolveDisplayProductOrderType,
   type ProductSection,
 } from "@/lib/productLogic";
@@ -24,14 +25,19 @@ type ProductCardProps = {
   product_order_type?: Product["product_order_type"];
   onAddToCart?: (message?: string) => void;
   onAddToCartError?: (message?: string) => void;
+  showShortDescription?: boolean;
 };
+
+const stripHtml = (value?: string) =>
+  value?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ?? "";
 
 export default function ProductCard({
   product,
-  section = "default",
+  section,
   product_order_type,
   onAddToCart,
   onAddToCartError,
+  showShortDescription = false,
 }: ProductCardProps) {
   const router = useRouter();
   const { addItem } = useCart();
@@ -46,10 +52,12 @@ export default function ProductCard({
 
   const resolvedImage = resolveImageSource(product.images?.[0]);
   const priceInfo = getProductPriceInfo(product);
+  const shortDescription = stripHtml(product.short_description);
+  const resolvedSection = section ?? resolveProductSection(product);
   const productOrderType =
     product_order_type ??
-    resolveDisplayProductOrderType(product, section);
-  const availability = getProductAvailability(product, section);
+    resolveDisplayProductOrderType(product, resolvedSection);
+  const availability = getProductAvailability(product, resolvedSection);
   const optimisticCartItem =
     product.id > 0
       ? {
@@ -200,6 +208,12 @@ export default function ProductCard({
               {product.name}
             </h3>
           </Link>
+
+          {showShortDescription && shortDescription ? (
+            <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">
+              {shortDescription}
+            </p>
+          ) : null}
 
           <div className="mt-2">
             {priceInfo.hasSale ? (

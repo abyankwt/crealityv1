@@ -21,6 +21,12 @@ type DrawerSection = NavigationItem & {
   children?: NavigationLink[];
 };
 
+function getChildCategoryHref(parentSlug: string, childSlug: string) {
+  return parentSlug === "3d-printers"
+    ? `/3d-printers/${childSlug}`
+    : `/category/${childSlug}`;
+}
+
 function DrawerRow({
   section,
   expanded,
@@ -161,7 +167,7 @@ function CategoryAccordion({
                     {category.children.map((child) => (
                       <Link
                         key={child.id}
-                        href={`/category/${child.slug}`}
+                        href={getChildCategoryHref(category.slug, child.slug)}
                         prefetch
                         className="text-sm text-gray-700 transition hover:text-black"
                         onClick={onNavigate}
