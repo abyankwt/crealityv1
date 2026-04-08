@@ -10,10 +10,12 @@ import {
 } from "@/config/navigation";
 import { buildMobileCategorySections } from "@/lib/categoryGroups";
 import type { CategoryNode } from "@/lib/categories";
+import type { MaterialsMenuGroup } from "@/lib/materials";
 
 type MobileDrawerMenuProps = {
   navigation: NavigationItem[];
   categories: CategoryNode[];
+  materialsGroups: MaterialsMenuGroup[];
   onNavigate?: () => void;
 };
 
@@ -180,9 +182,83 @@ function CategoryAccordion({
   );
 }
 
+function MaterialsAccordion({
+  groups,
+  onNavigate,
+}: {
+  groups: MaterialsMenuGroup[];
+  onNavigate?: () => void;
+}) {
+  const [openGroupId, setOpenGroupId] = useState<string | null>(
+    groups[0]?.id ?? null
+  );
+
+  return (
+    <div className="space-y-4 pb-4 pl-4">
+      {groups.map((group) => {
+        const expanded = openGroupId === group.id;
+        const contentId = `mobile-material-group-${group.id}`;
+
+        return (
+          <div
+            key={group.id}
+            className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setOpenGroupId((current) => (current === group.id ? null : group.id))
+              }
+              className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+              aria-expanded={expanded}
+              aria-controls={contentId}
+            >
+              <span className="text-base font-semibold leading-tight text-gray-900">
+                {group.label}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${
+                  expanded ? "rotate-180" : "rotate-0"
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+
+            <div
+              id={contentId}
+              className={`grid transition-all duration-300 ${
+                expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="border-t border-gray-200 px-4 py-3">
+                  <div className="flex flex-col gap-2.5 pl-1">
+                    {group.links.map((link) => (
+                      <Link
+                        key={link.slug}
+                        href={link.href}
+                        prefetch
+                        className="text-sm text-gray-700 transition hover:text-black"
+                        onClick={onNavigate}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function MobileDrawerMenu({
   navigation,
   categories,
+  materialsGroups,
   onNavigate,
 }: MobileDrawerMenuProps) {
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -255,6 +331,56 @@ export default function MobileDrawerMenu({
                   <div className="overflow-hidden">
                     <CategoryAccordion
                       sections={categorySections}
+                      onNavigate={onNavigate}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (section.kind === "materials") {
+            return (
+              <div
+                key={section.id}
+                className="border-b border-gray-100 transition hover:bg-gray-50"
+              >
+                <div className="flex items-center justify-between gap-4 py-4">
+                  <Link
+                    href={section.href}
+                    prefetch
+                    className="min-w-0 flex-1 text-sm font-medium text-gray-900"
+                    onClick={onNavigate}
+                  >
+                    {section.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    className="rounded-md p-1 text-gray-400 transition hover:text-gray-900"
+                    aria-expanded={expanded}
+                    aria-controls={`${section.id}-submenu`}
+                    aria-label={`${expanded ? "Collapse" : "Expand"} ${section.label}`}
+                  >
+                    <ChevronDown
+                      size={18}
+                      className={`transition-transform duration-300 ${
+                        expanded ? "rotate-180" : "rotate-0"
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
+
+                <div
+                  id={`${section.id}-submenu`}
+                  className={`grid transition-all duration-300 ${
+                    expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <MaterialsAccordion
+                      groups={materialsGroups}
                       onNavigate={onNavigate}
                     />
                   </div>

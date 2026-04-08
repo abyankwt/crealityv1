@@ -53,8 +53,8 @@ const DEMO_CATEGORY_TREE: CategoryNode[] = [
       },
       {
         id: 106,
-        name: "Halot Series",
-        slug: "halot-series",
+        name: "Resin Series",
+        slug: "resin-series",
         image: null,
         children: [],
       },
@@ -154,21 +154,7 @@ const DEMO_CATEGORY_TREE: CategoryNode[] = [
       },
     ],
   },
-  {
-    id: 5,
-    name: "Washing & Curing",
-    slug: "washing-curing",
-    image: null,
-    children: [
-      {
-        id: 501,
-        name: "Washing & Curing Series",
-        slug: "washing-curing-series",
-        image: null,
-        children: [],
-      },
-    ],
-  },
+
   {
     id: 6,
     name: "Laser & Milling",

@@ -16,7 +16,7 @@ const SERIES_OPTIONS = [
     { label: "Resin Printers", value: "resin-printers" },
     { label: "K1 Series", value: "k1-series" },
     { label: "Ender Series", value: "ender-series" },
-    { label: "Halot Series", value: "halot-series" },
+    { label: "Resin Series", value: "resin-series" },
 ];
 
 export default function FilterBar({ totalCount }: { totalCount?: number }) {

@@ -2,6 +2,7 @@
 
 import type { NavigationItem } from "@/config/navigation";
 import type { CategoryNode } from "@/lib/categories";
+import type { MaterialsMenuGroup } from "@/lib/materials";
 import MobileDrawerMenu from "./MobileDrawerMenu";
 
 type MobileMenuProps = {
@@ -9,6 +10,7 @@ type MobileMenuProps = {
   onClose: () => void;
   navigation: NavigationItem[];
   categories: CategoryNode[];
+  materialsGroups: MaterialsMenuGroup[];
 };
 
 export default function MobileMenu({
@@ -16,6 +18,7 @@ export default function MobileMenu({
   onClose,
   navigation,
   categories,
+  materialsGroups,
 }: MobileMenuProps) {
   if (!open) return null;
 
@@ -44,6 +47,7 @@ export default function MobileMenu({
         <MobileDrawerMenu
           navigation={navigation}
           categories={categories}
+          materialsGroups={materialsGroups}
           onNavigate={onClose}
         />
       </div>

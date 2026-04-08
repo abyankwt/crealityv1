@@ -13,16 +13,17 @@ export type MobileCategorySection = {
   allLabel: string;
 };
 
+/**
+ * Materials has its own dedicated grouped navigation (Filament / Resin).
+ * Exclude it from generic category listings to prevent flat rendering.
+ */
+const EXCLUDED_CATEGORY_SLUGS = new Set(["materials", "washing-curing"]);
+
 const GROUP_BLUEPRINT = [
   {
     id: "machines",
     label: "3D Printers",
     slugs: ["3d-printers", "3d-scanners", "laser-milling"],
-  },
-  {
-    id: "materials",
-    label: "Materials",
-    slugs: ["materials", "washing-curing"],
   },
   {
     id: "essentials",
@@ -50,18 +51,7 @@ const MOBILE_SECTION_BLUEPRINT = [
     slug: "laser-milling",
     allLabel: "All Laser & Milling",
   },
-  {
-    id: "materials",
-    label: "Materials",
-    slug: "materials",
-    allLabel: "All Materials",
-  },
-  {
-    id: "washing-curing",
-    label: "Washing & Curing",
-    slug: "washing-curing",
-    allLabel: "All Washing & Curing",
-  },
+
   {
     id: "accessories-tools",
     label: "Accessories & Tools",
@@ -98,7 +88,9 @@ export function buildCategoryGroups(categories: CategoryNode[]): CategoryGroup[]
     };
   }).filter((group) => group.categories.length > 0);
 
-  const remaining = categories.filter((category) => !used.has(category.slug));
+  const remaining = categories.filter(
+    (category) => !used.has(category.slug) && !EXCLUDED_CATEGORY_SLUGS.has(category.slug)
+  );
   if (remaining.length > 0) {
     groups.push({
       id: "more",
@@ -133,7 +125,7 @@ export function buildMobileCategorySections(
   });
 
   const remainingSections = categories
-    .filter((category) => !used.has(category.slug))
+    .filter((category) => !used.has(category.slug) && !EXCLUDED_CATEGORY_SLUGS.has(category.slug))
     .map((category) => ({
       id: category.slug,
       label: category.name,

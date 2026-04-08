@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCatalogProducts } from "@/lib/catalog";
+import { fetchCatalogProducts, resolveCatalogSort } from "@/lib/catalog";
 import {
   filterProductsForSection,
   resolveProductSectionFromSlug,
   type ProductSection,
 } from "@/lib/productLogic";
-import { fetchProducts } from "@/lib/woocommerce";
+import { fetchProducts, fetchProductsByCategory } from "@/lib/woocommerce";
 import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 import type { ProductOrderType } from "@/lib/woocommerce-types";
 
@@ -25,18 +25,28 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag") ?? searchParams.get("promotion") ?? undefined;
     const exclude = searchParams.get("exclude");
     const usedPrinters = searchParams.get("used_printers");
+    const cacheMode = searchParams.get("cache_mode") === "no-store" ? "no-store" : undefined;
+    const strictCategory = searchParams.get("strict_category") === "1";
     const section: ProductSection =
       usedPrinters === "1" || usedPrinters === "true"
         ? "used_printers"
         : productOrderType === "pre_order"
         ? "preorders"
         : resolveProductSectionFromSlug(categorySlug);
+    const resolvedSort = resolveCatalogSort(sort);
 
     const result =
       section === "used_printers"
         ? await fetchUsedPrinterProducts({
             page,
             perPage,
+          })
+        : strictCategory && categorySlug
+        ? await fetchProductsByCategory(categorySlug, page, {
+            orderby: orderby ?? resolvedSort.orderby,
+            order: order ?? resolvedSort.order,
+            stock_status,
+            cacheMode,
           })
         : search || category || orderby || order
         ? await fetchProducts({
@@ -48,6 +58,7 @@ export async function GET(request: NextRequest) {
             order: order ?? undefined,
             category: category ? Number(category) : undefined,
             tag,
+            cacheMode,
           })
         : await fetchCatalogProducts({
             page,
@@ -60,6 +71,7 @@ export async function GET(request: NextRequest) {
             sort,
             stockStatus: stock_status,
             tag,
+            cacheMode,
           });
 
     const excludedId = exclude ? Number(exclude) : undefined;

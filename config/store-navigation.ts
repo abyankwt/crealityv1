@@ -24,7 +24,7 @@ export const STORE_NAVIGATION: NavGroup[] = [
       },
       {
         title: "Resin Series",
-        categories: ["resin-printers", "halot-series"],
+        categories: ["resin-printers", "resin-series"],
       },
       {
         title: "Laser & Milling",
@@ -32,19 +32,7 @@ export const STORE_NAVIGATION: NavGroup[] = [
       },
     ],
   },
-  {
-    title: "Materials",
-    groups: [
-      {
-        title: "Filament",
-        categories: ["pla", "abs", "petg"],
-      },
-      {
-        title: "Resin Types",
-        categories: ["resin", "water-washable-resin", "abs-like-resin"],
-      },
-    ],
-  },
+
   {
     title: "Spare Parts",
     groups: [

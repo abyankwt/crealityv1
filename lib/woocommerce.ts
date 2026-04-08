@@ -91,6 +91,8 @@ export type FetchProductsOptions = {
   category?: number;
   tag?: string;
   include?: string;
+  cacheMode?: "default" | "no-store";
+  revalidate?: number;
 };
 
 export type FetchProductsResult = {
@@ -105,6 +107,8 @@ export type FetchProductsByCategoryOptions = {
   order?: SortOrder;
   stock_status?: string;
   seriesSlug?: string;
+  cacheMode?: "default" | "no-store";
+  revalidate?: number;
 };
 
 type StoreRequestResult<T> = {
@@ -115,6 +119,7 @@ type StoreRequestResult<T> = {
 
 type StoreRequestOptions<T> = {
   fallbackData: T;
+  cacheMode?: "default" | "no-store";
   revalidate?: number;
 };
 
@@ -286,9 +291,13 @@ async function storeRequest<T>(
       headers: {
         Accept: "application/json",
       },
-      next: {
-        revalidate: options.revalidate ?? STORE_API_REVALIDATE_SECONDS,
-      },
+      ...(options.cacheMode === "no-store"
+        ? { cache: "no-store" as const }
+        : {
+            next: {
+              revalidate: options.revalidate ?? STORE_API_REVALIDATE_SECONDS,
+            },
+          }),
       signal: controller.signal,
     });
 
@@ -363,7 +372,11 @@ export async function fetchProducts(
       tag: options.tag,
       include: options.include,
     },
-    { fallbackData: [] }
+    {
+      fallbackData: [],
+      cacheMode: options.cacheMode,
+      revalidate: options.revalidate,
+    }
   );
 
   return {
@@ -390,10 +403,17 @@ export async function fetchProductsByIds(ids: number[]): Promise<FetchProductsRe
   });
 }
 
-export async function fetchProductCategories(): Promise<ProductCategory[]> {
+export async function fetchProductCategories(options: {
+  cacheMode?: "default" | "no-store";
+  revalidate?: number;
+} = {}): Promise<ProductCategory[]> {
   const { data } = await storeRequest<RawProductCategory[]>("products/categories", {
-    per_page: 12,
-  }, { fallbackData: [] });
+    per_page: 100,
+  }, {
+    fallbackData: [],
+    cacheMode: options.cacheMode,
+    revalidate: options.revalidate,
+  });
 
   return data.map(normalizeCategory);
 }
@@ -403,7 +423,10 @@ export async function fetchProductsByCategory(
   page = 1,
   options: FetchProductsByCategoryOptions = {}
 ): Promise<FetchProductsResult> {
-  const categories = await fetchProductCategories();
+  const categories = await fetchProductCategories({
+    cacheMode: options.cacheMode,
+    revalidate: options.revalidate,
+  });
   const matchedCategory = categories.find((item) => item.slug === category);
 
   if (!matchedCategory) {
@@ -424,5 +447,7 @@ export async function fetchProductsByCategory(
     orderby: options.orderby,
     order: options.order,
     stock_status: options.stock_status,
+    cacheMode: options.cacheMode,
+    revalidate: options.revalidate,
   });
 }

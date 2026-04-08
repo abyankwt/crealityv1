@@ -16,6 +16,7 @@ import {
   fetchHomepagePopup,
   fetchSeasonalCampaign,
 } from "@/lib/creality-cms";
+import { getMaterialsNavigation } from "@/lib/materials";
 import { getMenu } from "@/lib/menu-api";
 import { hasPreOrderProducts } from "@/lib/preOrders";
 
@@ -89,8 +90,16 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const [categories, hasPreOrders, menuItems, popupData, seasonalCampaign] = await Promise.all([
+  const [
+    categories,
+    materialsGroups,
+    hasPreOrders,
+    menuItems,
+    popupData,
+    seasonalCampaign,
+  ] = await Promise.all([
     getCategoryTree(),
+    getMaterialsNavigation(),
     hasPreOrderProducts(),
     getMenu(),
     fetchHomepagePopup(),
@@ -131,7 +140,11 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: hydrationAttributeCleanupScript }}
         />
         <CartProvider>
-          <Navbar categories={categories} navigation={navigation} />
+          <Navbar
+            categories={categories}
+            materialsGroups={materialsGroups}
+            navigation={navigation}
+          />
           <main className="min-h-screen">{children}</main>
           <Footer />
           <GlobalClientUI popupData={popupData} />

@@ -6,7 +6,12 @@ export type PromotionMenuItem = {
   endDate: string;
 };
 
-export type NavigationItemKind = "mega" | "link" | "promotion" | "account";
+export type NavigationItemKind =
+  | "mega"
+  | "materials"
+  | "link"
+  | "promotion"
+  | "account";
 
 export type NavigationItem = {
   id: string;
@@ -48,6 +53,13 @@ const PRE_ORDERS_ITEM: NavigationItem = {
   kind: "link",
   label: "Pre-orders",
   href: "/pre-orders",
+};
+
+const MATERIALS_ITEM: NavigationItem = {
+  id: "materials",
+  kind: "materials",
+  label: "Materials",
+  href: "/materials",
 };
 
 const USED_3D_PRINTERS_ITEM: NavigationItem = {
@@ -93,8 +105,8 @@ export const ALL_PRODUCTS_CATEGORY_LINKS: NavigationLink[] = [
   { label: "Accessories", href: "/category/accessories" },
   { label: "3D Printers", href: "/category/3d-printers" },
   { label: "3D Scanners", href: "/category/3d-scanners" },
-  { label: "Materials", href: "/category/materials" },
-  { label: "Washing and Curing", href: "/category/washing-curing" },
+
+
   { label: "Laser Milling Machines", href: "/category/laser-milling" },
   { label: "Spare Parts", href: "/category/spare-parts" },
 ];
@@ -147,6 +159,7 @@ export function buildNavigation({
 }: BuildNavigationOptions): NavigationItem[] {
   return [
     ALL_PRODUCTS_ITEM,
+    MATERIALS_ITEM,
     ...(hasPreOrders ? [PRE_ORDERS_ITEM] : []),
     USED_3D_PRINTERS_ITEM,
     ...getActivePromotions(promotions, now, timeZone),
@@ -182,6 +195,10 @@ function resolveNavigationId(item: Pick<MenuNavigationItem, "id" | "title" | "ur
 
   if (href === "/pre-orders" || title === "pre-orders") {
     return "pre-orders";
+  }
+
+  if (href === "/materials" || title === "materials") {
+    return "materials";
   }
 
   if (href === "/used-3d-printers" || title === "used 3d printers") {
@@ -232,7 +249,12 @@ export function buildNavigationFromMenu({
 
       return {
         id,
-        kind: id === "all-products" ? "mega" : "link",
+        kind:
+          id === "all-products"
+            ? "mega"
+            : id === "materials"
+            ? "materials"
+            : "link",
         label: item.title,
         href,
       };
@@ -254,6 +276,18 @@ export function buildNavigationFromMenu({
       (promotion) => !menuNavigation.some((item) => item.id === promotion.id)
     ),
   ];
+
+  if (!withPromotions.some((item) => item.id === MATERIALS_ITEM.id)) {
+    const allProductsIndex = withPromotions.findIndex(
+      (item) => item.id === ALL_PRODUCTS_ITEM.id
+    );
+
+    if (allProductsIndex >= 0) {
+      withPromotions.splice(allProductsIndex + 1, 0, MATERIALS_ITEM);
+    } else {
+      withPromotions.unshift(MATERIALS_ITEM);
+    }
+  }
 
   return [
     ...withPromotions,

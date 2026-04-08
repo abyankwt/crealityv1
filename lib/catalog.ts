@@ -30,6 +30,7 @@ export type CatalogRequest = {
   sort?: string;
   stockStatus?: string;
   tag?: string;
+  cacheMode?: "default" | "no-store";
 };
 
 export function getCatalogParam(
@@ -118,6 +119,7 @@ export async function fetchCatalogProducts({
   sort,
   stockStatus,
   tag,
+  cacheMode,
 }: CatalogRequest): Promise<FetchProductsResult> {
   if (orderType === "pre_order") {
     return fetchPreOrderProducts({ page, perPage });
@@ -135,6 +137,7 @@ export async function fetchCatalogProducts({
       orderby,
       order,
       stock_status: stockStatus,
+      cacheMode,
     });
 
     if (result.data.length > 0) {
@@ -154,6 +157,7 @@ export async function fetchCatalogProducts({
     order,
     stock_status: stockStatus,
     tag,
+    cacheMode,
   });
 
   return {

@@ -9,9 +9,11 @@ import { type NavigationItem } from "@/config/navigation";
 import { useCart } from "@/context/CartContext";
 import type { UserSession } from "@/lib/types";
 import type { CategoryNode } from "@/lib/categories";
+import type { MaterialsMenuGroup } from "@/lib/materials";
 import MobileStoreSwitcher from "@/components/MobileStoreSwitcher";
 import SearchBar from "@/components/SearchBar";
 import GuestMenu from "@/components/navigation/GuestMenu";
+import MaterialsMegaMenu from "@/components/navigation/MaterialsMegaMenu";
 import UserMenu from "@/components/navigation/UserMenu";
 import StoreSwitcher from "./StoreSwitcher";
 import MegaMenu from "./MegaMenu";
@@ -19,6 +21,7 @@ import MobileMenu from "./MobileMenu";
 
 type NavbarProps = {
   categories?: CategoryNode[];
+  materialsGroups: MaterialsMenuGroup[];
   navigation: NavigationItem[];
 };
 
@@ -29,7 +32,11 @@ type AuthMeResponse =
     user: { id: number; email: string; name: string };
   };
 
-export default function Navbar({ categories = [], navigation }: NavbarProps) {
+export default function Navbar({
+  categories = [],
+  materialsGroups,
+  navigation,
+}: NavbarProps) {
   const { cart } = useCart();
   const itemCount = cart?.items_count ?? 0;
   const pathname = usePathname();
@@ -84,6 +91,10 @@ export default function Navbar({ categories = [], navigation }: NavbarProps) {
   const isActiveLink = (item: NavigationItem) => {
     if (item.kind === "mega") {
       return pathname.startsWith("/category") || pathname === "/store";
+    }
+
+    if (item.kind === "materials") {
+      return pathname === "/materials" || pathname.startsWith("/materials/");
     }
 
     if (item.kind === "account") {
@@ -158,6 +169,25 @@ export default function Navbar({ categories = [], navigation }: NavbarProps) {
                         label={item.label}
                         href={item.href}
                         categories={categories}
+                      />
+                    </div>
+                  );
+                }
+
+                if (item.kind === "materials") {
+                  return (
+                    <div
+                      key={item.id}
+                      className={`relative flex h-9 shrink-0 flex-nowrap items-center whitespace-nowrap ${
+                        isActiveLink(item)
+                          ? "rounded-full bg-gray-100 px-3 text-[#0b0b0b]"
+                          : "rounded-full px-3 text-gray-600"
+                      }`}
+                    >
+                      <MaterialsMegaMenu
+                        label={item.label}
+                        href={item.href}
+                        groups={materialsGroups}
                       />
                     </div>
                   );
@@ -269,6 +299,7 @@ export default function Navbar({ categories = [], navigation }: NavbarProps) {
       <MobileMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
+        materialsGroups={materialsGroups}
         navigation={navigation}
         categories={categories}
       />

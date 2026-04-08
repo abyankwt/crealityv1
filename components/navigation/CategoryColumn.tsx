@@ -8,7 +8,6 @@ import {
   Package,
   Printer,
   ScanLine,
-  Sparkles,
   Wrench,
 } from "lucide-react";
 import type { CategoryNode } from "@/lib/categories";
@@ -25,7 +24,7 @@ const CATEGORY_ICONS: Record<string, IconComponent> = {
   "3d-scanners": ScanLine,
   accessories: Wrench,
   materials: Droplets,
-  "washing-curing": Sparkles,
+
   "laser-milling": Drill,
   "spare-parts": Cog,
 };
