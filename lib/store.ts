@@ -8,9 +8,11 @@ import {
   isVisibleUsedPrinterProduct,
   resolveProductSection,
 } from "@/lib/productLogic";
+import { getWooPublishedProductBySlug } from "@/lib/woo-client";
 import type { Product } from "@/lib/woocommerce-types";
 import { fetchProducts, fetchProductBySlug } from "@/lib/woocommerce";
 import { fetchUsedPrinterProductBySlug, fetchUsedPrinterProducts } from "@/lib/usedPrinters";
+import { normalizeWooRestProduct } from "@/lib/wooRestProducts";
 
 async function fetchStoreProduct(slug: string, cacheMode?: RequestCache) {
   const product = await fetchProductBySlug(slug, {
@@ -24,7 +26,18 @@ async function fetchStoreProduct(slug: string, cacheMode?: RequestCache) {
     return product;
   }
 
-  return fetchUsedPrinterProductBySlug(slug);
+  const usedPrinterProduct = await fetchUsedPrinterProductBySlug(slug);
+  if (usedPrinterProduct) {
+    return usedPrinterProduct;
+  }
+
+  const wooRestProductResult = await getWooPublishedProductBySlug(slug);
+  if (!wooRestProductResult.ok) {
+    return null;
+  }
+
+  const matchedProduct = wooRestProductResult.data[0];
+  return matchedProduct ? normalizeWooRestProduct(matchedProduct) : null;
 }
 
 export const fetchStoreProductBySlug = cache(async (slug: string) =>

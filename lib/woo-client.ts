@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { WooRestProduct } from "@/lib/wooRestProducts";
+
 type FetchResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; errorMessage?: string };
@@ -65,10 +67,35 @@ type WooProductSummaryResponse = {
 type WooProductDetailResponse = WooProductSummaryResponse & {
   name: string;
   slug: string;
+  status?: string;
   price?: string;
   regular_price?: string;
+  sale_price?: string;
   short_description?: string;
+  description?: string;
+  price_html?: string;
   catalog_visibility?: string;
+  stock_quantity?: number | null;
+  purchasable?: boolean;
+  average_rating?: string | number;
+  rating_count?: number;
+  related_ids?: number[];
+  weight?: string | number | null;
+  dimensions?: {
+    length?: string | number | null;
+    width?: string | number | null;
+    height?: string | number | null;
+  } | null;
+  in_stock?: boolean;
+  featured?: boolean;
+  meta_data?: { id?: number; key: string; value: string }[];
+  attributes?: Array<{
+    id: number;
+    name: string;
+    options?: string[];
+    visible?: boolean;
+    variation?: boolean;
+  }>;
   images?: WooProductImageResponse[];
 };
 
@@ -330,6 +357,100 @@ export const getWooProductsByTagSlug = async (tagSlug: string) => {
       next: { revalidate: 60 },
     }
   );
+};
+
+export const getWooPublishedProductBySlug = async (slug: string) => {
+  const normalizedSlug = slug.trim().toLowerCase();
+
+  if (!normalizedSlug) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  return wooRequest<WooRestProduct[]>(
+    `products?slug=${encodeURIComponent(normalizedSlug)}&status=publish&per_page=1`
+  );
+};
+
+export const getWooPublishedProductsByCategorySlug = async (
+  categorySlug: string,
+  options: {
+    orderby?: string;
+    order?: "asc" | "desc";
+  } = {}
+) => {
+  const normalizedCategorySlug = categorySlug.trim().toLowerCase();
+
+  if (!normalizedCategorySlug) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  const categoryResult = await wooRequest<WooProductTaxonomyTermResponse[]>(
+    `products/categories?slug=${encodeURIComponent(normalizedCategorySlug)}&per_page=100`
+  );
+
+  if (!categoryResult.ok) {
+    return categoryResult as FetchResult<WooRestProduct[]>;
+  }
+
+  const matchedCategory = categoryResult.data.find(
+    (category) => category.slug.toLowerCase() === normalizedCategorySlug
+  );
+
+  if (!matchedCategory) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  const products: WooRestProduct[] = [];
+  const perPage = 100;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const path = new URLSearchParams({
+      category: String(matchedCategory.id),
+      status: "publish",
+      page: String(page),
+      per_page: String(perPage),
+    });
+
+    if (options.orderby) {
+      path.set("orderby", options.orderby);
+    }
+
+    if (options.order) {
+      path.set("order", options.order);
+    }
+
+    const productResult = await wooRequest<WooRestProduct[]>(
+      `products?${path.toString()}`
+    );
+
+    if (!productResult.ok) {
+      return productResult;
+    }
+
+    products.push(...productResult.data);
+
+    if (productResult.data.length < perPage) {
+      break;
+    }
+  }
+
+  return {
+    ok: true as const,
+    status: 200,
+    data: products,
+  };
 };
 
 export const updateWooOrder = async (orderId: number, payload: Record<string, unknown>) => {

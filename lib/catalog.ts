@@ -1,5 +1,8 @@
 import "server-only";
 
+import {
+  getWooPublishedProductsByCategorySlug,
+} from "@/lib/woo-client";
 import { fetchProducts, fetchProductsByCategory } from "@/lib/woocommerce";
 import {
   getDefaultMockProducts,
@@ -18,9 +21,11 @@ import {
   getPrinterSubmenuProductMatchTokens,
 } from "@/lib/categories";
 import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
+import { normalizeWooRestProduct } from "@/lib/wooRestProducts";
 import type { FetchProductsResult } from "@/lib/woocommerce";
 import type { Product } from "@/lib/woocommerce-types";
 import type { ProductOrderType } from "@/lib/woocommerce-types";
+import type { ProductSection } from "@/lib/productLogic";
 
 type SortOrder = "asc" | "desc";
 
@@ -47,6 +52,26 @@ type FetchPrinterSubmenuProductsRequest = {
   stockStatus?: string;
   cache?: RequestCache;
 };
+
+type GroupedCategoryConfig = {
+  routeSlugs: string[];
+  productCategorySlugs: string[];
+  cache?: RequestCache;
+  filterBySection: boolean;
+  productSectionOverride?: ProductSection;
+  dataSource?: "store" | "woo-rest";
+};
+
+const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
+  {
+    routeSlugs: ["3d-scanner-series", "3d-scanners-series"],
+    productCategorySlugs: ["3d-scanners-series"],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+];
 
 export function getCatalogParam(
   params: RawCatalogSearchParams,
@@ -165,6 +190,106 @@ function getMockCategoryFallback(
   );
 }
 
+function getGroupedCategoryConfig(categorySlug: string | undefined) {
+  if (!categorySlug) {
+    return null;
+  }
+
+  const normalizedSlug = categorySlug.trim().toLowerCase();
+
+  return (
+    GROUPED_CATEGORY_CONFIGS.find((config) =>
+      config.routeSlugs.includes(normalizedSlug)
+    ) ?? null
+  );
+}
+
+export function shouldBypassSectionFilteringForCategory(
+  categorySlug: string | undefined
+) {
+  return getGroupedCategoryConfig(categorySlug)?.filterBySection === false;
+}
+
+export function getCategoryProductSectionOverride(
+  categorySlug: string | undefined
+) {
+  return getGroupedCategoryConfig(categorySlug)?.productSectionOverride;
+}
+
+async function fetchGroupedCategoryProducts({
+  categorySlug,
+  page = 1,
+  perPage = 12,
+  sort,
+  stockStatus,
+}: {
+  categorySlug: string;
+  page?: number;
+  perPage?: number;
+  sort?: string;
+  stockStatus?: string;
+}): Promise<FetchProductsResult> {
+  const config = getGroupedCategoryConfig(categorySlug);
+
+  if (!config) {
+    return {
+      data: [],
+      totalPages: 0,
+      totalProducts: 0,
+    };
+  }
+
+  const { orderby, order } = resolveCatalogSort(sort);
+  if (config.dataSource === "woo-rest") {
+    const categoryResults = await Promise.all(
+      config.productCategorySlugs.map((productCategorySlug) =>
+        getWooPublishedProductsByCategorySlug(productCategorySlug, {
+          orderby,
+          order,
+        })
+      )
+    );
+
+    const failedResult = categoryResults.find((result) => !result.ok);
+    if (failedResult && !failedResult.ok) {
+      return {
+        data: [],
+        totalPages: 0,
+        totalProducts: 0,
+      };
+    }
+
+    const normalizedProducts = categoryResults.flatMap((result) =>
+      result.ok
+        ? result.data
+            .filter((product) => product.status === "publish")
+            .map(normalizeWooRestProduct)
+        : []
+    );
+    const filteredProducts = filterProductsByCategorySlugs(
+      normalizedProducts,
+      config.productCategorySlugs
+    );
+
+    return paginateProducts(filteredProducts, page, perPage);
+  }
+
+  const allProducts = await fetchAllProductsForFiltering({
+    perPage: 100,
+    orderby,
+    order,
+    stockStatus,
+    cache: config.cache,
+  });
+
+  const filteredProducts = filterProductsByCategorySlugs(
+    allProducts,
+    config.productCategorySlugs
+  );
+
+  return paginateProducts(filteredProducts, page, perPage);
+}
+
 export async function fetchPrinterSubmenuProducts({
   submenuSlug,
   page = 1,
@@ -222,10 +347,21 @@ export async function fetchCatalogProducts({
 
   const { orderby, order } = resolveCatalogSort(sort);
   const categorySection = resolveProductSectionFromSlug(categorySlug);
+  const groupedCategoryConfig = getGroupedCategoryConfig(categorySlug);
 
   if (categorySlug) {
     if (categorySection === "used_printers") {
       return fetchUsedPrinterProducts({ page, perPage });
+    }
+
+    if (groupedCategoryConfig) {
+      return fetchGroupedCategoryProducts({
+        categorySlug,
+        page,
+        perPage,
+        sort,
+        stockStatus,
+      });
     }
 
     const result = await fetchProductsByCategory(categorySlug, page, {

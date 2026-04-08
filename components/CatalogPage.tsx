@@ -7,8 +7,10 @@ type CatalogPageProps = {
   products: Product[];
   totalPages: number;
   section?: ProductSection;
+  productSectionOverride?: ProductSection;
   apiQuery?: Record<string, string | number | undefined>;
   emptyMessage?: string;
+  filterBySection?: boolean;
 };
 
 export default function CatalogPage({
@@ -16,8 +18,10 @@ export default function CatalogPage({
   products,
   totalPages,
   section = "default",
+  productSectionOverride,
   apiQuery,
   emptyMessage,
+  filterBySection = true,
 }: CatalogPageProps) {
   const headingTitle = title.replace(/\b3d\b/i, "3D");
 
@@ -34,8 +38,10 @@ export default function CatalogPage({
         initialPage={1}
         totalPages={totalPages}
         section={section}
+        productSectionOverride={productSectionOverride}
         apiQuery={apiQuery}
         emptyMessage={emptyMessage}
+        filterBySection={filterBySection}
       />
     </section>
   );

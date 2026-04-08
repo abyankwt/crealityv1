@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCatalogProducts } from "@/lib/catalog";
-import { fetchPrinterSubmenuProducts } from "@/lib/catalog";
+import {
+  fetchCatalogProducts,
+  fetchPrinterSubmenuProducts,
+  shouldBypassSectionFilteringForCategory,
+} from "@/lib/catalog";
 import {
   filterProductsForSection,
   resolveProductSectionFromSlug,
@@ -76,9 +79,10 @@ export async function GET(request: NextRequest) {
           });
 
     const excludedId = exclude ? Number(exclude) : undefined;
-    const baseProducts = printerSubmenuSlug
-      ? result.data
-      : filterProductsForSection(result.data, section);
+    const baseProducts =
+      printerSubmenuSlug || shouldBypassSectionFilteringForCategory(categorySlug)
+        ? result.data
+        : filterProductsForSection(result.data, section);
     const products = Number.isFinite(excludedId)
       ? baseProducts.filter((product) => product.id !== excludedId)
       : baseProducts;
