@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import {
+  SPARE_PARTS_CATEGORY_HREF,
+  SPARE_PARTS_GROUPS,
+} from "@/config/spare-parts";
+import {
   ACCOUNT_NAV_LINKS,
   type NavigationItem,
   type NavigationLink,
@@ -22,6 +26,12 @@ type MobileDrawerMenuProps = {
 type DrawerSection = NavigationItem & {
   children?: NavigationLink[];
 };
+
+function getChildCategoryHref(parentSlug: string, childSlug: string) {
+  return parentSlug === "3d-printers"
+    ? `/3d-printers/${childSlug}`
+    : `/category/${childSlug}`;
+}
 
 function DrawerRow({
   section,
@@ -105,9 +115,7 @@ function CategoryAccordion({
   sections: ReturnType<typeof buildMobileCategorySections>;
   onNavigate?: () => void;
 }) {
-  const [openGroupId, setOpenGroupId] = useState<string | null>(
-    sections[0]?.id ?? null
-  );
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   return (
     <div className="space-y-4 pb-4 pl-4">
@@ -151,33 +159,119 @@ function CategoryAccordion({
             >
               <div className="overflow-hidden">
                 <div className="border-t border-gray-200 px-4 py-3">
-                  <div className="flex flex-col gap-2.5 pl-1">
-                    <Link
-                      href={`/category/${category.slug}`}
-                      prefetch
-                      className="text-sm text-gray-700 transition hover:text-black"
-                      onClick={onNavigate}
-                    >
-                      {section.allLabel}
-                    </Link>
-                    {category.children.map((child) => (
+                  {category.slug === "spare-parts" ? (
+                    <SparePartsAccordion onNavigate={onNavigate} />
+                  ) : (
+                    <div className="flex flex-col gap-2.5 pl-1">
                       <Link
-                        key={child.id}
-                        href={`/category/${child.slug}`}
+                        href={`/category/${category.slug}`}
                         prefetch
                         className="text-sm text-gray-700 transition hover:text-black"
                         onClick={onNavigate}
                       >
-                        {child.name}
+                        {section.allLabel}
                       </Link>
-                    ))}
-                  </div>
+                      {category.children.map((child) => (
+                        <Link
+                          key={child.id}
+                          href={getChildCategoryHref(category.slug, child.slug)}
+                          prefetch
+                          className="text-sm text-gray-700 transition hover:text-black"
+                          onClick={onNavigate}
+                        >
+                          {child.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function SparePartsAccordion({
+  onNavigate,
+}: {
+  onNavigate?: () => void;
+}) {
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-col gap-3 pl-1">
+      <Link
+        href={SPARE_PARTS_CATEGORY_HREF}
+        prefetch
+        className="text-sm text-gray-700 transition hover:text-black"
+        onClick={onNavigate}
+      >
+        All Spare Parts
+      </Link>
+
+      <div className="space-y-3">
+        {SPARE_PARTS_GROUPS.map((group) => {
+          const expanded = openGroupId === group.id;
+          const contentId = `mobile-spare-parts-group-${group.id}`;
+
+          return (
+            <div
+              key={group.id}
+              className="overflow-hidden rounded-2xl border border-gray-200 bg-white"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenGroupId((current) =>
+                    current === group.id ? null : group.id
+                  )
+                }
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                aria-expanded={expanded}
+                aria-controls={contentId}
+              >
+                <span className="text-sm font-semibold text-gray-900">
+                  {group.label}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${
+                    expanded ? "rotate-180" : "rotate-0"
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+
+              <div
+                id={contentId}
+                className={`grid transition-all duration-300 ${
+                  expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="border-t border-gray-200 px-4 py-3">
+                    <div className="flex flex-col gap-2.5">
+                      {group.items.map((item) => (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          prefetch
+                          className="text-sm text-gray-700 transition hover:text-black"
+                          onClick={onNavigate}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -189,9 +283,7 @@ function MaterialsAccordion({
   groups: MaterialsMenuGroup[];
   onNavigate?: () => void;
 }) {
-  const [openGroupId, setOpenGroupId] = useState<string | null>(
-    groups[0]?.id ?? null
-  );
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
 
   return (
     <div className="space-y-4 pb-4 pl-4">

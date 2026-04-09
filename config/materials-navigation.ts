@@ -60,8 +60,8 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
       },
       {
         label: "Fast Resin",
-        slug: "fast-resin",
-        href: "/materials/fast-resin",
+        slug: "fastresin",
+        href: "/materials/fastresin",
       },
       {
         label: "Water Washable Resin",
@@ -80,8 +80,8 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
       },
       {
         label: "Low Odor Resin",
-        slug: "low-odor-resin",
-        href: "/materials/low-odor-resin",
+        slug: "odor-resin",
+        href: "/materials/odor-resin",
       },
       {
         label: "Dental Resin",

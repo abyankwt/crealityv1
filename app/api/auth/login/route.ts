@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError, apiSuccess, ERROR_MESSAGES, resolveErrorMessage } from "@/lib/errors";
 import { createSession, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/auth-session";
-import { verifyCustomerPassword, updateWooCustomer } from "@/lib/woo-client";
-import { verifyPassword, hashPassword } from "@/lib/password";
+import { verifyCustomerPassword, verifyWpUser } from "@/lib/woo-client";
+import { verifyPassword } from "@/lib/password";
 import type { UserSession } from "@/lib/types";
 
 type LoginPayload = {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(apiError(ERROR_MESSAGES.badRequest), { status: 400 });
     }
 
-    // Look up customer by email and get stored password hash
+    // Look up customer and check for stored hash
     const customerResult = await verifyCustomerPassword(email);
     if (!customerResult) {
       console.log(`[Login] No customer found for email: ${email}`);
@@ -33,23 +33,24 @@ export async function POST(request: NextRequest) {
     }
 
     const { customer, storedHash } = customerResult;
-    console.log(`[Login] Found customer: id=${customer.id}, email=${customer.email}, hasHash=${!!storedHash}, metaKeys=${customer.meta_data?.map(m => m.key).join(",")}`);
+    console.log(`[Login] customer id=${customer.id} hasHash=${!!storedHash} hashValue=${storedHash ?? "null"}`);
 
-    // Verify the password against the stored hash
     if (storedHash) {
-      // Normal flow: verify against stored hash
-      if (!verifyPassword(password, storedHash)) {
+      // Accounts registered via the app — verify against stored hash
+      const hashMatch = verifyPassword(password, storedHash);
+      console.log(`[Login] verifyPassword result=${hashMatch}`);
+      if (!hashMatch) {
         console.log(`[Login] Password mismatch for customer ${customer.id}`);
         return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
       }
     } else {
-      // Migration: no hash stored yet (pre-existing account).
-      // Store the password hash now so future logins can verify.
-      console.log(`[Login] No hash stored for customer ${customer.id}. Storing hash now (first-time migration).`);
-      const newHash = hashPassword(password);
-      await updateWooCustomer(customer.id, {
-        meta_data: [{ key: "_app_password_hash", value: newHash }],
-      });
+      // Pre-existing WooCommerce account (no hash) — verify against WordPress directly
+      console.log(`[Login] No stored hash for customer ${customer.id}, falling back to WP auth`);
+      const wpAuth = await verifyWpUser(email, password);
+      console.log(`[Login] WP auth result ok=${wpAuth.ok} status=${wpAuth.status}`);
+      if (!wpAuth.ok) {
+        return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
+      }
     }
 
     const session: UserSession = {

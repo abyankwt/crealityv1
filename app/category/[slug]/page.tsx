@@ -1,7 +1,9 @@
 import CatalogPage from "@/components/CatalogPage";
 import {
   fetchCatalogProducts,
+  getCategoryProductSectionOverride,
   getCatalogParam,
+  shouldBypassSectionFilteringForCategory,
   slugToTitle,
   type RawCatalogSearchParams,
 } from "@/lib/catalog";
@@ -35,6 +37,8 @@ export default async function CategoryPage({
     getCatalogParam(resolvedSearchParams, "stock_status");
   const title = slugToTitle(slug);
   const section = resolveProductSectionFromSlug(slug);
+  const filterBySection = !shouldBypassSectionFilteringForCategory(slug);
+  const productSectionOverride = getCategoryProductSectionOverride(slug);
   const { data: products, totalPages } = await fetchCatalogProducts({
     categorySlug: slug,
     sort,
@@ -60,8 +64,10 @@ export default async function CategoryPage({
       products={products}
       totalPages={totalPages}
       section={section}
+      productSectionOverride={productSectionOverride}
       apiQuery={apiQuery}
       emptyMessage={`No products found in ${title}.`}
+      filterBySection={filterBySection}
     />
   );
 }

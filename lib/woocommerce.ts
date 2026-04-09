@@ -73,6 +73,7 @@ type RawStoreProduct = {
   stock_status?: string;
   stock_quantity?: number | null;
   purchasable?: boolean;
+  is_purchasable?: boolean;
   average_rating?: string | number;
   review_count?: number;
   featured?: boolean;
@@ -91,7 +92,7 @@ export type FetchProductsOptions = {
   category?: number;
   tag?: string;
   include?: string;
-  cacheMode?: "default" | "no-store";
+  cache?: RequestCache;
   revalidate?: number;
 };
 
@@ -107,7 +108,7 @@ export type FetchProductsByCategoryOptions = {
   order?: SortOrder;
   stock_status?: string;
   seriesSlug?: string;
-  cacheMode?: "default" | "no-store";
+  cache?: RequestCache;
   revalidate?: number;
 };
 
@@ -119,8 +120,8 @@ type StoreRequestResult<T> = {
 
 type StoreRequestOptions<T> = {
   fallbackData: T;
-  cacheMode?: "default" | "no-store";
   revalidate?: number;
+  cache?: RequestCache;
 };
 
 const STORE_API_TIMEOUT_MS = 5000;
@@ -217,6 +218,7 @@ const normalizeProduct = (product: RawStoreProduct): Product => {
   const isPreOrder = product.is_preorder ?? isPreOrderProduct(product);
   const leadTime =
     resolvedOrderType === "pre_order" ? resolveProductLeadTime(product) : null;
+  const isPurchasable = product.purchasable ?? product.is_purchasable;
 
   return {
     id: product.id,
@@ -249,9 +251,12 @@ const normalizeProduct = (product: RawStoreProduct): Product => {
     meta_data: product.meta_data ?? [],
     product_order_type: resolvedOrderType,
     is_in_stock: product.is_in_stock ?? null,
-    stock_status: product.stock_status ?? "outofstock",
+    stock_status: product.stock_status
+      ?? (product.is_in_stock === true || (typeof product.stock_quantity === "number" && product.stock_quantity > 0)
+        ? "instock"
+        : "outofstock"),
     stock_quantity: product.stock_quantity ?? null,
-    purchasable: Boolean(product.purchasable),
+    purchasable: Boolean(isPurchasable),
     average_rating:
       typeof product.average_rating === "string"
         ? Number(product.average_rating)
@@ -291,7 +296,7 @@ async function storeRequest<T>(
       headers: {
         Accept: "application/json",
       },
-      ...(options.cacheMode === "no-store"
+      ...(options.cache === "no-store"
         ? { cache: "no-store" as const }
         : {
             next: {
@@ -320,7 +325,9 @@ async function storeRequest<T>(
       totalProducts,
     };
 
-    storeResponseCache.set(cacheKey, result);
+    if (options.cache !== "no-store") {
+      storeResponseCache.set(cacheKey, result);
+    }
     return result;
   } catch (error) {
     const message =
@@ -374,7 +381,7 @@ export async function fetchProducts(
     },
     {
       fallbackData: [],
-      cacheMode: options.cacheMode,
+      cache: options.cache,
       revalidate: options.revalidate,
     }
   );
@@ -386,11 +393,18 @@ export async function fetchProducts(
   };
 }
 
-export async function fetchProductBySlug(slug: string): Promise<Product | null> {
+export async function fetchProductBySlug(
+  slug: string,
+  options: Pick<FetchProductsOptions, "cache" | "revalidate"> = {}
+): Promise<Product | null> {
   const { data } = await storeRequest<RawStoreProductResponse>("products", {
     slug,
     per_page: 1,
-  }, { fallbackData: [] });
+  }, {
+    fallbackData: [],
+    cache: options.cache,
+    revalidate: options.revalidate,
+  });
 
   const products = unwrapProducts(data).map(normalizeProduct);
   return products[0] ?? null;
@@ -403,19 +417,48 @@ export async function fetchProductsByIds(ids: number[]): Promise<FetchProductsRe
   });
 }
 
-export async function fetchProductCategories(options: {
-  cacheMode?: "default" | "no-store";
-  revalidate?: number;
-} = {}): Promise<ProductCategory[]> {
-  const { data } = await storeRequest<RawProductCategory[]>("products/categories", {
-    per_page: 100,
-  }, {
-    fallbackData: [],
-    cacheMode: options.cacheMode,
-    revalidate: options.revalidate,
-  });
+export async function fetchProductCategories(
+  options: Pick<FetchProductsOptions, "cache" | "revalidate"> = {}
+): Promise<ProductCategory[]> {
+  const allCategories: RawProductCategory[] = [];
 
-  return data.map(normalizeCategory);
+  for (let page = 1; page <= 10; page++) {
+    const { data, totalPages } = await storeRequest<RawProductCategory[]>(
+      "products/categories",
+      { per_page: 100, page },
+      {
+        fallbackData: [],
+        cache: options.cache,
+        revalidate: options.revalidate,
+      }
+    );
+
+    allCategories.push(...data);
+
+    if (page >= totalPages || data.length === 0) {
+      break;
+    }
+  }
+
+  return allCategories.map(normalizeCategory);
+}
+
+export async function fetchProductCategoryBySlug(
+  slug: string,
+  options: Pick<FetchProductsOptions, "cache" | "revalidate"> = {}
+): Promise<ProductCategory | null> {
+  const normalizedSlug = slug.trim().toLowerCase();
+
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  const categories = await fetchProductCategories(options);
+
+  return (
+    categories.find((categoryItem) => categoryItem.slug.toLowerCase() === normalizedSlug) ??
+    null
+  );
 }
 
 export async function fetchProductsByCategory(
@@ -424,12 +467,24 @@ export async function fetchProductsByCategory(
   options: FetchProductsByCategoryOptions = {}
 ): Promise<FetchProductsResult> {
   const categories = await fetchProductCategories({
-    cacheMode: options.cacheMode,
+    cache: options.cache,
     revalidate: options.revalidate,
   });
-  const matchedCategory = categories.find((item) => item.slug === category);
+  const normalizedTarget = category.trim().toLowerCase();
+  const matchedCategory =
+    categories.find((item) => item.slug === category) ??
+    categories.find((item) => item.slug.toLowerCase() === normalizedTarget) ??
+    categories.find(
+      (item) =>
+        item.slug.toLowerCase().replace(/[-_\s]+/g, "") ===
+        normalizedTarget.replace(/[-_\s]+/g, "")
+    );
 
   if (!matchedCategory) {
+    console.error(
+      `[WooCommerce] Category not found: "${category}". Available slugs:`,
+      categories.map((item) => item.slug)
+    );
     return { data: [], totalPages: 0, totalProducts: 0 };
   }
 
@@ -447,7 +502,7 @@ export async function fetchProductsByCategory(
     orderby: options.orderby,
     order: options.order,
     stock_status: options.stock_status,
-    cacheMode: options.cacheMode,
+    cache: options.cache,
     revalidate: options.revalidate,
   });
 }

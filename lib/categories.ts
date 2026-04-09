@@ -7,58 +7,98 @@ export type CategoryNode = {
   slug: string;
   image: string | null;
   children: CategoryNode[];
+  productCategorySlugs?: string[];
+  routeAliases?: string[];
+  productMatchTokens?: string[];
 };
 
-const DEMO_CATEGORY_TREE: CategoryNode[] = [
+export const PRINTER_SUBMENU_CATEGORIES: CategoryNode[] = [
+  {
+    id: 410,
+    name: "K Series",
+    slug: "k-series",
+    image: null,
+    children: [],
+    routeAliases: ["k-seies"],
+    productCategorySlugs: [
+      "k-series",
+      "k1",
+      "k2",
+      "k2-plus",
+      "k-seies",
+    ],
+    productMatchTokens: ["k1", "k2", "k2-plus", "k2plus"],
+  },
+  {
+    id: 102,
+    name: "Ender Series",
+    slug: "ender-series",
+    image: null,
+    children: [],
+    productCategorySlugs: ["ender-series"],
+  },
+  {
+    id: 412,
+    name: "Spark i7",
+    slug: "spark-i7",
+    image: null,
+    children: [],
+    productCategorySlugs: ["spark-i7"],
+  },
+  {
+    id: 104,
+    name: "Hi Printer",
+    slug: "hi-printer",
+    image: null,
+    children: [],
+    productCategorySlugs: ["hi-printer", "hi-series", "hi"],
+  },
+  {
+    id: 23,
+    name: "Sermoon Series",
+    slug: "sermoon-series",
+    image: null,
+    children: [],
+    productCategorySlugs: ["sermoon-series"],
+  },
+  {
+    id: 106,
+    name: "Resin Series",
+    slug: "resin-series",
+    image: null,
+    children: [],
+    routeAliases: ["halot-series"],
+    productCategorySlugs: ["resin-series", "halot-series"],
+  },
+];
+
+export function getPrinterSubmenuCategoryBySlug(slug: string) {
+  const normalizedSlug = slug.trim().toLowerCase();
+
+  return (
+    PRINTER_SUBMENU_CATEGORIES.find(
+      (category) =>
+        category.slug === normalizedSlug ||
+        category.routeAliases?.includes(normalizedSlug)
+    ) ?? null
+  );
+}
+
+export function getPrinterSubmenuProductCategorySlugs(slug: string) {
+  return getPrinterSubmenuCategoryBySlug(slug)?.productCategorySlugs ?? [];
+}
+
+export function getPrinterSubmenuProductMatchTokens(slug: string) {
+  return getPrinterSubmenuCategoryBySlug(slug)?.productMatchTokens ?? [];
+}
+
+const FIXED_CATEGORY_TREE: CategoryNode[] = [
   {
     id: 1,
     name: "3D Printers",
     slug: "3d-printers",
     image: null,
-    children: [
-      {
-        id: 101,
-        name: "K Series",
-        slug: "k-series",
-        image: null,
-        children: [],
-      },
-      {
-        id: 102,
-        name: "Ender Series",
-        slug: "ender-series",
-        image: null,
-        children: [],
-      },
-      {
-        id: 103,
-        name: "Spark i7",
-        slug: "spark-i7",
-        image: null,
-        children: [],
-      },
-      {
-        id: 104,
-        name: "Hi Printer",
-        slug: "hi-printer",
-        image: null,
-        children: [],
-      },
-      {
-        id: 105,
-        name: "Sermoon Series",
-        slug: "sermoon-series",
-        image: null,
-        children: [],
-      },
-      {
-        id: 106,
-        name: "Resin Series",
-        slug: "resin-series",
-        image: null,
-        children: [],
-      },
-    ],
+    children: PRINTER_SUBMENU_CATEGORIES,
   },
   {
     id: 2,
@@ -97,13 +137,34 @@ const DEMO_CATEGORY_TREE: CategoryNode[] = [
       },
       {
         id: 303,
+        name: "Wifi Upgrade Kits",
+        slug: "wifi-upgrade-kits",
+        image: null,
+        children: [],
+      },
+      {
+        id: 304,
+        name: "Screen Kit",
+        slug: "screen-kit",
+        image: null,
+        children: [],
+      },
+      {
+        id: 305,
         name: "Auto Leveling",
         slug: "auto-leveling",
         image: null,
         children: [],
       },
       {
-        id: 304,
+        id: 306,
+        name: "Silent Motherboard",
+        slug: "silent-motherboard",
+        image: null,
+        children: [],
+      },
+      {
+        id: 307,
         name: "Printer Enclosure",
         slug: "printer-enclosure",
         image: null,
@@ -154,6 +215,21 @@ const DEMO_CATEGORY_TREE: CategoryNode[] = [
       },
     ],
   },
+  {
+    id: 5,
+    name: "Washing & Curing",
+    slug: "washing-curing",
+    image: null,
+    children: [
+      {
+        id: 501,
+        name: "Washing & Curing Series",
+        slug: "washing-curing-series",
+        image: null,
+        children: [],
+      },
+    ],
+  },
 
   {
     id: 6,
@@ -180,5 +256,5 @@ const DEMO_CATEGORY_TREE: CategoryNode[] = [
 ];
 
 export async function getCategoryTree(): Promise<CategoryNode[]> {
-  return DEMO_CATEGORY_TREE;
+  return FIXED_CATEGORY_TREE;
 }

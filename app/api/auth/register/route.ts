@@ -58,11 +58,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Store password hash in customer meta_data for login verification
+    // Store password hash so login can verify without relying on wp-login.php
     const passwordHash = hashPassword(password);
-    await updateWooCustomer(response.data.id, {
-      meta_data: [{ key: "_app_password_hash", value: passwordHash }],
+    const hashResult = await updateWooCustomer(response.data.id, {
+      meta_data: [{ key: "app_password_hash", value: passwordHash }],
     });
+    console.log(`[Register] hash storage for customer ${response.data.id}: ok=${hashResult.ok} status=${hashResult.status}${!hashResult.ok && hashResult.errorMessage ? ` err=${hashResult.errorMessage}` : ""}`);
 
     const session: UserSession = {
       userId: response.data.id,

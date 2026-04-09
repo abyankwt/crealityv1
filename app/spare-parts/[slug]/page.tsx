@@ -1,44 +1,49 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
+import {
+  getSparePartBySlug,
+  SPARE_PARTS_CATEGORY_HREF,
+  SPARE_PARTS_GROUPS,
+} from "@/config/spare-parts";
 import {
   getCatalogParam,
   resolveCatalogSort,
   type RawCatalogSearchParams,
 } from "@/lib/catalog";
-import {
-  findMaterialEntryBySlug,
-  getMaterialsNavigation,
-} from "@/lib/materials";
 import { fetchProductsByCategory } from "@/lib/woocommerce";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
+type SparePartPageProps = {
   params: Promise<{ slug: string }>;
-}) {
+  searchParams: Promise<RawCatalogSearchParams>;
+};
+
+export async function generateMetadata(
+  { params }: SparePartPageProps
+): Promise<Metadata> {
   const { slug } = await params;
-  const material = findMaterialEntryBySlug(await getMaterialsNavigation(), slug);
+  const sparePart = getSparePartBySlug(slug);
+
+  if (!sparePart) {
+    return { title: "Spare Parts | Creality Kuwait" };
+  }
 
   return {
-    title: material?.category.label ?? "Materials",
+    title: `${sparePart.label} | Spare Parts | Creality Kuwait`,
   };
 }
 
-export default async function MaterialCategoryPage({
+export default async function SparePartPage({
   params,
   searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<RawCatalogSearchParams>;
-}) {
+}: SparePartPageProps) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const materialsGroups = await getMaterialsNavigation({ cacheMode: "no-store" });
-  const material = findMaterialEntryBySlug(materialsGroups, slug);
+  const sparePart = getSparePartBySlug(slug);
 
-  if (!material) {
+  if (!sparePart) {
     notFound();
   }
 
@@ -47,54 +52,52 @@ export default async function MaterialCategoryPage({
     getCatalogParam(resolvedSearchParams, "stock") ??
     getCatalogParam(resolvedSearchParams, "stock_status");
   const { orderby, order } = resolveCatalogSort(sort);
-  const { data: products, totalPages } = await fetchProductsByCategory(slug, 1, {
-    orderby,
-    order,
-    stock_status: stock,
-    cache: "no-store",
-  });
+
+  const { data: products, totalPages } = await fetchProductsByCategory(
+    sparePart.wooSlug,
+    1,
+    { orderby, order, stock_status: stock, cache: "no-store" }
+  );
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-      <div className="rounded-[2rem] bg-[#f6f8f3] px-6 py-8 sm:px-8">
+      {/* Header */}
+      <div className="rounded-4xl bg-[#f6f8f3] px-6 py-8 sm:px-8">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#5f6b52]">
-          {material.group.label}
+          Spare Parts / {sparePart.groupLabel}
         </p>
         <h1 className="mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl">
-          {material.category.label}
+          {sparePart.label}
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-600 sm:text-base">
-          Live WooCommerce products filtered by the <strong>{material.category.label}</strong>{" "}
-          category slug. In-stock items show Add to Cart, while out-of-stock items
-          stay purchasable through Special Order.
-        </p>
       </div>
 
+      {/* Category navigation */}
       <div className="mt-6">
         <Link
-          href="/materials"
+          href={SPARE_PARTS_CATEGORY_HREF}
           prefetch
           className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-black"
         >
-          All Materials
+          All Spare Parts
         </Link>
+
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {materialsGroups.map((group) => (
+          {SPARE_PARTS_GROUPS.map((group) => (
             <div
               key={group.id}
-              className="rounded-[1.5rem] border border-gray-200 bg-white p-4"
+              className="rounded-3xl border border-gray-200 bg-white p-4"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                 {group.label}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
-                {group.links.map((link) => {
-                  const isActive = link.slug === slug;
+                {group.items.map((item) => {
+                  const isActive = item.slug === sparePart.slug;
 
                   return (
                     <Link
-                      key={link.slug}
-                      href={link.href}
+                      key={item.id}
+                      href={item.href}
                       prefetch
                       className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                         isActive
@@ -102,7 +105,7 @@ export default async function MaterialCategoryPage({
                           : "border border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 hover:text-black"
                       }`}
                     >
-                      {link.label}
+                      {item.label}
                     </Link>
                   );
                 })}
@@ -112,19 +115,20 @@ export default async function MaterialCategoryPage({
         </div>
       </div>
 
+      {/* Products */}
       <div className="mt-8">
         <ProductGrid
           initialProducts={products}
           initialPage={1}
           totalPages={totalPages}
           apiQuery={{
-            category_slug: slug,
+            category_slug: sparePart.wooSlug,
             sort,
             stock_status: stock,
             cache: "no-store",
             strict_category: "1",
           }}
-          emptyMessage={`No products found in ${material.category.label}.`}
+          emptyMessage={`No products found in ${sparePart.label}.`}
         />
       </div>
     </section>

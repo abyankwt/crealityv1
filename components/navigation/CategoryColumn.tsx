@@ -33,12 +33,27 @@ function getCategoryIcon(slug: string) {
   return CATEGORY_ICONS[slug] ?? Box;
 }
 
+function getCategoryHeading(category: CategoryNode) {
+  return category.slug === "accessories"
+    ? "Accessories & Tools"
+    : category.name;
+}
+
 function getCategoryLinks(category: CategoryNode) {
   if (category.children.length > 0) {
-    return category.children.map((child) => ({
+    const children =
+      category.slug === "accessories"
+        ? category.children.filter((child) => child.slug !== "filament-dryer")
+        : category.children;
+
+    return children.map((child) => ({
       id: child.id,
       name: child.name,
       slug: child.slug,
+      href:
+        category.slug === "3d-printers"
+          ? `/3d-printers/${child.slug}`
+          : `/category/${child.slug}`,
     }));
   }
 
@@ -47,6 +62,7 @@ function getCategoryLinks(category: CategoryNode) {
       id: category.id,
       name: category.name,
       slug: category.slug,
+      href: `/category/${category.slug}`,
     },
   ];
 }
@@ -56,6 +72,7 @@ export default function CategoryColumn({
   onNavigate,
 }: CategoryColumnProps) {
   const Icon = getCategoryIcon(category.slug);
+  const heading = getCategoryHeading(category);
   const links = getCategoryLinks(category);
 
   return (
@@ -67,14 +84,14 @@ export default function CategoryColumn({
           className="mb-2 inline-block text-xs font-semibold uppercase tracking-wide text-gray-400"
           onClick={onNavigate}
         >
-          {category.name}
+          {heading}
         </Link>
 
         <div className="space-y-1">
           {links.map((link) => (
             <Link
               key={link.id}
-              href={`/category/${link.slug}`}
+              href={link.href}
               prefetch
               className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-gray-700 transition duration-150 ease-out hover:translate-x-1 hover:bg-gray-50 hover:text-black"
               role="menuitem"

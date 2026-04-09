@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCatalogProducts, resolveCatalogSort } from "@/lib/catalog";
+import {
+  fetchCatalogProducts,
+  fetchPrinterSubmenuProducts,
+  resolveCatalogSort,
+  shouldBypassSectionFilteringForCategory,
+} from "@/lib/catalog";
 import {
   filterProductsForSection,
   resolveProductSectionFromSlug,
@@ -25,8 +30,10 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag") ?? searchParams.get("promotion") ?? undefined;
     const exclude = searchParams.get("exclude");
     const usedPrinters = searchParams.get("used_printers");
-    const cacheMode = searchParams.get("cache_mode") === "no-store" ? "no-store" : undefined;
+    const printerSubmenuSlug = searchParams.get("printer_submenu_slug") ?? undefined;
     const strictCategory = searchParams.get("strict_category") === "1";
+    const cacheParam = searchParams.get("cache") ?? searchParams.get("cache_mode");
+    const cacheMode = cacheParam === "no-store" ? "no-store" : undefined;
     const section: ProductSection =
       usedPrinters === "1" || usedPrinters === "true"
         ? "used_printers"
@@ -41,12 +48,21 @@ export async function GET(request: NextRequest) {
             page,
             perPage,
           })
+        : printerSubmenuSlug
+        ? await fetchPrinterSubmenuProducts({
+            submenuSlug: printerSubmenuSlug,
+            page,
+            perPage,
+            sort,
+            stockStatus: stock_status,
+            cache: cacheMode,
+          })
         : strictCategory && categorySlug
         ? await fetchProductsByCategory(categorySlug, page, {
             orderby: orderby ?? resolvedSort.orderby,
             order: order ?? resolvedSort.order,
             stock_status,
-            cacheMode,
+            cache: cacheMode,
           })
         : search || category || orderby || order
         ? await fetchProducts({
@@ -58,7 +74,7 @@ export async function GET(request: NextRequest) {
             order: order ?? undefined,
             category: category ? Number(category) : undefined,
             tag,
-            cacheMode,
+            cache: cacheMode,
           })
         : await fetchCatalogProducts({
             page,
@@ -75,12 +91,15 @@ export async function GET(request: NextRequest) {
           });
 
     const excludedId = exclude ? Number(exclude) : undefined;
-    const sectionFilteredProducts = filterProductsForSection(result.data, section);
+    const baseProducts =
+      printerSubmenuSlug || shouldBypassSectionFilteringForCategory(categorySlug)
+        ? result.data
+        : filterProductsForSection(result.data, section);
     const products = Number.isFinite(excludedId)
-      ? sectionFilteredProducts.filter((product) => product.id !== excludedId)
-      : sectionFilteredProducts;
+      ? baseProducts.filter((product) => product.id !== excludedId)
+      : baseProducts;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       products,
       pagination: {
         page,
@@ -89,6 +108,12 @@ export async function GET(request: NextRequest) {
         totalProducts: result.totalProducts,
       },
     });
+
+    if (cacheMode === "no-store") {
+      response.headers.set("Cache-Control", "no-store");
+    }
+
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

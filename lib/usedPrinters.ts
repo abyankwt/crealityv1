@@ -1,86 +1,16 @@
 import "server-only";
 
-import { formatPrice } from "@/lib/price";
 import {
   filterProductsForSection,
-  isPreOrderProduct,
-  resolveProductLeadTime,
-  resolveProductOrderType,
 } from "@/lib/productLogic";
 import type { FetchProductsResult } from "@/lib/woocommerce";
-import type {
-  Product,
-  ProductAttribute,
-  ProductCategory,
-  ProductImage,
-  ProductMeta,
-  ProductTag,
-} from "@/lib/woocommerce-types";
-
-type WooRestImage = {
-  id: number;
-  src: string;
-  alt?: string | null;
-  name?: string | null;
-};
-
-type WooRestCategory = {
-  id: number;
-  name: string;
-  slug: string;
-  parent?: number;
-};
-
-type WooRestTag = {
-  id: number;
-  name: string;
-  slug: string;
-};
-
-type WooRestAttribute = {
-  id: number;
-  name: string;
-  options?: string[];
-  visible?: boolean;
-  variation?: boolean;
-};
-
-type WooRestProduct = {
-  id: number;
-  name: string;
-  slug: string;
-  permalink?: string;
-  description?: string;
-  short_description?: string;
-  price?: string;
-  regular_price?: string;
-  sale_price?: string;
-  price_html?: string;
-  images?: WooRestImage[];
-  categories?: WooRestCategory[];
-  tags?: WooRestTag[];
-  attributes?: WooRestAttribute[];
-  meta_data?: ProductMeta[];
-  stock_status?: string;
-  stock_quantity?: number | null;
-  purchasable?: boolean;
-  status?: string;
-  average_rating?: string | number;
-  rating_count?: number;
-  related_ids?: number[];
-  weight?: string | number | null;
-  dimensions?: {
-    length?: string | number | null;
-    width?: string | number | null;
-    height?: string | number | null;
-  } | null;
-  manage_stock?: boolean;
-  in_stock?: boolean;
-};
+import {
+  normalizeWooRestProduct,
+  type WooRestCategory,
+  type WooRestProduct,
+} from "@/lib/wooRestProducts";
 
 const USED_PRINTERS_CATEGORY_SLUG = "used-3d-printers";
-const DEFAULT_CURRENCY_CODE = "KWD";
-const DEFAULT_CURRENCY_SYMBOL = "KWD";
 const WOO_REST_TIMEOUT_MS = 5000;
 const WOO_REST_REVALIDATE_SECONDS = 60;
 const wooRestCache = new Map<string, unknown>();
@@ -279,112 +209,6 @@ async function wooRestPaginatedRequest<T>(
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-function normalizeImage(image: WooRestImage): ProductImage {
-  return {
-    id: image.id,
-    src: image.src,
-    alt: image.alt ?? null,
-    name: image.name ?? null,
-    thumbnail: null,
-  };
-}
-
-function normalizeCategory(category: WooRestCategory): ProductCategory {
-  return {
-    id: category.id,
-    name: category.name,
-    slug: category.slug,
-    parent: category.parent ?? 0,
-    image: null,
-  };
-}
-
-function normalizeTag(tag: WooRestTag): ProductTag {
-  return {
-    id: tag.id,
-    name: tag.name,
-    slug: tag.slug,
-  };
-}
-
-function normalizeAttribute(attribute: WooRestAttribute): ProductAttribute {
-  return {
-    id: attribute.id,
-    name: attribute.name,
-    options: attribute.options ?? [],
-    visible: Boolean(attribute.visible ?? true),
-    variation: Boolean(attribute.variation),
-  };
-}
-
-function parsePrice(value?: string) {
-  const numeric = Number(value ?? 0);
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
-function normalizeWooRestProduct(product: WooRestProduct): Product {
-  const categories = (product.categories ?? []).map(normalizeCategory);
-  const resolvedOrderType = resolveProductOrderType({
-    product_order_type: undefined,
-    is_preorder: isPreOrderProduct(product),
-    stock_status: product.stock_status,
-    is_in_stock: product.in_stock ?? product.stock_status === "instock",
-    categories,
-    meta_data: product.meta_data,
-    tags: product.tags,
-  });
-  const price = parsePrice(product.price);
-  const regularPrice = parsePrice(product.regular_price);
-  const salePrice = parsePrice(product.sale_price);
-
-  return {
-    id: product.id,
-    name: product.name,
-    slug: product.slug,
-    permalink: product.permalink,
-    description: product.description,
-    short_description: product.short_description,
-    price_html: product.price_html,
-    prices: {
-      price: product.price,
-      regular_price: product.regular_price,
-      sale_price: product.sale_price,
-      currency_code: DEFAULT_CURRENCY_CODE,
-      currency_symbol: DEFAULT_CURRENCY_SYMBOL,
-      currency_minor_unit: 2,
-    },
-    price,
-    regular_price: regularPrice,
-    sale_price: salePrice,
-    formatted_price: formatPrice(price),
-    currency_code: DEFAULT_CURRENCY_CODE,
-    currency_symbol: DEFAULT_CURRENCY_SYMBOL,
-    currency_minor_unit: 2,
-    images: (product.images ?? []).map(normalizeImage),
-    attributes: (product.attributes ?? []).map(normalizeAttribute),
-    category_slug: categories.map((category) => category.slug),
-    categories,
-    tags: (product.tags ?? []).map(normalizeTag),
-    is_preorder: isPreOrderProduct(product),
-    lead_time: resolveProductLeadTime(product),
-    order_type: resolvedOrderType,
-    meta_data: product.meta_data ?? [],
-    product_order_type: resolvedOrderType,
-    is_in_stock: product.in_stock ?? product.stock_status === "instock",
-    stock_status: product.stock_status ?? "outofstock",
-    stock_quantity: product.stock_quantity ?? null,
-    weight: product.weight ?? null,
-    dimensions: product.dimensions ?? null,
-    purchasable: Boolean(product.purchasable),
-    average_rating:
-      typeof product.average_rating === "string"
-        ? Number(product.average_rating)
-        : product.average_rating,
-    review_count: product.rating_count,
-    related_ids: product.related_ids,
-  };
 }
 
 async function resolveUsedPrintersCategoryId() {

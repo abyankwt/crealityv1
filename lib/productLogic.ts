@@ -31,6 +31,11 @@ type ProductLike = {
   lead_time?: string | null;
 };
 
+type CategorySlugFilterOptions = {
+  excludeServiceListings?: boolean;
+  excludeUsedPrinters?: boolean;
+};
+
 const PRE_ORDER_DEFAULT_LEAD_TIME = "~45 days";
 const USED_PRINTERS_CATEGORY_SLUG = "used-3d-printers";
 const SERVICE_CATEGORY_SLUG = "services";
@@ -64,6 +69,10 @@ const PRE_ORDER_LEAD_TIME_KEYS = [
 
 function normalizePreOrderToken(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeCategorySlug(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
 }
 
 function matchesServiceCategory(value: string | null | undefined) {
@@ -347,6 +356,85 @@ export function filterProductsForSection<T extends ProductLike>(
   });
 }
 
+export function productMatchesAnyCategorySlug(
+  product: ProductLike | null | undefined,
+  slugs: string[]
+) {
+  if (!product || slugs.length === 0) {
+    return false;
+  }
+
+  const normalizedSlugs = new Set(
+    slugs.map((slug) => normalizeCategorySlug(slug)).filter(Boolean)
+  );
+
+  if (normalizedSlugs.size === 0) {
+    return false;
+  }
+
+  const productSlugs = new Set([
+    ...(product.category_slug ?? []).map((slug) => normalizeCategorySlug(slug)),
+    ...(product.categories ?? []).map((category) =>
+      normalizeCategorySlug(category.slug)
+    ),
+  ]);
+
+  for (const productSlug of productSlugs) {
+    if (productSlug && normalizedSlugs.has(productSlug)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function productMatchesAnyToken(
+  product: ProductLike | null | undefined,
+  tokens: string[]
+) {
+  if (!product || tokens.length === 0) {
+    return false;
+  }
+
+  const normalizedTokens = tokens
+    .map((token) => normalizePreOrderToken(token))
+    .filter(Boolean);
+
+  if (normalizedTokens.length === 0) {
+    return false;
+  }
+
+  const slugValue = normalizePreOrderToken(product.slug ?? "");
+  const nameValue = normalizePreOrderToken(product.name ?? "");
+
+  return normalizedTokens.some(
+    (token) => slugValue.includes(token) || nameValue.includes(token)
+  );
+}
+
+export function filterProductsByCategorySlugs<T extends ProductLike>(
+  products: T[],
+  slugs: string[],
+  options: CategorySlugFilterOptions = {}
+) {
+  const {
+    excludeServiceListings = true,
+    excludeUsedPrinters = true,
+  } = options;
+
+  return products.filter((product) => {
+    if (excludeServiceListings && isServiceListingProduct(product)) {
+      return false;
+    }
+
+    if (excludeUsedPrinters && isUsedPrinterProduct(product)) {
+      return false;
+    }
+
+    return productMatchesAnyCategorySlug(product, slugs);
+  });
+}
+
 export function resolveProductLeadTime(
   product: ProductLike | null | undefined
 ) {
@@ -396,7 +484,16 @@ export function resolveProductOrderType(
     return "special_order";
   }
 
-  return product?.is_in_stock === true ? "in_stock" : "special_order";
+  // stock_status absent — fall back to is_in_stock / stock_quantity (raw API fields)
+  if (product?.is_in_stock === true) {
+    return "in_stock";
+  }
+
+  if (typeof product?.stock_quantity === "number" && product.stock_quantity > 0) {
+    return "in_stock";
+  }
+
+  return "special_order";
 }
 
 export function resolveDisplayProductOrderType(
@@ -411,10 +508,12 @@ export function resolveDisplayProductOrderType(
     return "in_stock";
   }
 
-  if (section === "preorders" && isPreOrderSectionProduct(product)) {
+  // Pre-order overrides stock logic regardless of section
+  if (isPreOrderProduct(product)) {
     return "pre_order";
   }
 
+  // Use stock_status ONLY — never is_in_stock or stock_quantity
   return product?.stock_status === "instock" ? "in_stock" : "special_order";
 }
 

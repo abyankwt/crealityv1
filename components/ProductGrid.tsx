@@ -7,6 +7,7 @@ import ProductCardSkeleton from "./ProductCardSkeleton";
 import { getProductAvailability } from "@/lib/productAvailability";
 import {
   filterProductsForSection,
+  resolveProductSection,
   type ProductSection,
 } from "@/lib/productLogic";
 import type { Product } from "@/lib/woocommerce-types";
@@ -16,8 +17,11 @@ type ProductGridProps = {
   initialPage: number;
   totalPages: number;
   section?: ProductSection;
+  productSectionOverride?: ProductSection;
   apiQuery?: Record<string, string | number | undefined>;
   emptyMessage?: string;
+  showShortDescription?: boolean;
+  filterBySection?: boolean;
 };
 
 type SortValue =
@@ -203,8 +207,11 @@ export default function ProductGrid({
   initialPage,
   totalPages,
   section = "default",
+  productSectionOverride,
   apiQuery,
   emptyMessage = "No products found.",
+  showShortDescription = false,
+  filterBySection = true,
 }: ProductGridProps) {
   const defaultSort =
     typeof apiQuery?.sort === "string"
@@ -212,7 +219,7 @@ export default function ProductGrid({
       : "popularity_desc";
 
   const [products, setProducts] = useState<Product[]>(
-    filterProductsForSection(initialProducts, section)
+    filterBySection ? filterProductsForSection(initialProducts, section) : initialProducts
   );
   const [page, setPage] = useState(initialPage);
   const [loading, setLoading] = useState(false);
@@ -267,13 +274,15 @@ export default function ProductGrid({
   }, []);
 
   useEffect(() => {
-    setProducts(filterProductsForSection(initialProducts, section));
+    setProducts(
+      filterBySection ? filterProductsForSection(initialProducts, section) : initialProducts
+    );
     setPage(initialPage);
     setLoading(false);
     setHasMore(initialPage < totalPages);
     setToastMessage(null);
     setSortValue(defaultSort);
-  }, [defaultSort, initialPage, initialProducts, section, totalPages]);
+  }, [defaultSort, filterBySection, initialPage, initialProducts, section, totalPages]);
 
   const activeFilterCount = [
     search.trim(),
@@ -307,7 +316,11 @@ export default function ProductGrid({
         product.price <= parsedMaxPrice;
       const matchesStock =
         !inStockOnly ||
-        getProductAvailability(product, section).type === "available";
+        getProductAvailability(
+          product,
+          productSectionOverride ??
+            (filterBySection ? section : resolveProductSection(product))
+        ).type === "available";
 
       return (
         matchesSearch &&
@@ -329,7 +342,17 @@ export default function ProductGrid({
     }
 
     return sortedProducts;
-  }, [categoryFilter, inStockOnly, maxPrice, minPrice, products, search, section, sortValue]);
+  }, [
+    categoryFilter,
+    inStockOnly,
+    maxPrice,
+    minPrice,
+    productSectionOverride,
+    products,
+    search,
+    section,
+    sortValue,
+  ]);
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -348,14 +371,18 @@ export default function ProductGrid({
         }
       });
 
-      const res = await fetch(`/api/products?${params.toString()}`);
+      const res = await fetch(`/api/products?${params.toString()}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to fetch products");
 
       const data = (await res.json()) as {
         products: Product[];
         pagination: { totalPages: number };
       };
-      const nextPageProducts = filterProductsForSection(data.products, section);
+      const nextPageProducts = filterBySection
+        ? filterProductsForSection(data.products, section)
+        : data.products;
 
       setProducts((prev) => {
         const seenIds = new Set(prev.map((product) => product.id));
@@ -371,7 +398,7 @@ export default function ProductGrid({
     } finally {
       setLoading(false);
     }
-  }, [apiQuery, hasMore, loading, page, section]);
+  }, [apiQuery, filterBySection, hasMore, loading, page, section]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
@@ -474,9 +501,10 @@ export default function ProductGrid({
                     <ProductCard
                       key={product.id}
                       product={product}
-                      section={section}
+                      section={productSectionOverride ?? (filterBySection ? section : undefined)}
                       onAddToCart={handleAddedToCart}
                       onAddToCartError={handleAddToCartError}
+                      showShortDescription={showShortDescription}
                     />
                   ))}
                   {loading &&

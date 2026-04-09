@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { WooRestProduct } from "@/lib/wooRestProducts";
+
 type FetchResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; errorMessage?: string };
@@ -65,10 +67,35 @@ type WooProductSummaryResponse = {
 type WooProductDetailResponse = WooProductSummaryResponse & {
   name: string;
   slug: string;
+  status?: string;
   price?: string;
   regular_price?: string;
+  sale_price?: string;
   short_description?: string;
+  description?: string;
+  price_html?: string;
   catalog_visibility?: string;
+  stock_quantity?: number | null;
+  purchasable?: boolean;
+  average_rating?: string | number;
+  rating_count?: number;
+  related_ids?: number[];
+  weight?: string | number | null;
+  dimensions?: {
+    length?: string | number | null;
+    width?: string | number | null;
+    height?: string | number | null;
+  } | null;
+  in_stock?: boolean;
+  featured?: boolean;
+  meta_data?: { id?: number; key: string; value: string }[];
+  attributes?: Array<{
+    id: number;
+    name: string;
+    options?: string[];
+    visible?: boolean;
+    variation?: boolean;
+  }>;
   images?: WooProductImageResponse[];
 };
 
@@ -332,6 +359,100 @@ export const getWooProductsByTagSlug = async (tagSlug: string) => {
   );
 };
 
+export const getWooPublishedProductBySlug = async (slug: string) => {
+  const normalizedSlug = slug.trim().toLowerCase();
+
+  if (!normalizedSlug) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  return wooRequest<WooRestProduct[]>(
+    `products?slug=${encodeURIComponent(normalizedSlug)}&status=publish&per_page=1`
+  );
+};
+
+export const getWooPublishedProductsByCategorySlug = async (
+  categorySlug: string,
+  options: {
+    orderby?: string;
+    order?: "asc" | "desc";
+  } = {}
+) => {
+  const normalizedCategorySlug = categorySlug.trim().toLowerCase();
+
+  if (!normalizedCategorySlug) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  const categoryResult = await wooRequest<WooProductTaxonomyTermResponse[]>(
+    `products/categories?slug=${encodeURIComponent(normalizedCategorySlug)}&per_page=100`
+  );
+
+  if (!categoryResult.ok) {
+    return categoryResult as FetchResult<WooRestProduct[]>;
+  }
+
+  const matchedCategory = categoryResult.data.find(
+    (category) => category.slug.toLowerCase() === normalizedCategorySlug
+  );
+
+  if (!matchedCategory) {
+    return {
+      ok: true as const,
+      status: 200,
+      data: [] as WooRestProduct[],
+    };
+  }
+
+  const products: WooRestProduct[] = [];
+  const perPage = 100;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const path = new URLSearchParams({
+      category: String(matchedCategory.id),
+      status: "publish",
+      page: String(page),
+      per_page: String(perPage),
+    });
+
+    if (options.orderby) {
+      path.set("orderby", options.orderby);
+    }
+
+    if (options.order) {
+      path.set("order", options.order);
+    }
+
+    const productResult = await wooRequest<WooRestProduct[]>(
+      `products?${path.toString()}`
+    );
+
+    if (!productResult.ok) {
+      return productResult;
+    }
+
+    products.push(...productResult.data);
+
+    if (productResult.data.length < perPage) {
+      break;
+    }
+  }
+
+  return {
+    ok: true as const,
+    status: 200,
+    data: products,
+  };
+};
+
 export const updateWooOrder = async (orderId: number, payload: Record<string, unknown>) => {
   return wooRequest<WooOrderResponse>(`orders/${orderId}`, {
     method: "PUT",
@@ -361,7 +482,7 @@ export const verifyCustomerPassword = async (email: string) => {
 
   const customer = result.data[0];
   const hashMeta = customer.meta_data?.find(
-    (m) => m.key === "_app_password_hash"
+    (m) => m.key === "app_password_hash"
   );
 
   return {
@@ -401,11 +522,7 @@ export const verifyWpUser = async (email: string, password: string) => {
 
     console.log(`[Login] WP REST API /users/me status: ${wpResponse.status}`);
 
-    if (wpResponse.status === 401 || wpResponse.status === 403) {
-      return { ok: false as const, status: 401 };
-    }
-
-    // If WP REST API confirms the user, use its data
+    // If WP REST API confirms the user (requires Application Passwords), use its data
     if (wpResponse.ok) {
       const wpUser = await wpResponse.json() as { id: number; name: string; email?: string };
       return {
@@ -418,6 +535,8 @@ export const verifyWpUser = async (email: string, password: string) => {
         },
       };
     }
+    // 401/403 means regular password — fall through to wp-login.php
+    console.log(`[Login] WP REST API returned ${wpResponse.status}, trying wp-login.php...`);
   } catch (err) {
     clearTimeout(timeoutId);
     const msg = err instanceof Error ? err.message : "unknown";
@@ -425,13 +544,31 @@ export const verifyWpUser = async (email: string, password: string) => {
   }
 
   // Step 3: Fallback — try wp-login.php with timeout
+  // WordPress requires the test cookie to be present as an HTTP cookie on the POST request.
+  // We GET first to obtain it, then POST with it included.
   const loginController = new AbortController();
-  const loginTimeout = setTimeout(() => loginController.abort(), 10000);
+  const loginTimeout = setTimeout(() => loginController.abort(), 15000);
 
   try {
+    // Step 3a: GET wp-login.php to obtain the wordpress_test_cookie
+    const getResponse = await fetch(`${baseUrl}/wp-login.php`, {
+      redirect: "manual",
+      signal: loginController.signal,
+    });
+    const setCookieHeader = getResponse.headers.get("set-cookie") ?? "";
+    const testCookieMatch = setCookieHeader.match(/wordpress_test_cookie=[^;,\s]+/);
+    const cookieHeader = testCookieMatch
+      ? testCookieMatch[0]
+      : "wordpress_test_cookie=WP%20Cookie%20check";
+    console.log(`[Login] wp-login.php GET status: ${getResponse.status}, testCookie: ${cookieHeader}`);
+
+    // Step 3b: POST credentials with the test cookie included
     const loginResponse = await fetch(`${baseUrl}/wp-login.php`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookieHeader,
+      },
       body: new URLSearchParams({
         log: username,
         pwd: password,
@@ -444,7 +581,7 @@ export const verifyWpUser = async (email: string, password: string) => {
     });
     clearTimeout(loginTimeout);
 
-    console.log(`[Login] wp-login.php status: ${loginResponse.status}`);
+    console.log(`[Login] wp-login.php POST status: ${loginResponse.status}`);
 
     if (loginResponse.status === 302) {
       return {
@@ -457,6 +594,15 @@ export const verifyWpUser = async (email: string, password: string) => {
         },
       };
     }
+
+    // Log response body to help diagnose failures
+    try {
+      const body = await loginResponse.text();
+      const errorMatch = body.match(/<div id="login_error"[^>]*>([\s\S]*?)<\/div>/);
+      if (errorMatch) {
+        console.log(`[Login] wp-login.php error: ${errorMatch[1].replace(/<[^>]+>/g, "").trim()}`);
+      }
+    } catch { /* ignore */ }
 
     return { ok: false as const, status: 401 };
   } catch (err) {
