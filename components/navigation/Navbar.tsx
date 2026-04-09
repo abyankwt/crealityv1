@@ -51,12 +51,15 @@ export default function Navbar({
       try {
         const response = await fetch("/api/auth/me", { cache: "no-store" });
         const data = (await response.json()) as AuthMeResponse;
-        if (active && response.ok && data.authenticated) {
+        if (!active) return;
+        if (response.ok && data.authenticated) {
           setUser({
             userId: data.user.id,
             email: data.user.email,
             name: data.user.name,
           });
+        } else {
+          setUser(null);
         }
       } catch {
         if (active) setUser(null);
@@ -66,7 +69,7 @@ export default function Navbar({
     return () => {
       active = false;
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {

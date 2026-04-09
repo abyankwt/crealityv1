@@ -304,7 +304,11 @@ export function isVisibleUsedPrinterProduct(
     return false;
   }
 
-  return typeof product?.stock_quantity === "number" && product.stock_quantity > 0;
+  if (typeof product?.stock_quantity === "number" && product.stock_quantity > 0) {
+    return true;
+  }
+
+  return product?.stock_status === "instock" || product?.is_in_stock === true;
 }
 
 export type ProductSection = "default" | "preorders" | "used_printers";
