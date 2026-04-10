@@ -76,7 +76,6 @@ export default async function PrinterCategoryPage({
           printer_submenu_slug: category.slug,
           cache: "no-store",
         }}
-        showShortDescription
         emptyMessage={`No products found in ${category.name}.`}
       />
     </section>

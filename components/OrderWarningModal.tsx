@@ -13,6 +13,7 @@ type OrderWarningModalProps = {
   open: boolean;
   availability: ProductAvailability;
   product?: SpecialOrderPricedProduct | null;
+  showMoq?: boolean;
   acknowledged: boolean;
   onAcknowledgedChange: (value: boolean) => void;
   onClose: () => void;
@@ -26,6 +27,7 @@ export default function OrderWarningModal({
   open,
   availability,
   product,
+  showMoq = false,
   acknowledged,
   onAcknowledgedChange,
   onClose,
@@ -149,7 +151,7 @@ export default function OrderWarningModal({
                 Estimated lead time: {resolvedLeadTime}
               </p>
             ) : null}
-            {availability.type === "special" && (
+            {showMoq && (
               <p className="mt-2 text-sm font-medium text-orange-600">
                 Minimum order quantity: {SPECIAL_ORDER_MOQ} pieces
               </p>

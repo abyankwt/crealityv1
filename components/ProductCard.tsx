@@ -297,6 +297,7 @@ export default function ProductCard({
         open={warningOpen}
         availability={modalAvailability}
         product={product}
+        showMoq={hasMoq}
         acknowledged={warningAccepted}
         onAcknowledgedChange={setWarningAccepted}
         onClose={() => setWarningOpen(false)}

@@ -175,7 +175,11 @@ export function normalizeWooRestProduct(product: WooRestProduct): Product {
     is_in_stock: product.in_stock ?? product.stock_status === "instock",
     stock_status: product.stock_status
       ?? (product.in_stock === true ? "instock" : "outofstock"),
-    stock_quantity: product.stock_quantity ?? null,
+    stock_quantity: typeof product.stock_quantity === "number"
+      ? product.stock_quantity
+      : typeof product.stock_quantity === "string" && product.stock_quantity !== ""
+      ? (Number.isFinite(Number(product.stock_quantity)) ? Number(product.stock_quantity) : null)
+      : null,
     weight: product.weight ?? null,
     dimensions: product.dimensions ?? null,
     purchasable: Boolean(product.purchasable),

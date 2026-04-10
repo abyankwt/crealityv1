@@ -258,7 +258,11 @@ const normalizeProduct = (product: RawStoreProduct): Product => {
       ?? (product.is_in_stock === true || (typeof product.stock_quantity === "number" && product.stock_quantity > 0)
         ? "instock"
         : "outofstock"),
-    stock_quantity: product.stock_quantity ?? null,
+    stock_quantity: typeof product.stock_quantity === "number"
+      ? product.stock_quantity
+      : typeof product.stock_quantity === "string" && product.stock_quantity !== ""
+      ? (Number.isFinite(Number(product.stock_quantity)) ? Number(product.stock_quantity) : null)
+      : null,
     purchasable: Boolean(isPurchasable),
     average_rating:
       typeof product.average_rating === "string"

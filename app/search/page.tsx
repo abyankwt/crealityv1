@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
 import { fetchProducts } from "@/lib/api";
-import { filterProductsForSection } from "@/lib/productLogic";
+import { isServiceListingProduct } from "@/lib/productLogic";
 
 type SearchPageProps = {
   searchParams: Promise<{ q?: string }>;
@@ -45,9 +45,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   }
 
   const { data: products } = await fetchProducts(
-    { search: query } as FetchProductsParams
+    { search: query, perPage: 100 } as FetchProductsParams
   );
-  const visibleProducts = filterProductsForSection(products, "default");
+  // Show all purchasable product types in search (in-stock, special order, pre-order).
+  // Only exclude internal service listings that are not customer-facing products.
+  const visibleProducts = products.filter((p) => !isServiceListingProduct(p));
 
 
   return (

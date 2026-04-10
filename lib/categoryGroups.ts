@@ -17,7 +17,7 @@ export type MobileCategorySection = {
  * Materials has its own dedicated grouped navigation (Filament / Resin).
  * Exclude it from generic category listings to prevent flat rendering.
  */
-const EXCLUDED_CATEGORY_SLUGS = new Set(["materials", "washing-curing"]);
+const EXCLUDED_CATEGORY_SLUGS = new Set(["materials"]);
 
 const GROUP_BLUEPRINT = [
   {
@@ -50,6 +50,12 @@ const MOBILE_SECTION_BLUEPRINT = [
     label: "Laser & Milling",
     slug: "laser-milling",
     allLabel: "All Laser & Milling",
+  },
+  {
+    id: "washing-curing",
+    label: "Washing & Curing",
+    slug: "washing-curing",
+    allLabel: "All Washing & Curing",
   },
 
   {

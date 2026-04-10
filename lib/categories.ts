@@ -10,6 +10,8 @@ export type CategoryNode = {
   productCategorySlugs?: string[];
   routeAliases?: string[];
   productMatchTokens?: string[];
+  /** Name tokens that disqualify a product from this category (case-insensitive substring match) */
+  excludeNameTokens?: string[];
 };
 
 export const PRINTER_SUBMENU_CATEGORIES: CategoryNode[] = [
@@ -39,7 +41,7 @@ export const PRINTER_SUBMENU_CATEGORIES: CategoryNode[] = [
   },
   {
     id: 412,
-    name: "Spark i7",
+    name: "SparkX Series",
     slug: "spark-i7",
     image: null,
     children: [],
@@ -47,7 +49,7 @@ export const PRINTER_SUBMENU_CATEGORIES: CategoryNode[] = [
   },
   {
     id: 104,
-    name: "Hi Printer",
+    name: "Hi Series",
     slug: "hi-printer",
     image: null,
     children: [],
@@ -63,12 +65,13 @@ export const PRINTER_SUBMENU_CATEGORIES: CategoryNode[] = [
   },
   {
     id: 106,
-    name: "Resin Series",
+    name: "Halot Series",
     slug: "resin-series",
     image: null,
     children: [],
     routeAliases: ["halot-series"],
     productCategorySlugs: ["resin-series", "halot-series"],
+    excludeNameTokens: ["washing", "curing", "uw-"],
   },
 ];
 

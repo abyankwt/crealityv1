@@ -16,13 +16,12 @@ import {
   isPreOrderSectionProduct,
   isServiceListingProduct,
   isUsedPrinterProduct,
-  productMatchesAnyToken,
   resolveProductSectionFromSlug,
 } from "@/lib/productLogic";
 import {
-  getPrinterSubmenuProductCategorySlugs,
-  getPrinterSubmenuProductMatchTokens,
+  getPrinterSubmenuCategoryBySlug,
 } from "@/lib/categories";
+import { productMatchesAnyToken } from "@/lib/productLogic";
 import { fetchUsedPrinterProducts } from "@/lib/usedPrinters";
 import { normalizeWooRestProduct } from "@/lib/wooRestProducts";
 import type { FetchProductsResult } from "@/lib/woocommerce";
@@ -125,6 +124,16 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
+  },
+  {
+    // "View All" for Washing & Curing — products may be categorised under
+    // "resin-series" in WooCommerce so token matching catches them by name.
+    routeSlugs: ["washing-curing", "washing-curing-series"],
+    productCategorySlugs: ["washing-curing", "washing-curing-series", "uw"],
+    productMatchTokens: ["washing", "curing", "uw-0"],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
   },
   {
     // "View All" for 3D Printers — use Store API so parent/child categories
@@ -367,10 +376,10 @@ async function fetchGroupedCategoryProducts({
     });
 
     // Products were already fetched from the correct categories — only exclude
-    // service listings and used printers (same as filterProductsByCategorySlugs
-    // does internally, without the category re-check that can drop valid products).
+    // service listings, used printers, and pre-orders (pre-orders belong on their
+    // own dedicated page, not in category view-all listings).
     const filteredProducts = normalizedProducts.filter(
-      (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p)
+      (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p) && !isPreOrderSectionProduct(p)
     );
 
     return paginateProducts(filteredProducts, page, perPage);
@@ -386,19 +395,20 @@ async function fetchGroupedCategoryProducts({
 
   const matchTokens = config.productMatchTokens ?? [];
   const filteredProducts = allProducts.filter((product) => {
+    // Exclude pre-orders — they belong on the dedicated pre-order page only.
+    if (isPreOrderSectionProduct(product)) return false;
     if (filterProductsByCategorySlugs([product], config.productCategorySlugs).length > 0) {
       return true;
     }
-    // Also include pre-order products that match by name token (same logic as
-    // fetchPrinterSubmenuProducts — some pre-orders lack the exact category slug)
-    return (
-      matchTokens.length > 0 &&
-      isPreOrderSectionProduct(product) &&
-      productMatchesAnyToken(product, matchTokens)
-    );
+    // Token fallback: catch products whose WooCommerce category slug doesn't exactly
+    // match but whose name/slug matches a configured token (e.g. washing-curing products
+    // that are also categorised under resin-series in WooCommerce).
+    return matchTokens.length > 0 && productMatchesAnyToken(product, matchTokens);
   });
 
-  return paginateProducts(filteredProducts, page, perPage);
+  const paginated = paginateProducts(filteredProducts, page, perPage);
+  const enriched = await enrichWithRestData(paginated.data);
+  return { ...paginated, data: enriched };
 }
 
 export async function fetchPrinterSubmenuProducts({
@@ -409,10 +419,11 @@ export async function fetchPrinterSubmenuProducts({
   stockStatus,
   cache = "no-store",
 }: FetchPrinterSubmenuProductsRequest): Promise<FetchProductsResult> {
-  const matchedSlugs = getPrinterSubmenuProductCategorySlugs(submenuSlug);
-  const matchedTokens = getPrinterSubmenuProductMatchTokens(submenuSlug);
+  const matchedCategory = getPrinterSubmenuCategoryBySlug(submenuSlug);
+  const matchedSlugs = matchedCategory?.productCategorySlugs ?? [];
+  const excludeNameTokens = matchedCategory?.excludeNameTokens ?? [];
 
-  if (matchedSlugs.length === 0 && matchedTokens.length === 0) {
+  if (matchedSlugs.length === 0) {
     return {
       data: [],
       totalPages: 0,
@@ -430,17 +441,22 @@ export async function fetchPrinterSubmenuProducts({
   });
 
   const filteredProducts = allProducts.filter((product) => {
-    if (filterProductsByCategorySlugs([product], matchedSlugs).length > 0) {
-      return true;
+    // Exclude pre-orders — they belong on the dedicated pre-order page only.
+    if (isPreOrderSectionProduct(product)) return false;
+    // Exclude products whose name matches a disqualifying token (e.g. exclude
+    // washing/curing machines from the Halot Series page).
+    if (excludeNameTokens.length > 0) {
+      const nameLower = product.name.toLowerCase();
+      if (excludeNameTokens.some((t) => nameLower.includes(t.toLowerCase()))) {
+        return false;
+      }
     }
-
-    return (
-      isPreOrderSectionProduct(product) &&
-      productMatchesAnyToken(product, matchedTokens)
-    );
+    return filterProductsByCategorySlugs([product], matchedSlugs).length > 0;
   });
 
-  return paginateProducts(filteredProducts, page, perPage);
+  const paginated = paginateProducts(filteredProducts, page, perPage);
+  const enriched = await enrichWithRestData(paginated.data);
+  return { ...paginated, data: enriched };
 }
 
 async function enrichWithRestData(products: Product[]): Promise<Product[]> {
@@ -450,19 +466,22 @@ async function enrichWithRestData(products: Product[]): Promise<Product[]> {
 
   try {
     const restResult = await getProductsRestData(ids);
+    console.log("[enrichWithRestData] REST result ok:", restResult.ok, "data:", JSON.stringify(restResult.ok ? restResult.data : restResult));
     if (!restResult.ok || !restResult.data?.length) return products;
 
     const byId = new Map(restResult.data.map((d) => [d.id, d]));
     return products.map((p) => {
       const extra = byId.get(p.id);
+      console.log("[enrichWithRestData] product:", p.id, p.name, "store_qty:", p.stock_quantity, "rest_qty:", extra?.stock_quantity);
       if (!extra) return p;
       return {
         ...p,
         sku: p.sku ?? extra.sku ?? null,
-        stock_quantity: p.stock_quantity ?? extra.stock_quantity ?? null,
+        stock_quantity: extra.stock_quantity ?? p.stock_quantity ?? null,
       };
     });
-  } catch {
+  } catch (err) {
+    console.error("[enrichWithRestData] failed:", err);
     return products;
   }
 }

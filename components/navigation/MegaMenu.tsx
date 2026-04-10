@@ -15,7 +15,7 @@ type MegaMenuProps = {
 };
 
 const PRIMARY_COLUMN_ORDER = ["3d-printers", "accessories", "spare-parts"] as const;
-const SECONDARY_COLUMN_ORDER = ["3d-scanners", "laser-milling"] as const;
+const SECONDARY_COLUMN_ORDER = ["3d-scanners", "laser-milling", "washing-curing"] as const;
 
 function getOrderedColumns(
   categories: CategoryNode[],
@@ -181,7 +181,7 @@ export default function MegaMenu({
             </div>
 
             {secondaryColumns.length > 0 && (
-              <div className="grid min-w-0 items-start gap-5 md:col-span-2 md:grid-cols-2 md:gap-6 lg:col-span-3">
+              <div className="grid min-w-0 items-start gap-5 md:col-span-2 md:grid-cols-2 md:gap-6 lg:col-span-3 lg:grid-cols-3">
                 {secondaryColumns.map((category) => (
                   <div key={category.id} className="min-w-0 self-start">
                     <CategoryColumn
