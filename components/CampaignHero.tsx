@@ -7,17 +7,26 @@ import type { CrealityHeroSlideData } from "@/types/creality-cms";
 
 const HERO_API_URL = "/api/hero";
 
-export default function CampaignHero() {
-  const [slides, setSlides] = useState<CrealityHeroSlideData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+type CampaignHeroProps = {
+  initialSlides?: CrealityHeroSlideData[];
+};
+
+export default function CampaignHero({ initialSlides }: CampaignHeroProps) {
+  const [slides, setSlides] = useState<CrealityHeroSlideData[]>(initialSlides ?? []);
+  const [isLoading, setIsLoading] = useState(!initialSlides || initialSlides.length === 0);
   const [current, setCurrent] = useState(0);
-  const [cacheBuster] = useState(() => Date.now());
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: true,
     align: "start",
   });
 
   useEffect(() => {
+    // Skip client fetch if server already provided slides
+    if (initialSlides && initialSlides.length > 0) {
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
 
     async function loadSlides() {
@@ -25,7 +34,6 @@ export default function CampaignHero() {
         setIsLoading(true);
 
         const response = await fetch(HERO_API_URL, {
-          cache: "no-store",
           signal: controller.signal,
         });
 
@@ -35,7 +43,6 @@ export default function CampaignHero() {
 
         const data = (await response.json()) as CrealityHeroSlideData[];
         const nextSlides = Array.isArray(data) ? data : [];
-        console.log("🔥 API HERO:", data);
         setSlides(nextSlides);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -52,7 +59,7 @@ export default function CampaignHero() {
     void loadSlides();
 
     return () => controller.abort();
-  }, []);
+  }, [initialSlides]);
 
   useEffect(() => {
     if (!emblaApi) {
@@ -77,11 +84,6 @@ export default function CampaignHero() {
     .filter((slide) => slide.enabled)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const slidesKey = JSON.stringify(slides);
-
-  useEffect(() => {
-    console.log("API DATA:", slides);
-    console.log("ACTIVE:", activeSlides);
-  }, [slides, activeSlides]);
 
   useEffect(() => {
     if (!emblaApi) {
@@ -142,9 +144,7 @@ export default function CampaignHero() {
               const btn1Link = slide.button1_link || "#";
               const btn2Text = slide.button2_text;
               const btn2Link = slide.button2_link || "#";
-              const imageUrl = slide.image
-                ? `${slide.image}${slide.image.includes("?") ? "&" : "?"}v=${cacheBuster}`
-                : "";
+              const imageUrl = slide.image ?? "";
 
               return (
                 <div

@@ -7,6 +7,7 @@ import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts } from "@/lib/api";
 import { filterProductsForSection } from "@/lib/productLogic";
 import { getProductsRestData } from "@/lib/woo-client";
+import { fetchHomepageHeroSlides } from "@/lib/creality-cms";
 import CampaignHero from "@/components/CampaignHero";
 
 export const revalidate = 60;
@@ -39,7 +40,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const shouldReusePrimaryProductsForNewArrivals =
     !stock && orderby === "date" && order === "desc";
 
-  const [productResult, newProductsResult] = await Promise.all([
+  const [productResult, newProductsResult, heroSlides] = await Promise.all([
     fetchProducts({
       orderby,
       order,
@@ -52,6 +53,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           order: "desc",
           perPage: 8,
         }),
+    fetchHomepageHeroSlides(),
   ]);
 
   const { data: rawProducts, totalPages, totalProducts } = productResult;
@@ -87,7 +89,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
-      <CampaignHero />
+      <CampaignHero initialSlides={heroSlides} />
 
       <section className="bg-[#f8f8f8] py-6 sm:py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">

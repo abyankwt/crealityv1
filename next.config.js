@@ -35,7 +35,7 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns,
-    minimumCacheTTL: 0,
+    minimumCacheTTL: 86400,
   },
   async headers() {
     return [

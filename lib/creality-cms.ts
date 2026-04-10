@@ -33,8 +33,6 @@ export async function fetchHomepagePopup(): Promise<CrealityPopupData | null> {
 
     const data = (await res.json()) as CrealityPopupData | null;
 
-    console.log("API RAW:", data);
-
     if (!data || typeof data !== "object" || Array.isArray(data)) {
       return null;
     }
@@ -55,7 +53,7 @@ export async function fetchHomepageHeroSlides(): Promise<CrealityHeroSlideData[]
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/creality/v1/hero`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
 
     if (!res.ok) {

@@ -1,5 +1,4 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300;
 
 function getWordPressBaseUrl() {
   return (
@@ -19,17 +18,10 @@ export async function GET() {
       return Response.json([]);
     }
 
-    // Cache-bust upstream to bypass LiteSpeed / Cloudflare / WordPress object cache
-    const upstreamUrl = `${baseUrl}/wp-json/creality/v1/hero?t=${Date.now()}`;
-
-    console.log("[hero-api] Fetching hero slides from:", upstreamUrl);
+    const upstreamUrl = `${baseUrl}/wp-json/creality/v1/hero`;
 
     const res = await fetch(upstreamUrl, {
-      cache: "no-store",
-      headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-      },
+      next: { revalidate: 300 },
     });
 
     if (!res.ok) {
@@ -39,18 +31,7 @@ export async function GET() {
 
     const data = await res.json();
 
-    console.log("FULL HERO DATA:", data);
-
-    // Set no-cache headers on our proxy response so CDN/browser never caches
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0",
-        Pragma: "no-cache",
-        Expires: "0",
-      },
-    });
+    return Response.json(data);
   } catch (error) {
     console.error("Hero API error:", error);
     return Response.json([]);

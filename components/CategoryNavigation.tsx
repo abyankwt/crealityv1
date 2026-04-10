@@ -39,13 +39,13 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
     items: [
       {
         title: "Filaments",
-        href: "/category/filaments",
+        href: "/materials",
         imageName: "filaments.png",
         alt: "Filaments",
       },
       {
         title: "Resins",
-        href: "/category/resins",
+        href: "/materials",
         imageName: "resins.png",
         alt: "Resins",
       },

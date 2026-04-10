@@ -34,7 +34,13 @@ export function shouldBypassImageOptimization(src?: string | null) {
     return false;
   }
 
-  return src.startsWith("/site/") || /^https?:\/\//.test(src);
+  // /site/ paths use the Next.js rewrite → creality.com.kw and can be optimized
+  if (src.startsWith("/site/")) {
+    return false;
+  }
+
+  // Fully external URLs that aren't routed through the local rewrite bypass optimization
+  return /^https?:\/\//.test(src);
 }
 
 export function resolveImageSource(

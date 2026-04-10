@@ -123,7 +123,7 @@ export async function proxyToWooStore(
     }
   }
 
-  if (wooResponse.ok && path.startsWith("cart")) {
+  if (wooResponse.ok && path === "cart" && method === "GET") {
     data = await enrichCartResponseWithAvailability(data);
   }
 

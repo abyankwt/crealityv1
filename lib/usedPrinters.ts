@@ -14,7 +14,7 @@ const USED_PRINTERS_CATEGORY_SLUG = "used-3d-printers";
 const WOO_REST_TIMEOUT_MS = 5000;
 const WOO_REST_REVALIDATE_SECONDS = 60;
 const wooRestCache = new Map<string, unknown>();
-const USED_PRINTERS_PAGE_SIZE = 12;
+const USED_PRINTERS_PAGE_SIZE = 100;
 
 function getWooBaseUrl() {
   const baseUrl = process.env.WC_BASE_URL ?? process.env.WORDPRESS_URL;
