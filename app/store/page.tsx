@@ -7,6 +7,8 @@ import {
   type RawCatalogSearchParams,
 } from "@/lib/catalog";
 
+export const revalidate = 300;
+
 type PageProps = {
   searchParams?: Promise<RawCatalogSearchParams>;
 };

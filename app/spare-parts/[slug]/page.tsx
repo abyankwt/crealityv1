@@ -14,7 +14,7 @@ import {
 } from "@/lib/catalog";
 import { fetchProductsByCategory } from "@/lib/woocommerce";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 type SparePartPageProps = {
   params: Promise<{ slug: string }>;
@@ -56,7 +56,7 @@ export default async function SparePartPage({
   const { data: products, totalPages } = await fetchProductsByCategory(
     sparePart.wooSlug,
     1,
-    { orderby, order, stock_status: stock, cache: "no-store" }
+    { orderby, order, stock_status: stock }
   );
 
   return (
@@ -89,7 +89,6 @@ export default async function SparePartPage({
             category_slug: sparePart.wooSlug,
             sort,
             stock_status: stock,
-            cache: "no-store",
             strict_category: "1",
           }}
           emptyMessage={`No products found in ${sparePart.label}.`}

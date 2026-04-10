@@ -80,7 +80,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
       "print_screen", "power-supply-sla", "motherboard-sla",
       "cables-wires", "fans-sla", "toolkits",
     ],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -96,7 +95,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
       "silent-motherboard",
       "printer-enclosure",
     ],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -104,7 +102,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
   {
     routeSlugs: ["3d-scanner-series", "3d-scanners-series", "3d-scanners"],
     productCategorySlugs: ["3d-scanners-series", "3d-scanner-series"],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -112,7 +109,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
   {
     routeSlugs: ["fdm-printers"],
     productCategorySlugs: ["cr-series"],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -120,7 +116,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
   {
     routeSlugs: ["resin-printers"],
     productCategorySlugs: ["resin-series", "halot-series"],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -131,7 +126,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
     routeSlugs: ["washing-curing", "washing-curing-series"],
     productCategorySlugs: ["washing-curing", "washing-curing-series", "uw"],
     productMatchTokens: ["washing", "curing", "uw-0"],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
   },

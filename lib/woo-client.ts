@@ -188,6 +188,8 @@ const wooRequest = async <T>(path: string, init: WooRequestInit = {}) => {
   const urlObj = new URL(`${baseUrl}/wp-json/wc/v3/${path.replace(/^\//, "")}`);
   urlObj.searchParams.set("consumer_key", consumerKey);
   urlObj.searchParams.set("consumer_secret", consumerSecret);
+  // Default: cache GET requests for 5 minutes. POST/PUT mutations stay uncached.
+  const isGet = !init.method || init.method.toUpperCase() === "GET";
   return requestJson<T>(urlObj.toString(), {
     ...init,
     headers: {
@@ -195,6 +197,7 @@ const wooRequest = async <T>(path: string, init: WooRequestInit = {}) => {
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
+    ...(isGet && !init.next ? { next: { revalidate: 300 } } : {}),
   });
 };
 

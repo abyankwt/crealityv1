@@ -4,7 +4,7 @@ import ProductGrid from "@/components/ProductGrid";
 import { getPrinterSubmenuCategoryBySlug } from "@/lib/categories";
 import { fetchPrinterSubmenuProducts } from "@/lib/catalog";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 type PrinterCategoryPageProps = {
   params: Promise<{
@@ -47,7 +47,6 @@ export default async function PrinterCategoryPage({
     submenuSlug: category.slug,
     page: 1,
     perPage: 12,
-    cache: "no-store",
   });
 
   return (
@@ -74,7 +73,6 @@ export default async function PrinterCategoryPage({
         }
         apiQuery={{
           printer_submenu_slug: category.slug,
-          cache: "no-store",
         }}
         emptyMessage={`No products found in ${category.name}.`}
       />

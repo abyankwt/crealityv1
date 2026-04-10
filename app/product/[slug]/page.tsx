@@ -6,7 +6,7 @@ import {
 } from "@/lib/store";
 import ProductDetail from "@/components/ProductDetail";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type ProductPageProps = {
   params: Promise<{

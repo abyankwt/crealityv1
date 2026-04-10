@@ -12,7 +12,7 @@ import {
 } from "@/lib/materials";
 import { fetchProductsByCategory } from "@/lib/woocommerce";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -35,7 +35,7 @@ export default async function MaterialCategoryPage({
   searchParams: Promise<RawCatalogSearchParams>;
 }) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const materialsGroups = await getMaterialsNavigation({ cacheMode: "no-store" });
+  const materialsGroups = await getMaterialsNavigation();
   const material = findMaterialEntryBySlug(materialsGroups, slug);
 
   if (!material) {
@@ -51,7 +51,6 @@ export default async function MaterialCategoryPage({
     orderby,
     order,
     stock_status: stock,
-    cache: "no-store",
   });
 
   return (
@@ -82,7 +81,6 @@ export default async function MaterialCategoryPage({
             category_slug: slug,
             sort,
             stock_status: stock,
-            cache: "no-store",
             strict_category: "1",
           }}
           emptyMessage={`No products found in ${material.category.label}.`}
