@@ -99,9 +99,10 @@ export default function OrderWarningModal({
 
   if (!open) return null;
 
+  // MOQ categories require 12 pieces — calculate fee for the full MOQ quantity.
   const deliveryFee =
     availability.type === "special" && shippingData
-      ? calculateSpecialOrderFee(shippingData)
+      ? calculateSpecialOrderFee(shippingData, showMoq ? SPECIAL_ORDER_MOQ : 1)
       : null;
   const resolvedLeadTime =
     availability.leadTime ??

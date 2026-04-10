@@ -383,6 +383,7 @@ export const getWooPublishedProductsByCategorySlug = async (
   options: {
     orderby?: string;
     order?: "asc" | "desc";
+    revalidate?: number;
   } = {}
 ) => {
   const normalizedCategorySlug = categorySlug.trim().toLowerCase();
@@ -395,8 +396,11 @@ export const getWooPublishedProductsByCategorySlug = async (
     };
   }
 
+  const nextOpts = options.revalidate !== undefined ? { next: { revalidate: options.revalidate } } : {};
+
   const categoryResult = await wooRequest<WooProductTaxonomyTermResponse[]>(
-    `products/categories?slug=${encodeURIComponent(normalizedCategorySlug)}&per_page=100`
+    `products/categories?slug=${encodeURIComponent(normalizedCategorySlug)}&per_page=100`,
+    nextOpts
   );
 
   if (!categoryResult.ok) {
@@ -435,7 +439,8 @@ export const getWooPublishedProductsByCategorySlug = async (
     }
 
     const productResult = await wooRequest<WooRestProduct[]>(
-      `products?${path.toString()}`
+      `products?${path.toString()}`,
+      nextOpts
     );
 
     if (!productResult.ok) {

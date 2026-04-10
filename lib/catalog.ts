@@ -5,10 +5,6 @@ import {
   getProductsRestData,
 } from "@/lib/woo-client";
 import { fetchProducts, fetchProductsByCategory } from "@/lib/woocommerce";
-import {
-  getDefaultMockProducts,
-  getMockProductsByCategorySlug,
-} from "@/lib/mockCategoryProducts";
 import { fetchPreOrderProducts } from "@/lib/preOrders";
 import {
   filterProductsByCategorySlugs,
@@ -92,9 +88,17 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
       "wifi-upgrade-kits",
       "screen-kit",
       "auto-leveling",
-      "silent-motherboard",
+      "mother-board",       // WooCommerce slug for "Silent Motherboard"
       "printer-enclosure",
     ],
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+  {
+    // Individual Silent Motherboard category page — WC slug is "mother-board"
+    routeSlugs: ["silent-motherboard"],
+    productCategorySlugs: ["mother-board"],
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
@@ -185,20 +189,6 @@ export function slugToTitle(slug: string): string {
     });
 }
 
-function sortMockProducts(products: Product[], sort?: string): Product[] {
-  const sorted = [...products];
-
-  if (sort === "price_asc") {
-    sorted.sort((left, right) => left.price - right.price);
-  }
-
-  if (sort === "price_desc") {
-    sorted.sort((left, right) => right.price - left.price);
-  }
-
-  return sorted;
-}
-
 function paginateProducts(
   products: Product[],
   page: number,
@@ -254,23 +244,6 @@ async function fetchAllProductsForFiltering({
   return products;
 }
 
-function getMockCategoryFallback(
-  categorySlug: string,
-  page: number,
-  perPage: number,
-  sort?: string
-): FetchProductsResult {
-  const categoryProducts = getMockProductsByCategorySlug(categorySlug);
-  const fallbackProducts =
-    categoryProducts.length > 0 ? categoryProducts : getDefaultMockProducts();
-  const section = resolveProductSectionFromSlug(categorySlug);
-
-  return paginateProducts(
-    sortMockProducts(filterProductsForSection(fallbackProducts, section), sort),
-    page,
-    perPage
-  );
-}
 
 function getGroupedCategoryConfig(categorySlug: string | undefined) {
   if (!categorySlug) {
@@ -449,13 +422,11 @@ async function enrichWithRestData(products: Product[]): Promise<Product[]> {
 
   try {
     const restResult = await getProductsRestData(ids);
-    console.log("[enrichWithRestData] REST result ok:", restResult.ok, "data:", JSON.stringify(restResult.ok ? restResult.data : restResult));
     if (!restResult.ok || !restResult.data?.length) return products;
 
     const byId = new Map(restResult.data.map((d) => [d.id, d]));
     return products.map((p) => {
       const extra = byId.get(p.id);
-      console.log("[enrichWithRestData] product:", p.id, p.name, "store_qty:", p.stock_quantity, "rest_qty:", extra?.stock_quantity);
       if (!extra) return p;
       return {
         ...p,
@@ -502,6 +473,28 @@ export async function fetchCatalogProducts({
       });
     }
 
+    // Use WooCommerce REST API directly for all individual category pages.
+    // The Store API's products/categories endpoint often omits subcategories,
+    // causing fetchProductsByCategory to silently return 0 results and fall
+    // through to mock data. The REST API is authoritative and already used by
+    // all grouped category configs (Accessories, Spare Parts, etc.).
+    // Pass revalidate: 60 to match the page's ISR interval and avoid stale
+    // empty-result caches from the default 5-minute revalidate window.
+    const restResult = await getWooPublishedProductsByCategorySlug(categorySlug, {
+      orderby,
+      order,
+      revalidate: 60,
+    });
+
+    if (restResult.ok && restResult.data.length > 0) {
+      const normalized = restResult.data
+        .filter((p) => p.status === "publish")
+        .map(normalizeWooRestProduct);
+      const filtered = filterProductsForSection(normalized, categorySection);
+      return paginateProducts(filtered, page, perPage);
+    }
+
+    // REST API returned nothing — try the Store API as a secondary source.
     const result = await fetchProductsByCategory(categorySlug, page, {
       orderby,
       order,
@@ -515,7 +508,7 @@ export async function fetchCatalogProducts({
       return { ...result, data: enriched };
     }
 
-    return getMockCategoryFallback(categorySlug, page, perPage, sort);
+    return { data: [], totalPages: 0, totalProducts: 0 };
   }
 
   const result = await fetchProducts({

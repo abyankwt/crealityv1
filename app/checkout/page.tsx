@@ -22,6 +22,13 @@ import {
     requiresOrderWarning,
     type ProductAvailability,
 } from "@/lib/availability";
+import { calculateSpecialOrderFee } from "@/lib/specialOrderPricing";
+
+type ProductExtra = {
+    id: number;
+    weight?: string | null;
+    dimensions?: { length?: string; width?: string; height?: string } | null;
+};
 
 type AuthUser = { userId: number; name: string; email: string } | null;
 type AuthMeResponse =
@@ -79,6 +86,20 @@ function CheckoutPageContent() {
     const [authChecked, setAuthChecked] = useState(false);
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
+    const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
+    const isPickup = searchParams.get("pickup") === "1";
+
+    useEffect(() => {
+        const ids = cart?.items.map((i) => i.id).filter(Boolean) ?? [];
+        if (ids.length === 0) return;
+        fetch(`/api/products-data?ids=${ids.join(",")}`)
+            .then((r) => r.json())
+            .then((data: ProductExtra[]) => {
+                if (!Array.isArray(data)) return;
+                setProductExtras(new Map(data.map((d) => [d.id, d])));
+            })
+            .catch(() => {/* silent */});
+    }, [cart?.items]);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -338,6 +359,26 @@ function CheckoutPageContent() {
         );
     }
 
+    const checkoutHasSpecialOrder = items.some((item) => item.availability?.type === "special");
+    const checkoutSubtotal = items.reduce((sum, item) => {
+        const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
+        const unitPrice = item.prices
+            ? parseMinorUnits(item.prices.price, priceMinorUnit)
+            : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+        return sum + unitPrice * item.quantity;
+    }, 0);
+    const checkoutDiscount = parseMinorUnits(cart.totals?.total_discount ?? "0", minorUnit);
+    const checkoutSpecialFee = (!isPickup && checkoutHasSpecialOrder)
+        ? items
+            .filter((item) => item.availability?.type === "special")
+            .reduce((sum, item) => {
+                const extra = productExtras.get(item.id);
+                if (!extra) return sum;
+                return sum + calculateSpecialOrderFee({ dimensions: extra.dimensions }, item.quantity);
+            }, 0)
+        : 0;
+    const checkoutDisplayTotal = checkoutSubtotal + checkoutSpecialFee - checkoutDiscount;
+
     return (
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
             <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
@@ -402,31 +443,31 @@ function CheckoutPageContent() {
                             <div className="flex justify-between text-sm text-gray-600">
                                 <span>Subtotal ({itemCount} items)</span>
                                 <span className="font-medium text-gray-900">
-                                    {formatKWD(parseMinorUnits(cart.totals?.total_items ?? "0", minorUnit))}
+                                    {formatKWD(checkoutSubtotal)}
                                 </span>
                             </div>
-                            {Number(cart.totals?.total_shipping ?? 0) > 0 && (
-                                <div className="flex justify-between text-sm text-gray-600">
-                                    <span>Shipping</span>
+                            <div className="flex justify-between text-sm text-gray-600">
+                                <span>{isPickup ? "Pickup" : "Delivery"}</span>
+                                {isPickup ? (
+                                    <span className="font-medium text-green-600">Free</span>
+                                ) : checkoutHasSpecialOrder ? (
                                     <span className="font-medium text-gray-900">
-                                        {formatKWD(parseMinorUnits(cart.totals.total_shipping, minorUnit))}
+                                        {checkoutSpecialFee > 0 ? formatKWD(checkoutSpecialFee) : "Calculated at order"}
                                     </span>
-                                </div>
-                            )}
-                            {Number(cart.totals?.total_discount ?? 0) > 0 && (
+                                ) : (
+                                    <span className="font-medium text-green-600">Free</span>
+                                )}
+                            </div>
+                            {checkoutDiscount > 0 && (
                                 <div className="flex justify-between text-sm text-green-600">
                                     <span>Discount</span>
-                                    <span className="font-medium">
-                                        -{formatKWD(parseMinorUnits(cart.totals.total_discount, minorUnit))}
-                                    </span>
+                                    <span className="font-medium">-{formatKWD(checkoutDiscount)}</span>
                                 </div>
                             )}
                             <div className="border-t border-gray-200 pt-2">
                                 <div className="flex justify-between text-base font-bold text-gray-900">
                                     <span>Total</span>
-                                    <span>
-                                        {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
-                                    </span>
+                                    <span>{formatKWD(checkoutDisplayTotal)}</span>
                                 </div>
                             </div>
                         </div>
@@ -551,13 +592,12 @@ function CheckoutPageContent() {
                                 htmlFor="city"
                                 className="mb-1 block text-xs font-medium text-gray-700"
                             >
-                                City *
+                                City
                             </label>
                             <input
                                 id="city"
                                 name="city"
                                 type="text"
-                                required
                                 value={billing.city}
                                 onChange={handleChange}
                                 className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-black focus:ring-1 focus:ring-black"
@@ -568,13 +608,12 @@ function CheckoutPageContent() {
                                 htmlFor="postcode"
                                 className="mb-1 block text-xs font-medium text-gray-700"
                             >
-                                Postcode / ZIP *
+                                Postcode / ZIP
                             </label>
                             <input
                                 id="postcode"
                                 name="postcode"
                                 type="text"
-                                required
                                 value={billing.postcode ?? ""}
                                 onChange={handleChange}
                                 placeholder="e.g. 12345"
@@ -670,7 +709,7 @@ function CheckoutPageContent() {
                             </>
                         ) : (
                             <>
-                                Place Order - {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
+                                {`Place Order - ${formatKWD(checkoutDisplayTotal)}`}
                             </>
                         )}
                     </button>

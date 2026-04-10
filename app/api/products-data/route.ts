@@ -25,13 +25,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     const url = new URL(`${wordpressUrl}/wp-json/wc/v3/products`);
     url.searchParams.set("include", idList.join(","));
     url.searchParams.set("per_page", String(idList.length));
-    url.searchParams.set("_fields", "id,sku,stock_quantity");
+    url.searchParams.set("_fields", "id,sku,stock_quantity,weight,dimensions");
 
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
 
     const response = await fetch(url.toString(), {
       headers: { Authorization: `Basic ${auth}` },
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     if (!response.ok) {
@@ -42,12 +42,16 @@ export async function GET(request: Request): Promise<NextResponse> {
       id: number;
       sku?: string;
       stock_quantity?: number | null;
+      weight?: string | null;
+      dimensions?: { length?: string; width?: string; height?: string } | null;
     }>;
 
     const result = products.map((p) => ({
       id: p.id,
       sku: p.sku ?? null,
       stock_quantity: p.stock_quantity ?? null,
+      weight: p.weight ?? null,
+      dimensions: p.dimensions ?? null,
     }));
 
     return NextResponse.json(result);

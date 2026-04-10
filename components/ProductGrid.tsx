@@ -22,6 +22,7 @@ type ProductGridProps = {
   emptyMessage?: string;
   showShortDescription?: boolean;
   filterBySection?: boolean;
+  showSort?: boolean;
 };
 
 type SortValue =
@@ -277,6 +278,7 @@ export default function ProductGrid({
   emptyMessage = "No products found.",
   showShortDescription = false,
   filterBySection = true,
+  showSort = true,
 }: ProductGridProps) {
   const defaultSort =
     typeof apiQuery?.sort === "string"
@@ -571,17 +573,19 @@ export default function ProductGrid({
               ) : null}
             </button>
 
-            <select
-              value={sortValue}
-              onChange={(event) => setSortValue(event.target.value as SortValue)}
-              className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 focus:border-black focus:outline-none"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            {showSort && (
+              <select
+                value={sortValue}
+                onChange={(event) => setSortValue(event.target.value as SortValue)}
+                className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 focus:border-black focus:outline-none"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

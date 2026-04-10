@@ -181,6 +181,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             initialPage={1}
             totalPages={totalPages}
             section="default"
+            showSort={false}
           />
         </div>
       </section>

@@ -1,7 +1,7 @@
 {
-  "/api/store/cart/add-item/route": "app/api/store/cart/add-item/route.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/products-data/route": "app/api/products-data/route.js",
+  "/cart/page": "app/cart/page.js",
   "/page": "app/page.js",
-  "/cart/page": "app/cart/page.js"
+  "/spare-parts/[slug]/page": "app/spare-parts/[slug]/page.js",
+  "/product/[slug]/page": "app/product/[slug]/page.js",
+  "/store/page": "app/store/page.js"
 }

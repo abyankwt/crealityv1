@@ -135,17 +135,6 @@ export default function ProductCard({
     requiresMoq(product.category_slug ?? []);
 
   useEffect(() => {
-    console.log("Stock debug", {
-      name: product.name,
-      stock_status: product.stock_status,
-      is_in_stock: product.is_in_stock,
-      stock_quantity: product.stock_quantity,
-      resolved_availability: availability.type,
-      resolved_order_type: productOrderType,
-    });
-  }, [product.name, product.stock_status, product.is_in_stock, product.stock_quantity, availability.type, productOrderType]);
-
-  useEffect(() => {
     return () => {
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);

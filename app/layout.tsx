@@ -20,6 +20,8 @@ import { getMaterialsNavigation } from "@/lib/materials";
 import { getMenu } from "@/lib/menu-api";
 import { hasPreOrderProducts } from "@/lib/preOrders";
 
+export const revalidate = 300;
+
 export const metadata: Metadata = {
   title: "Creality Kuwait",
   description:

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Trash2, Truck, Store } from "lucide-react";
 import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import SmartImage from "@/components/SmartImage";
@@ -13,8 +13,15 @@ import {
     requiresOrderWarning,
     type ProductAvailability,
 } from "@/lib/availability";
+import { calculateSpecialOrderFee } from "@/lib/specialOrderPricing";
 
-type ProductExtra = { id: number; sku: string | null; stock_quantity: number | null };
+type ProductExtra = {
+    id: number;
+    sku: string | null;
+    stock_quantity: number | null;
+    weight?: string | null;
+    dimensions?: { length?: string; width?: string; height?: string } | null;
+};
 
 const DEBOUNCE_MS = 500;
 
@@ -24,6 +31,7 @@ export default function CartPage() {
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
     const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
+    const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
 
     // Local optimistic quantities — updated instantly on click, API call debounced
     const [localQty, setLocalQty] = useState<Map<string, number>>(new Map());
@@ -129,6 +137,35 @@ export default function CartPage() {
             badge: "Special Order",
             leadTime: "10-12 days",
         };
+
+    const hasSpecialOrder = items.some((item) => item.availability?.type === "special");
+
+    const itemsSubtotal = items.reduce((sum, item) => {
+        const qty = localQty.get(item.key) ?? item.quantity;
+        const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
+        const unitPrice = item.prices
+            ? parseMinorUnits(item.prices.price, priceMinorUnit)
+            : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+        return sum + unitPrice * qty;
+    }, 0);
+
+    const discount = parseMinorUnits(cart.totals?.total_discount ?? "0", minorUnit);
+
+    // Compute special order delivery fee using the same formula as OrderWarningModal
+    const specialOrderDeliveryFee = hasSpecialOrder
+        ? items
+            .filter((item) => item.availability?.type === "special")
+            .reduce((sum, item) => {
+                const extra = productExtras.get(item.id);
+                if (!extra) return sum;
+                const qty = localQty.get(item.key) ?? item.quantity;
+                return sum + calculateSpecialOrderFee({ dimensions: extra.dimensions }, qty);
+            }, 0)
+        : 0;
+
+    // Pickup is always free; delivery is free for in-stock/pre-order, formula for special orders
+    const effectiveDeliveryFee = deliveryMethod === "pickup" ? 0 : (hasSpecialOrder ? specialOrderDeliveryFee : 0);
+    const displayTotal = itemsSubtotal + effectiveDeliveryFee - discount;
 
     if (items.length === 0) {
         return (
@@ -276,42 +313,66 @@ export default function CartPage() {
             </div>
 
             <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50 p-6">
+                {/* Delivery method selector */}
+                <div className="mb-5">
+                    <p className="mb-2 text-sm font-semibold text-gray-700">Delivery Method</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setDeliveryMethod("delivery")}
+                            className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                                deliveryMethod === "delivery"
+                                    ? "border-black bg-black text-white"
+                                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                            }`}
+                        >
+                            <Truck className="h-4 w-4 flex-shrink-0" />
+                            <span>Delivery</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDeliveryMethod("pickup")}
+                            className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                                deliveryMethod === "pickup"
+                                    ? "border-black bg-black text-white"
+                                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                            }`}
+                        >
+                            <Store className="h-4 w-4 flex-shrink-0" />
+                            <span>Pickup</span>
+                        </button>
+                    </div>
+                </div>
+
                 <div className="space-y-3">
                     <div className="flex justify-between text-sm text-gray-600">
                         <span>Subtotal</span>
                         <span className="font-medium text-gray-900">
-                            {formatKWD(items.reduce((sum, item) => {
-                                const qty = localQty.get(item.key) ?? item.quantity;
-                                const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
-                                const unitPrice = item.prices
-                                    ? parseMinorUnits(item.prices.price, priceMinorUnit)
-                                    : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
-                                return sum + unitPrice * qty;
-                            }, 0))}
+                            {formatKWD(itemsSubtotal)}
                         </span>
                     </div>
-                    {Number(cart.totals?.total_shipping ?? 0) > 0 && (
-                        <div className="flex justify-between text-sm text-gray-600">
-                            <span>Shipping</span>
+                    <div className="flex justify-between text-sm text-gray-600">
+                        <span>{deliveryMethod === "pickup" ? "Pickup" : "Delivery"}</span>
+                        {deliveryMethod === "pickup" ? (
+                            <span className="font-medium text-green-600">Free</span>
+                        ) : hasSpecialOrder ? (
                             <span className="font-medium text-gray-900">
-                                {formatKWD(parseMinorUnits(cart.totals.total_shipping, minorUnit))}
+                                {specialOrderDeliveryFee > 0 ? formatKWD(specialOrderDeliveryFee) : "Calculated at order"}
                             </span>
-                        </div>
-                    )}
-                    {Number(cart.totals?.total_discount ?? 0) > 0 && (
+                        ) : (
+                            <span className="font-medium text-green-600">Free</span>
+                        )}
+                    </div>
+                    {discount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                             <span>Discount</span>
-                            <span className="font-medium">
-                                -{formatKWD(parseMinorUnits(cart.totals.total_discount, minorUnit))}
-                            </span>
+                            <span className="font-medium">-{formatKWD(discount)}</span>
                         </div>
                     )}
                     <div className="border-t border-gray-200 pt-3">
                         <div className="flex justify-between text-base font-bold text-gray-900">
                             <span>Total</span>
-                            <span>
-                                {formatKWD(parseMinorUnits(cart.totals?.total_price ?? "0", minorUnit))}
-                            </span>
+                            <span>{formatKWD(displayTotal)}</span>
                         </div>
                     </div>
                 </div>
@@ -330,7 +391,7 @@ export default function CartPage() {
                             setWarningOpen(true);
                             return;
                         }
-                        router.push("/checkout");
+                        router.push(deliveryMethod === "pickup" ? "/checkout?pickup=1" : "/checkout");
                     }}
                     className="mt-6 flex w-full items-center justify-center rounded-full bg-black px-8 py-4 text-sm font-semibold text-white transition hover:opacity-90"
                 >
@@ -353,7 +414,9 @@ export default function CartPage() {
                 onClose={() => setWarningOpen(false)}
                 onConfirm={() => {
                     setWarningOpen(false);
-                    router.push("/checkout?warning=accepted");
+                    const params = new URLSearchParams({ warning: "accepted" });
+                    if (deliveryMethod === "pickup") params.set("pickup", "1");
+                    router.push(`/checkout?${params.toString()}`);
                 }}
             />
         </div>

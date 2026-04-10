@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import type { CrealityHeroSlideData } from "@/types/creality-cms";
+import { normalizeImageUrl, shouldBypassImageOptimization } from "@/lib/image";
 
 const HERO_API_URL = "/api/hero";
 
@@ -83,7 +85,7 @@ export default function CampaignHero({ initialSlides }: CampaignHeroProps) {
   const activeSlides = slides
     .filter((slide) => slide.enabled)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const slidesKey = JSON.stringify(slides);
+  const slidesKey = slides.map((s) => `${s.title}-${s.order ?? 0}`).join("|");
 
   useEffect(() => {
     if (!emblaApi) {
@@ -154,10 +156,15 @@ export default function CampaignHero({ initialSlides }: CampaignHeroProps) {
                   <div className="relative min-h-[420px] md:min-h-[500px]">
                     {/* Background image — fills entire slide */}
                     {imageUrl && (
-                      <img
-                        src={imageUrl}
+                      <Image
+                        src={normalizeImageUrl(imageUrl)}
                         alt={slide.title}
-                        className="absolute inset-0 h-full w-full object-cover"
+                        fill
+                        priority={index === 0}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        sizes="(max-width: 768px) 100vw, 1152px"
+                        unoptimized={shouldBypassImageOptimization(normalizeImageUrl(imageUrl))}
+                        className="object-cover"
                       />
                     )}
 
