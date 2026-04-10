@@ -136,8 +136,10 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
     productSectionOverride: "default",
   },
   {
-    // "View All" for 3D Printers — use Store API so parent/child categories
-    // are all included. Token matching picks up pre-orders that lack exact slugs.
+    // "View All" for 3D Printers — matches only products whose WooCommerce
+    // category slug is one of the printer series slugs. Token matching was
+    // removed because it incorrectly pulled in accessories/spare-parts whose
+    // names contain printer model words (e.g. "Ender-5 Thermistor").
     routeSlugs: ["3d-printers"],
     productCategorySlugs: [
       "k-series", "k1", "k2", "k2-plus", "k-seies",
@@ -147,18 +149,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
       "sermoon-series",
       "resin-series", "halot-series",
       "cr-series",
-    ],
-    productMatchTokens: [
-      // K Series pre-orders (tokens used as fallback when exact category slug is missing)
-      "k1", "k2", "k2plus",
-      // SparkX / Spark i7
-      "sparki7",
-      // Sermoon
-      "sermoon",
-      // Halot / resin printers by model name
-      "halot",
-      // Ender
-      "ender",
     ],
     cache: "no-store",
     filterBySection: false,

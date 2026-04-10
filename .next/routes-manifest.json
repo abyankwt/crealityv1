@@ -1,0 +1,452 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/site/wp-content/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0, s-maxage=0"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        }
+      ],
+      "regex": "^/site/wp-content(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [
+      {
+        "source": "/site/:path*",
+        "destination": "https://creality.com.kw/site/:path*",
+        "regex": "^/site(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+      }
+    ],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/3d-printers/[slug]",
+      "regex": "^/3d\\-printers/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/3d\\-printers/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/account/orders/[id]",
+      "regex": "^/api/account/orders/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/account/orders/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/account/subscriptions/[id]/[action]",
+      "regex": "^/api/account/subscriptions/([^/]+?)/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid",
+        "nxtPaction": "nxtPaction"
+      },
+      "namedRegex": "^/api/account/subscriptions/(?<nxtPid>[^/]+?)/(?<nxtPaction>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/debug-product/[id]",
+      "regex": "^/api/debug\\-product/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/debug\\-product/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/product-shipping/[id]",
+      "regex": "^/api/product\\-shipping/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/product\\-shipping/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/store/[...path]",
+      "regex": "^/api/store/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPpath": "nxtPpath"
+      },
+      "namedRegex": "^/api/store/(?<nxtPpath>.+?)(?:/)?$"
+    },
+    {
+      "page": "/category/[slug]",
+      "regex": "^/category/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/category/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/materials/[slug]",
+      "regex": "^/materials/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/materials/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/models/[id]",
+      "regex": "^/models/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/models/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/product/[slug]",
+      "regex": "^/product/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/product/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/season/[slug]",
+      "regex": "^/season/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/season/(?<nxtPslug>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/spare-parts/[slug]",
+      "regex": "^/spare\\-parts/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/spare\\-parts/(?<nxtPslug>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/account",
+      "regex": "^/account(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/account(?:/)?$"
+    },
+    {
+      "page": "/account/addresses",
+      "regex": "^/account/addresses(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/account/addresses(?:/)?$"
+    },
+    {
+      "page": "/account/orders",
+      "regex": "^/account/orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/account/orders(?:/)?$"
+    },
+    {
+      "page": "/api/account/customer",
+      "regex": "^/api/account/customer(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/customer(?:/)?$"
+    },
+    {
+      "page": "/api/account/loyalty",
+      "regex": "^/api/account/loyalty(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/loyalty(?:/)?$"
+    },
+    {
+      "page": "/api/account/orders",
+      "regex": "^/api/account/orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/orders(?:/)?$"
+    },
+    {
+      "page": "/api/account/orders/cancel",
+      "regex": "^/api/account/orders/cancel(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/orders/cancel(?:/)?$"
+    },
+    {
+      "page": "/api/account/subscriptions",
+      "regex": "^/api/account/subscriptions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/account/subscriptions(?:/)?$"
+    },
+    {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/logout",
+      "regex": "^/api/auth/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/logout(?:/)?$"
+    },
+    {
+      "page": "/api/auth/me",
+      "regex": "^/api/auth/me(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/me(?:/)?$"
+    },
+    {
+      "page": "/api/auth/register",
+      "regex": "^/api/auth/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/register(?:/)?$"
+    },
+    {
+      "page": "/api/contact",
+      "regex": "^/api/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/contact(?:/)?$"
+    },
+    {
+      "page": "/api/debug-categories",
+      "regex": "^/api/debug\\-categories(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug\\-categories(?:/)?$"
+    },
+    {
+      "page": "/api/debug-search",
+      "regex": "^/api/debug\\-search(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/debug\\-search(?:/)?$"
+    },
+    {
+      "page": "/api/hero",
+      "regex": "^/api/hero(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hero(?:/)?$"
+    },
+    {
+      "page": "/api/print/add-to-cart",
+      "regex": "^/api/print/add\\-to\\-cart(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/print/add\\-to\\-cart(?:/)?$"
+    },
+    {
+      "page": "/api/print/analyze",
+      "regex": "^/api/print/analyze(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/print/analyze(?:/)?$"
+    },
+    {
+      "page": "/api/printing-service/quote",
+      "regex": "^/api/printing\\-service/quote(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/printing\\-service/quote(?:/)?$"
+    },
+    {
+      "page": "/api/products",
+      "regex": "^/api/products(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/products(?:/)?$"
+    },
+    {
+      "page": "/api/products-data",
+      "regex": "^/api/products\\-data(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/products\\-data(?:/)?$"
+    },
+    {
+      "page": "/api/search",
+      "regex": "^/api/search(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/search(?:/)?$"
+    },
+    {
+      "page": "/api/store/cart",
+      "regex": "^/api/store/cart(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/store/cart(?:/)?$"
+    },
+    {
+      "page": "/api/store/cart/add-item",
+      "regex": "^/api/store/cart/add\\-item(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/store/cart/add\\-item(?:/)?$"
+    },
+    {
+      "page": "/api/store/cart/remove-item",
+      "regex": "^/api/store/cart/remove\\-item(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/store/cart/remove\\-item(?:/)?$"
+    },
+    {
+      "page": "/api/store/cart/update-item",
+      "regex": "^/api/store/cart/update\\-item(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/store/cart/update\\-item(?:/)?$"
+    },
+    {
+      "page": "/api/store/checkout",
+      "regex": "^/api/store/checkout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/store/checkout(?:/)?$"
+    },
+    {
+      "page": "/api/support-services",
+      "regex": "^/api/support\\-services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/support\\-services(?:/)?$"
+    },
+    {
+      "page": "/cart",
+      "regex": "^/cart(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cart(?:/)?$"
+    },
+    {
+      "page": "/checkout",
+      "regex": "^/checkout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/checkout(?:/)?$"
+    },
+    {
+      "page": "/compare",
+      "regex": "^/compare(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/compare(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/downloads",
+      "regex": "^/downloads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/downloads(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/materials",
+      "regex": "^/materials(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/materials(?:/)?$"
+    },
+    {
+      "page": "/order-success",
+      "regex": "^/order\\-success(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/order\\-success(?:/)?$"
+    },
+    {
+      "page": "/pre-orders",
+      "regex": "^/pre\\-orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pre\\-orders(?:/)?$"
+    },
+    {
+      "page": "/printing-service",
+      "regex": "^/printing\\-service(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/printing\\-service(?:/)?$"
+    },
+    {
+      "page": "/printing-services",
+      "regex": "^/printing\\-services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/printing\\-services(?:/)?$"
+    },
+    {
+      "page": "/register",
+      "regex": "^/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/register(?:/)?$"
+    },
+    {
+      "page": "/search",
+      "regex": "^/search(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/search(?:/)?$"
+    },
+    {
+      "page": "/store",
+      "regex": "^/store(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/store(?:/)?$"
+    },
+    {
+      "page": "/support",
+      "regex": "^/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/support(?:/)?$"
+    },
+    {
+      "page": "/used-3d-printers",
+      "regex": "^/used\\-3d\\-printers(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/used\\-3d\\-printers(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

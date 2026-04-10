@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/contact": {},
+    "/api/print/analyze": {},
+    "/api/printing-service/quote": {}
+  }
+}

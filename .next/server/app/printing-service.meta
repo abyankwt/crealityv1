@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/printing-service/layout,_N_T_/printing-service/page,_N_T_/printing-service"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/printing-service/__PAGE__",
+    "/printing-service",
+    "/_index",
+    "/_head"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/used-3d-printers/layout,_N_T_/used-3d-printers/page,_N_T_/used-3d-printers"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/used-3d-printers/__PAGE__",
+    "/used-3d-printers",
+    "/_index",
+    "/_head"
+  ]
+}
