@@ -204,9 +204,9 @@ export default function CartPage() {
                                         {item.availability && (
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <AvailabilityBadge availability={item.availability} />
-                                                {item.availability.type === "available" && effectiveStockQty !== null && (
+                                                {item.availability.type === "available" && (
                                                     <span className="text-xs font-medium text-green-600">
-                                                        ({effectiveStockQty} in stock)
+                                                        {effectiveStockQty !== null ? `(${effectiveStockQty} in stock)` : "In Stock"}
                                                     </span>
                                                 )}
                                                 {item.availability.type !== "available" &&
@@ -280,7 +280,14 @@ export default function CartPage() {
                     <div className="flex justify-between text-sm text-gray-600">
                         <span>Subtotal</span>
                         <span className="font-medium text-gray-900">
-                            {formatKWD(parseMinorUnits(cart.totals?.total_items ?? "0", minorUnit))}
+                            {formatKWD(items.reduce((sum, item) => {
+                                const qty = localQty.get(item.key) ?? item.quantity;
+                                const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
+                                const unitPrice = item.prices
+                                    ? parseMinorUnits(item.prices.price, priceMinorUnit)
+                                    : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+                                return sum + unitPrice * qty;
+                            }, 0))}
                         </span>
                     </div>
                     {Number(cart.totals?.total_shipping ?? 0) > 0 && (
