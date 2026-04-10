@@ -1,4 +1,5 @@
 import { formatPrice } from "@/lib/price";
+import { decodeHtmlEntities } from "@/lib/decodeHtml";
 import {
   isPreOrderProduct,
   resolveProductLeadTime,
@@ -48,6 +49,7 @@ export type WooRestProduct = {
   id: number;
   name: string;
   slug: string;
+  sku?: string | null;
   permalink?: string;
   description?: string;
   short_description?: string;
@@ -138,8 +140,9 @@ export function normalizeWooRestProduct(product: WooRestProduct): Product {
 
   return {
     id: product.id,
-    name: product.name,
+    name: decodeHtmlEntities(product.name),
     slug: product.slug,
+    sku: product.sku ? decodeHtmlEntities(product.sku) : null,
     permalink: product.permalink,
     description: product.description,
     short_description: product.short_description,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
@@ -14,11 +14,75 @@ import {
     type ProductAvailability,
 } from "@/lib/availability";
 
+type ProductExtra = { id: number; sku: string | null; stock_quantity: number | null };
+
+const DEBOUNCE_MS = 500;
+
 export default function CartPage() {
     const router = useRouter();
-    const { cart, loading, removeItem, updateItem, itemCount, isItemPending } = useCart();
+    const { cart, loading, removeItem, updateItem, itemCount } = useCart();
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
+    const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
+
+    // Local optimistic quantities — updated instantly on click, API call debounced
+    const [localQty, setLocalQty] = useState<Map<string, number>>(new Map());
+    const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const pendingSync = useRef<Set<string>>(new Set());
+
+    // Sync localQty when cart updates from server (skip keys with pending debounce)
+    useEffect(() => {
+        if (!cart) return;
+        setLocalQty((prev) => {
+            const next = new Map(prev);
+            for (const item of cart.items) {
+                if (!pendingSync.current.has(item.key)) {
+                    next.set(item.key, item.quantity);
+                }
+            }
+            for (const key of next.keys()) {
+                if (!cart.items.find((i) => i.key === key)) {
+                    next.delete(key);
+                }
+            }
+            return next;
+        });
+    }, [cart]);
+
+    const debouncedUpdate = useCallback(
+        (key: string, newQty: number) => {
+            pendingSync.current.add(key);
+            const existing = debounceTimers.current.get(key);
+            if (existing) clearTimeout(existing);
+            setLocalQty((prev) => new Map(prev).set(key, newQty));
+            const timer = setTimeout(() => {
+                debounceTimers.current.delete(key);
+                pendingSync.current.delete(key);
+                void updateItem(key, newQty);
+            }, DEBOUNCE_MS);
+            debounceTimers.current.set(key, timer);
+        },
+        [updateItem]
+    );
+
+    useEffect(() => {
+        return () => {
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            debounceTimers.current.forEach(clearTimeout);
+        };
+    }, []);
+
+    useEffect(() => {
+        const ids = cart?.items.map((i) => i.id).filter(Boolean) ?? [];
+        if (ids.length === 0) return;
+        fetch(`/api/products-data?ids=${ids.join(",")}`)
+            .then((r) => r.json())
+            .then((data: ProductExtra[]) => {
+                if (!Array.isArray(data)) return;
+                setProductExtras(new Map(data.map((d) => [d.id, d])));
+            })
+            .catch(() => {/* silent */});
+    }, [cart?.items]);
 
     const decodeHtml = (html: string) => {
         if (typeof document === "undefined") return html;
@@ -103,21 +167,19 @@ export default function CartPage() {
                         item.images?.[0]?.thumbnail ||
                         item.images?.[0]?.src ||
                         "/images/product-placeholder.svg";
-                    const lineTotal = formatKWD(parseMinorUnits(
-                        item.totals?.line_total ?? "0",
-                        minorUnit
-                    ));
-                    const unitPrice = item.prices
-                        ? formatKWD(
-                              parseMinorUnits(
-                                  item.prices.price,
-                                  item.prices.currency_minor_unit ?? minorUnit
-                              )
-                          )
-                        : null;
+                    const extra = productExtras.get(item.id);
+                    const stockQty = extra?.stock_quantity ?? null;
+                    const wcMax = item.quantity_limits?.maximum ?? 999;
+                    const max = stockQty !== null ? Math.min(stockQty, wcMax) : wcMax;
                     const min = item.quantity_limits?.minimum ?? 1;
-                    const max = item.quantity_limits?.maximum ?? 999;
-                    const itemPending = isItemPending(item.key);
+                    const qty = localQty.get(item.key) ?? item.quantity;
+                    const unitPriceValue = item.prices
+                        ? parseMinorUnits(item.prices.price, item.prices.currency_minor_unit ?? minorUnit)
+                        : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+                    const lineTotal = formatKWD(unitPriceValue * qty);
+                    const unitPrice = item.prices
+                        ? formatKWD(parseMinorUnits(item.prices.price, item.prices.currency_minor_unit ?? minorUnit))
+                        : null;
 
                     return (
                         <div key={item.key} className="flex gap-4 py-6 sm:gap-6">
@@ -140,6 +202,11 @@ export default function CartPage() {
                                         {item.availability && (
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <AvailabilityBadge availability={item.availability} />
+                                                {item.availability.type === "available" && stockQty !== null && (
+                                                    <span className="text-xs font-medium text-green-600">
+                                                        ({stockQty} in stock)
+                                                    </span>
+                                                )}
                                                 {item.availability.type !== "available" &&
                                                     item.availability.leadTime && (
                                                     <span className="text-xs text-gray-500">
@@ -147,6 +214,11 @@ export default function CartPage() {
                                                     </span>
                                                 )}
                                             </div>
+                                        )}
+                                        {extra?.sku && (
+                                            <p className="mt-1 text-xs text-gray-400">
+                                                SKU: {extra.sku}
+                                            </p>
                                         )}
                                         {unitPrice && (
                                             <p className="mt-1 text-xs text-gray-500">
@@ -163,24 +235,21 @@ export default function CartPage() {
                                     <div className="flex items-center overflow-hidden rounded-lg border border-gray-200">
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                updateItem(item.key, Math.max(min, item.quantity - 1))
-                                            }
-                                            disabled={itemPending || item.quantity <= min}
+                                            onClick={() => debouncedUpdate(item.key, Math.max(min, qty - 1))}
+                                            disabled={qty <= min}
                                             className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Decrease quantity"
                                         >
                                             <Minus className="h-3.5 w-3.5" />
                                         </button>
                                         <span className="flex h-9 w-10 items-center justify-center border-x border-gray-200 text-sm font-medium text-gray-900">
-                                            {item.quantity}
+                                            {qty}
                                         </span>
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                updateItem(item.key, Math.min(max, item.quantity + 1))
-                                            }
-                                            disabled={itemPending || item.quantity >= max}
+                                            onClick={() => debouncedUpdate(item.key, Math.min(max, qty + 1))}
+                                            disabled={qty >= max}
+                                            title={qty >= max ? `Max stock: ${max}` : undefined}
                                             className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Increase quantity"
                                         >
@@ -191,8 +260,7 @@ export default function CartPage() {
                                     <button
                                         type="button"
                                         onClick={() => removeItem(item.key)}
-                                        disabled={itemPending}
-                                        className="flex items-center gap-1 text-xs text-gray-500 transition hover:text-red-600 disabled:opacity-40"
+                                        className="flex items-center gap-1 text-xs text-gray-500 transition hover:text-red-600"
                                         aria-label={`Remove ${item.name}`}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />

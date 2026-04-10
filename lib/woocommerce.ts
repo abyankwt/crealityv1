@@ -13,6 +13,7 @@ import {
   resolveProductLeadTime,
   resolveProductOrderType,
 } from "@/lib/productLogic";
+import { decodeHtmlEntities } from "@/lib/decodeHtml";
 
 type SortOrder = "asc" | "desc";
 
@@ -56,6 +57,7 @@ type RawStoreProduct = {
   id: number;
   name: string;
   slug: string;
+  sku?: string | null;
   permalink?: string;
   description?: string;
   short_description?: string;
@@ -222,8 +224,9 @@ const normalizeProduct = (product: RawStoreProduct): Product => {
 
   return {
     id: product.id,
-    name: product.name,
+    name: decodeHtmlEntities(product.name),
     slug: product.slug,
+    sku: product.sku ? decodeHtmlEntities(product.sku) : null,
     permalink: product.permalink,
     description: product.description,
     short_description: product.short_description,

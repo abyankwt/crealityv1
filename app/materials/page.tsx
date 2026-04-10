@@ -18,10 +18,6 @@ export default async function MaterialsPage() {
         <h1 className="mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl">
           Filament and resin categories
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-600 sm:text-base">
-          Browse material families first, then open a category page for live
-          WooCommerce products and stock-aware purchase actions.
-        </p>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

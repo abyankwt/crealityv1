@@ -17,7 +17,10 @@ import {
   resolveDisplayProductOrderType,
   type ProductSection,
 } from "@/lib/productLogic";
+import { cleanProductName } from "@/lib/cleanProductName";
+import { requiresMoq, SPECIAL_ORDER_MOQ } from "@/lib/specialOrderMoq";
 import type { Product } from "@/lib/woocommerce-types";
+import { decodeHtmlEntities } from "@/lib/decodeHtml";
 
 type ProductCardProps = {
   product: Product;
@@ -28,8 +31,11 @@ type ProductCardProps = {
   showShortDescription?: boolean;
 };
 
-const stripHtml = (value?: string) =>
-  value?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ?? "";
+const stripHtml = (value?: string) => {
+  if (!value) return "";
+  const stripped = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return decodeHtmlEntities(stripped);
+};
 
 export default function ProductCard({
   product,
@@ -40,7 +46,7 @@ export default function ProductCard({
   showShortDescription = false,
 }: ProductCardProps) {
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, cart } = useCart();
   const [loading, setLoading] = useState(false);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
@@ -79,8 +85,18 @@ export default function ProductCard({
       : undefined;
   const isPreOrder = productOrderType === "pre_order";
   const canAddToCart = Boolean(product.id);
+  const stockQuantity = typeof product.stock_quantity === "number" ? product.stock_quantity : null;
+  const cartQuantity = cart?.items.find((item) => item.id === product.id)?.quantity ?? 0;
+  const isStockLimitReached =
+    availability.type === "available" &&
+    stockQuantity !== null &&
+    cartQuantity >= stockQuantity;
   const statusText =
-    availability.type === "available" ? "In Stock" : null;
+    availability.type === "available"
+      ? stockQuantity !== null && stockQuantity > 0
+        ? `In Stock (${stockQuantity})`
+        : "In Stock"
+      : null;
   const successMessage =
     productOrderType === "pre_order"
       ? "Pre-order item added to cart"
@@ -111,8 +127,12 @@ export default function ProductCard({
         type: "special",
         label: "Special Order",
         badge: "Special Order",
-        leadTime: "10-12 days",
+        leadTime: "within 15 days",
       };
+
+  const hasMoq =
+    productOrderType === "special_order" &&
+    requiresMoq(product.category_slug ?? []);
 
   useEffect(() => {
     console.log("Stock debug", {
@@ -141,7 +161,7 @@ export default function ProductCard({
 
     try {
       setLoading(true);
-      await addItem(product.id, 1, { optimisticItem: optimisticCartItem });
+      await addItem(product.id, hasMoq ? SPECIAL_ORDER_MOQ : 1, { optimisticItem: optimisticCartItem });
       setAddedFeedback(true);
       setConfirmationOpen(true);
       if (onAddToCart) {
@@ -206,8 +226,8 @@ export default function ProductCard({
 
         <div className="product-content flex flex-1 flex-col pt-3">
           <Link href={`/product/${product.slug}`} prefetch className="block">
-            <h3 className="product-title min-h-[2.75rem] text-[14px] font-semibold leading-[1.3] text-text">
-              {product.name}
+            <h3 className="product-title line-clamp-2 min-h-[2.75rem] text-[14px] font-semibold leading-[1.3] text-text">
+              {cleanProductName(product.name)}
             </h3>
           </Link>
 
@@ -237,19 +257,34 @@ export default function ProductCard({
           {statusText ? (
             <p
               className={`mt-2 text-sm font-semibold ${
-                statusText === "In Stock" ? "text-green-600" : "text-orange-600"
+                availability.type === "available" ? "text-green-600" : "text-orange-600"
               }`}
             >
               {statusText}
             </p>
           ) : null}
 
+          {product.sku ? (
+            <p className="mt-1 text-xs text-gray-400">SKU: {product.sku}</p>
+          ) : null}
+
           <div className="product-actions mt-3">
+            {hasMoq && (
+              <p className="mb-1 text-center text-[11px] text-orange-500">
+                Min. {SPECIAL_ORDER_MOQ} pcs
+              </p>
+            )}
             <ProductActionButton
               product_order_type={productOrderType}
               productName={product.name}
               loading={loading}
               added={addedFeedback}
+              disabled={isStockLimitReached}
+              disabledMessage={
+                isStockLimitReached && stockQuantity !== null
+                  ? `All ${stockQuantity} in cart`
+                  : undefined
+              }
               onAddToCart={commitAddToCart}
               onSpecialOrder={handleSpecialOrderClick}
               onPreOrder={handleSpecialOrderClick}

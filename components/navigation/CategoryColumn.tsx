@@ -41,10 +41,7 @@ function getCategoryHeading(category: CategoryNode) {
 
 function getCategoryLinks(category: CategoryNode) {
   if (category.children.length > 0) {
-    const children =
-      category.slug === "accessories"
-        ? category.children.filter((child) => child.slug !== "filament-dryer")
-        : category.children;
+    const children = category.children;
 
     return children.map((child) => ({
       id: child.id,

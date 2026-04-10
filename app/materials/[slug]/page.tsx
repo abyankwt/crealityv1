@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
+import MaterialsNav from "@/components/MaterialsNav";
 import {
   getCatalogParam,
   resolveCatalogSort,
@@ -63,54 +63,15 @@ export default async function MaterialCategoryPage({
         <h1 className="mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl">
           {material.category.label}
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-600 sm:text-base">
-          Live WooCommerce products filtered by the <strong>{material.category.label}</strong>{" "}
-          category slug. In-stock items show Add to Cart, while out-of-stock items
-          stay purchasable through Special Order.
-        </p>
       </div>
 
-      <div className="mt-6">
-        <Link
-          href="/materials"
-          prefetch
-          className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-black"
-        >
-          All Materials
-        </Link>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {materialsGroups.map((group) => (
-            <div
-              key={group.id}
-              className="rounded-[1.5rem] border border-gray-200 bg-white p-4"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-                {group.label}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {group.links.map((link) => {
-                  const isActive = link.slug === slug;
-
-                  return (
-                    <Link
-                      key={link.slug}
-                      href={link.href}
-                      prefetch
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                        isActive
-                          ? "bg-black text-white"
-                          : "border border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 hover:text-black"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <MaterialsNav
+        groups={materialsGroups}
+        activeSlug={slug}
+        allHref="/materials"
+        activeGroupId={material.group.id}
+        activeLabel={material.category.label}
+      />
 
       <div className="mt-8">
         <ProductGrid

@@ -7,6 +7,7 @@ import {
   calculateSpecialOrderFee,
   type SpecialOrderPricedProduct,
 } from "@/lib/specialOrderPricing";
+import { SPECIAL_ORDER_MOQ } from "@/lib/specialOrderMoq";
 
 type OrderWarningModalProps = {
   open: boolean;
@@ -102,7 +103,7 @@ export default function OrderWarningModal({
       : null;
   const resolvedLeadTime =
     availability.leadTime ??
-    (availability.type === "special" ? "10-12 days" : null);
+    (availability.type === "special" ? "within 15 days" : null);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
@@ -148,6 +149,11 @@ export default function OrderWarningModal({
                 Estimated lead time: {resolvedLeadTime}
               </p>
             ) : null}
+            {availability.type === "special" && (
+              <p className="mt-2 text-sm font-medium text-orange-600">
+                Minimum order quantity: {SPECIAL_ORDER_MOQ} pieces
+              </p>
+            )}
             {shippingLoading && availability.type === "special" && (
               <p className="mt-2 text-sm font-medium text-gray-500">
                 Calculating special order delivery charge...

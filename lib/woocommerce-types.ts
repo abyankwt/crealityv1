@@ -55,6 +55,7 @@ export interface Product {
   id: number;
   name: string;
   slug: string;
+  sku?: string | null;
   permalink?: string;
   description?: string;
   short_description?: string;

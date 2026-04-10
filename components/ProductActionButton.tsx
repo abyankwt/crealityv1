@@ -8,6 +8,8 @@ type ProductActionButtonProps = {
   productName: string;
   loading?: boolean;
   added?: boolean;
+  disabled?: boolean;
+  disabledMessage?: string;
   onAddToCart?: () => void | Promise<void>;
   onSpecialOrder?: () => void;
   onPreOrder?: () => void;
@@ -40,6 +42,8 @@ export default function ProductActionButton({
   productName,
   loading = false,
   added = false,
+  disabled = false,
+  disabledMessage,
   onAddToCart,
   onSpecialOrder,
   onPreOrder,
@@ -53,7 +57,7 @@ export default function ProductActionButton({
   }, [product_order_type]);
 
   const handleClick = async () => {
-    if (loading) {
+    if (loading || disabled) {
       return;
     }
 
@@ -76,7 +80,9 @@ export default function ProductActionButton({
   };
 
   const buttonLabel =
-    product_order_type === "in_stock"
+    disabled
+      ? "Max Stock Reached"
+      : product_order_type === "in_stock"
       ? loading
         ? "Adding..."
         : added
@@ -89,13 +95,22 @@ export default function ProductActionButton({
       <button
         type="button"
         onClick={() => void handleClick()}
+        disabled={disabled}
         aria-label={`${BUTTON_LABELS[product_order_type]} for ${productName}`}
-        className={`inline-flex min-h-10 w-full items-center justify-center rounded-lg px-3 py-2 text-[13px] font-semibold text-white transition duration-150 ${BUTTON_STYLES[product_order_type]}`}
+        className={`inline-flex min-h-10 w-full items-center justify-center rounded-lg px-3 py-2 text-[13px] font-semibold text-white transition duration-150 ${
+          disabled
+            ? "cursor-not-allowed bg-gray-300"
+            : BUTTON_STYLES[product_order_type]
+        }`}
       >
         {buttonLabel}
       </button>
 
-      {SHIPPING_MESSAGES[product_order_type] ? (
+      {disabledMessage && (
+        <p className="text-[12px] text-gray-400">{disabledMessage}</p>
+      )}
+
+      {SHIPPING_MESSAGES[product_order_type] && !disabled ? (
         <p className="text-[12px] text-[#6b7280]">
           {SHIPPING_MESSAGES[product_order_type]}
         </p>

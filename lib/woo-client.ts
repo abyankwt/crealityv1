@@ -460,6 +460,22 @@ export const updateWooOrder = async (orderId: number, payload: Record<string, un
   });
 };
 
+type ProductRestData = {
+  id: number;
+  sku: string;
+  stock_quantity: number | null;
+};
+
+export const getProductsRestData = async (productIds: number[]) => {
+  if (productIds.length === 0) {
+    return { ok: true as const, status: 200, data: [] as ProductRestData[] };
+  }
+  const ids = productIds.join(",");
+  return wooRequest<ProductRestData[]>(
+    `products?include=${ids}&per_page=${productIds.length}&_fields=id,sku,stock_quantity`
+  );
+};
+
 type WooMetaData = { key: string; value: string };
 
 type WooCustomerFull = {

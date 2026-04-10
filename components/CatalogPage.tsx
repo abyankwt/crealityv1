@@ -34,7 +34,7 @@ export default function CatalogPage({
       </div>
 
       <ProductGrid
-        initialProducts={products}
+        initialProducts={products.slice(0, 12)}
         initialPage={1}
         totalPages={totalPages}
         section={section}

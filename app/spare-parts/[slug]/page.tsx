@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
+import SparePartsNav from "@/components/SparePartsNav";
 import {
   getSparePartBySlug,
   SPARE_PARTS_CATEGORY_HREF,
@@ -72,48 +72,12 @@ export default async function SparePartPage({
       </div>
 
       {/* Category navigation */}
-      <div className="mt-6">
-        <Link
-          href={SPARE_PARTS_CATEGORY_HREF}
-          prefetch
-          className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-black"
-        >
-          All Spare Parts
-        </Link>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {SPARE_PARTS_GROUPS.map((group) => (
-            <div
-              key={group.id}
-              className="rounded-3xl border border-gray-200 bg-white p-4"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-                {group.label}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {group.items.map((item) => {
-                  const isActive = item.slug === sparePart.slug;
-
-                  return (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      prefetch
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                        isActive
-                          ? "bg-black text-white"
-                          : "border border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 hover:text-black"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <SparePartsNav
+        groups={SPARE_PARTS_GROUPS}
+        activeSlug={sparePart.slug}
+        allHref={SPARE_PARTS_CATEGORY_HREF}
+        activeItem={sparePart}
+      />
 
       {/* Products */}
       <div className="mt-8">

@@ -13,6 +13,7 @@ import { FALLBACK_PRODUCT_IMAGE, resolveImageSource } from "@/lib/image";
 import { resolveDisplayProductOrderType, resolveProductSection } from "@/lib/productLogic";
 import { formatPrice, getProductPriceInfo } from "@/lib/price";
 import { sanitizeWooDescription } from "@/lib/sanitizeWooDescription";
+import { requiresMoq, SPECIAL_ORDER_MOQ } from "@/lib/specialOrderMoq";
 import type {
   StoreProduct,
   StoreProductAttribute,
@@ -87,19 +88,45 @@ export default function ProductDetail({
 }: ProductDetailProps) {
   const router = useRouter();
   const { addItem } = useCart();
+
+  // Compute availability before state so minQty can seed useState
+  const section = resolveProductSection(product);
+  const availability = getProductAvailability(product, section);
+  const hasMoq =
+    availability.type === "special" &&
+    requiresMoq(product.categories?.map((c) => c.slug) ?? []);
+  const minQty = hasMoq ? SPECIAL_ORDER_MOQ : 1;
+
   const [selectedImage, setSelectedImage] = useState<string>(
     product.images?.[0]?.src ?? FALLBACK_PRODUCT_IMAGE
   );
   const [imageFade, setImageFade] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(minQty);
   const [adding, setAdding] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
   const [warningOpen, setWarningOpen] = useState(false);
   const [warningAccepted, setWarningAccepted] = useState(false);
-  const [pendingQuantity, setPendingQuantity] = useState(1);
+  const [pendingQuantity, setPendingQuantity] = useState(minQty);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const primaryActionsRef = useRef<HTMLDivElement | null>(null);
+  const [restStockQty, setRestStockQty] = useState<number | null>(
+    typeof product.stock_quantity === "number" ? product.stock_quantity : null
+  );
+
+  useEffect(() => {
+    if (!product.id) return;
+    fetch(`/api/products-data?ids=${product.id}`)
+      .then((r) => r.json())
+      .then((data: Array<{ id: number; sku: string | null; stock_quantity: number | null }>) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        const entry = data[0];
+        if (entry && entry.stock_quantity !== null) {
+          setRestStockQty(entry.stock_quantity);
+        }
+      })
+      .catch(() => {/* silent */});
+  }, [product.id]);
 
   const galleryImages =
     product.images && product.images.length > 0
@@ -107,8 +134,6 @@ export default function ProductDetail({
       : [{ id: 0, src: FALLBACK_PRODUCT_IMAGE, alt: product.name }];
 
   const mainImage = selectedImage || galleryImages[0]?.src || FALLBACK_PRODUCT_IMAGE;
-  const section = resolveProductSection(product);
-  const availability = getProductAvailability(product, section);
   const optimisticCartItem =
     product.id > 0
       ? {
@@ -130,8 +155,14 @@ export default function ProductDetail({
       : undefined;
   const displayOrderType = resolveDisplayProductOrderType(product, section);
   const cleanDescription = sanitizeWooDescription(product.description);
+  const stockCount =
+    availability.type === "available" && restStockQty !== null ? restStockQty : null;
   const stockLabel =
-    availability.type === "available" ? "In Stock" : availability.label;
+    availability.type === "available"
+      ? stockCount !== null
+        ? `In Stock (${stockCount})`
+        : "In Stock"
+      : availability.label;
   const canOrder = Boolean(product.id);
   const modalAvailability = {
     type: availability.type,
@@ -139,7 +170,7 @@ export default function ProductDetail({
     badge: availability.badge,
     leadTime:
       availability.type === "special"
-        ? "10-12 days"
+        ? "within 15 days"
         : product.lead_time ?? availability.leadTime ?? null,
   };
   const videoUrl = extractVideoUrl(product.meta_data);
@@ -161,9 +192,7 @@ export default function ProductDetail({
 
   const highlightAttributes = attributes.slice(0, 6);
   const isLowStock =
-    typeof product.stock_quantity === "number" &&
-    product.stock_quantity > 0 &&
-    product.stock_quantity <= 5;
+    restStockQty !== null && restStockQty > 0 && restStockQty <= 5;
 
   useEffect(() => {
     const target = primaryActionsRef.current;
@@ -376,7 +405,7 @@ export default function ProductDetail({
                   <div className="flex items-center rounded-lg border border-gray-200">
                     <button
                       type="button"
-                      onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                      onClick={() => setQuantity((prev) => Math.max(minQty, prev - 1))}
                       className="h-10 w-10 rounded-l-lg text-lg font-semibold text-gray-500 transition hover:bg-gray-50"
                       aria-label="Decrease quantity"
                     >
@@ -387,13 +416,19 @@ export default function ProductDetail({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setQuantity((prev) => prev + 1)}
-                      className="h-10 w-10 rounded-r-lg text-lg font-semibold text-gray-500 transition hover:bg-gray-50"
+                      onClick={() => setQuantity((prev) => restStockQty !== null ? Math.min(restStockQty, prev + 1) : prev + 1)}
+                      disabled={restStockQty !== null && quantity >= restStockQty}
+                      className="h-10 w-10 rounded-r-lg text-lg font-semibold text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Increase quantity"
                     >
                       +
                     </button>
                   </div>
+                  {hasMoq && (
+                    <p className="text-sm text-orange-500">
+                      Minimum order: {SPECIAL_ORDER_MOQ} pieces
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -433,6 +468,9 @@ export default function ProductDetail({
                   <span className="text-xs text-amber-600">
                     Low stock. Confirm availability.
                   </span>
+                )}
+                {product.sku && (
+                  <span className="text-xs text-gray-400">SKU: {product.sku}</span>
                 )}
               </div>
 

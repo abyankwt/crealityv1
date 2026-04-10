@@ -122,13 +122,6 @@ const FIXED_CATEGORY_TREE: CategoryNode[] = [
     image: null,
     children: [
       {
-        id: 301,
-        name: "Filament Dryer",
-        slug: "filament-dryer",
-        image: null,
-        children: [],
-      },
-      {
         id: 302,
         name: "Tools",
         slug: "tools",

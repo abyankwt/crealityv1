@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   getWooPublishedProductsByCategorySlug,
+  getProductsRestData,
 } from "@/lib/woo-client";
 import { fetchProducts, fetchProductsByCategory } from "@/lib/woocommerce";
 import {
@@ -13,6 +14,8 @@ import {
   filterProductsByCategorySlugs,
   filterProductsForSection,
   isPreOrderSectionProduct,
+  isServiceListingProduct,
+  isUsedPrinterProduct,
   productMatchesAnyToken,
   resolveProductSectionFromSlug,
 } from "@/lib/productLogic";
@@ -57,6 +60,7 @@ type FetchPrinterSubmenuProductsRequest = {
 type GroupedCategoryConfig = {
   routeSlugs: string[];
   productCategorySlugs: string[];
+  productMatchTokens?: string[];
   cache?: RequestCache;
   filterBySection: boolean;
   productSectionOverride?: ProductSection;
@@ -65,12 +69,91 @@ type GroupedCategoryConfig = {
 
 const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
   {
-    routeSlugs: ["3d-scanner-series", "3d-scanners-series"],
-    productCategorySlugs: ["3d-scanners-series"],
+    // "View All" for Spare Parts — aggregates all FDM + Resin spare part categories
+    routeSlugs: ["spare-parts"],
+    productCategorySlugs: [
+      // FDM Printers spare parts
+      "extruderkit", "filament-sensor", "nozzle", "bed", "hotend", "hotbid",
+      "bearing", "motors", "power-supply-fdm", "gears", "belt-cable-tubes",
+      "fan", "otherkits",
+      // Resin Printers spare parts
+      "releasefilm", "protective_cover", "resin-vat-platform-kit",
+      "print_screen", "power-supply-sla", "motherboard-sla",
+      "cables-wires", "fans-sla", "toolkits",
+    ],
     cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
     dataSource: "woo-rest",
+  },
+  {
+    // "View All" for Accessories & Tools — aggregates all submenu categories
+    routeSlugs: ["accessories", "accessories-tools"],
+    productCategorySlugs: [
+      "tools",
+      "wifi-upgrade-kits",
+      "screen-kit",
+      "auto-leveling",
+      "silent-motherboard",
+      "printer-enclosure",
+    ],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+  {
+    routeSlugs: ["3d-scanner-series", "3d-scanners-series", "3d-scanners"],
+    productCategorySlugs: ["3d-scanners-series", "3d-scanner-series"],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+  {
+    routeSlugs: ["fdm-printers"],
+    productCategorySlugs: ["cr-series"],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+  {
+    routeSlugs: ["resin-printers"],
+    productCategorySlugs: ["resin-series", "halot-series"],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
+    dataSource: "woo-rest",
+  },
+  {
+    // "View All" for 3D Printers — use Store API so parent/child categories
+    // are all included. Token matching picks up pre-orders that lack exact slugs.
+    routeSlugs: ["3d-printers"],
+    productCategorySlugs: [
+      "k-series", "k1", "k2", "k2-plus", "k-seies",
+      "ender-series",
+      "spark-i7",
+      "hi-printer", "hi-series",
+      "sermoon-series",
+      "resin-series", "halot-series",
+      "cr-series",
+    ],
+    productMatchTokens: [
+      // K Series pre-orders (tokens used as fallback when exact category slug is missing)
+      "k1", "k2", "k2plus",
+      // SparkX / Spark i7
+      "sparki7",
+      // Sermoon
+      "sermoon",
+      // Halot / resin printers by model name
+      "halot",
+      // Ender
+      "ender",
+    ],
+    cache: "no-store",
+    filterBySection: false,
+    productSectionOverride: "default",
   },
 ];
 
@@ -98,10 +181,16 @@ export function resolveCatalogSort(sort?: string): {
   }
 }
 
+const SLUG_ACRONYMS = new Set(["fdm", "3d"]);
+
 export function slugToTitle(slug: string): string {
   return slug
     .replace(/-/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+    .replace(/\b\w+/g, (word) => {
+      const lower = word.toLowerCase();
+      if (SLUG_ACRONYMS.has(lower)) return lower.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    });
 }
 
 function sortMockProducts(products: Product[], sort?: string): Product[] {
@@ -251,25 +340,37 @@ async function fetchGroupedCategoryProducts({
       )
     );
 
-    const failedResult = categoryResults.find((result) => !result.ok);
-    if (failedResult && !failedResult.ok) {
-      return {
-        data: [],
-        totalPages: 0,
-        totalProducts: 0,
-      };
+    // Log individual failures but don't abort — treat failed slugs as empty
+    // so one missing/broken category doesn't wipe out the entire result set.
+    for (const result of categoryResults) {
+      if (!result.ok) {
+        console.error(
+          `[fetchGroupedCategoryProducts] REST fetch failed for a category in "${categorySlug}" — skipping it.`
+        );
+      }
     }
 
-    const normalizedProducts = categoryResults.flatMap((result) =>
+    const allNormalized = categoryResults.flatMap((result) =>
       result.ok
         ? result.data
             .filter((product) => product.status === "publish")
             .map(normalizeWooRestProduct)
         : []
     );
-    const filteredProducts = filterProductsByCategorySlugs(
-      normalizedProducts,
-      config.productCategorySlugs
+
+    // Deduplicate by product ID (products can belong to multiple categories)
+    const seenIds = new Set<number>();
+    const normalizedProducts = allNormalized.filter((p) => {
+      if (seenIds.has(p.id)) return false;
+      seenIds.add(p.id);
+      return true;
+    });
+
+    // Products were already fetched from the correct categories — only exclude
+    // service listings and used printers (same as filterProductsByCategorySlugs
+    // does internally, without the category re-check that can drop valid products).
+    const filteredProducts = normalizedProducts.filter(
+      (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p)
     );
 
     return paginateProducts(filteredProducts, page, perPage);
@@ -283,10 +384,19 @@ async function fetchGroupedCategoryProducts({
     cache: config.cache,
   });
 
-  const filteredProducts = filterProductsByCategorySlugs(
-    allProducts,
-    config.productCategorySlugs
-  );
+  const matchTokens = config.productMatchTokens ?? [];
+  const filteredProducts = allProducts.filter((product) => {
+    if (filterProductsByCategorySlugs([product], config.productCategorySlugs).length > 0) {
+      return true;
+    }
+    // Also include pre-order products that match by name token (same logic as
+    // fetchPrinterSubmenuProducts — some pre-orders lack the exact category slug)
+    return (
+      matchTokens.length > 0 &&
+      isPreOrderSectionProduct(product) &&
+      productMatchesAnyToken(product, matchTokens)
+    );
+  });
 
   return paginateProducts(filteredProducts, page, perPage);
 }
@@ -333,9 +443,33 @@ export async function fetchPrinterSubmenuProducts({
   return paginateProducts(filteredProducts, page, perPage);
 }
 
+async function enrichWithRestData(products: Product[]): Promise<Product[]> {
+  if (products.length === 0) return products;
+  const ids = products.map((p) => p.id).filter(Boolean);
+  if (ids.length === 0) return products;
+
+  try {
+    const restResult = await getProductsRestData(ids);
+    if (!restResult.ok || !restResult.data?.length) return products;
+
+    const byId = new Map(restResult.data.map((d) => [d.id, d]));
+    return products.map((p) => {
+      const extra = byId.get(p.id);
+      if (!extra) return p;
+      return {
+        ...p,
+        sku: p.sku ?? extra.sku ?? null,
+        stock_quantity: p.stock_quantity ?? extra.stock_quantity ?? null,
+      };
+    });
+  } catch {
+    return products;
+  }
+}
+
 export async function fetchCatalogProducts({
   page = 1,
-  perPage = 12,
+  perPage = 16,
   categorySlug,
   orderType,
   sort,
@@ -374,10 +508,9 @@ export async function fetchCatalogProducts({
     });
 
     if (result.data.length > 0) {
-      return {
-        ...result,
-        data: filterProductsForSection(result.data, categorySection),
-      };
+      const filtered = filterProductsForSection(result.data, categorySection);
+      const enriched = await enrichWithRestData(filtered);
+      return { ...result, data: enriched };
     }
 
     return getMockCategoryFallback(categorySlug, page, perPage, sort);
@@ -393,10 +526,9 @@ export async function fetchCatalogProducts({
     cache: cacheMode,
   });
 
-  return {
-    ...result,
-    data: filterProductsForSection(result.data, "default"),
-  };
+  const filtered = filterProductsForSection(result.data, "default");
+  const enriched = await enrichWithRestData(filtered);
+  return { ...result, data: enriched };
 }
 
 export function buildCatalogApiQuery({

@@ -6,6 +6,7 @@ import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts } from "@/lib/api";
 import { filterProductsForSection } from "@/lib/productLogic";
+import { getProductsRestData } from "@/lib/woo-client";
 import CampaignHero from "@/components/CampaignHero";
 
 export const revalidate = 60;
@@ -53,10 +54,28 @@ export default async function HomePage({ searchParams }: PageProps) {
         }),
   ]);
 
-  const { data: products, totalPages, totalProducts } = productResult;
-  const newProducts = shouldReusePrimaryProductsForNewArrivals
-    ? products.slice(0, 8)
+  const { data: rawProducts, totalPages, totalProducts } = productResult;
+  const rawNewProducts = shouldReusePrimaryProductsForNewArrivals
+    ? rawProducts.slice(0, 8)
     : newProductsResult?.data ?? [];
+
+  // Enrich all unique products with stock_quantity + sku from REST API (one batch call)
+  const allIds = [...new Set([...rawProducts, ...rawNewProducts].map((p) => p.id))];
+  const restDataResult = await getProductsRestData(allIds);
+  const restById = new Map(
+    restDataResult.ok ? restDataResult.data.map((d) => [d.id, d]) : []
+  );
+  const enrich = <T extends { id: number; sku?: string | null; stock_quantity?: number | null }>(
+    list: T[]
+  ): T[] =>
+    list.map((p) => {
+      const extra = restById.get(p.id);
+      if (!extra) return p;
+      return { ...p, sku: p.sku ?? extra.sku ?? null, stock_quantity: p.stock_quantity ?? extra.stock_quantity ?? null };
+    });
+
+  const products = enrich(rawProducts);
+  const newProducts = enrich(rawNewProducts);
   const visibleProducts = filterProductsForSection(products, "default");
   const visibleNewProducts = filterProductsForSection(newProducts, "default");
 

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
     const page = parseInt(searchParams.get("page") ?? "1", 10);
-    const perPage = parseInt(searchParams.get("per_page") ?? "12", 10);
+    const perPage = parseInt(searchParams.get("per_page") ?? "16", 10);
     const search = searchParams.get("search") ?? undefined;
     const stock_status = searchParams.get("stock_status") ?? undefined;
     const orderby = searchParams.get("orderby") ?? undefined;

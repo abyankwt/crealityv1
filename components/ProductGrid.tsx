@@ -31,7 +31,16 @@ type SortValue =
   | "price_desc"
   | "name_asc";
 
-type CategoryFilterValue = "all" | "filaments" | "resins" | "accessories";
+type CategoryFilterValue =
+  | "all"
+  | "3d-printers"
+  | "3d-scanners"
+  | "accessories"
+  | "materials"
+  | "washing-curing"
+  | "laser-milling"
+  | "spare-parts"
+  | "used-printers";
 
 type FilterPanelProps = {
   minPrice: string;
@@ -51,10 +60,63 @@ const CATEGORY_FILTER_OPTIONS: Array<{
   value: CategoryFilterValue;
 }> = [
   { label: "All", value: "all" },
-  { label: "Filaments", value: "filaments" },
-  { label: "Resins", value: "resins" },
-  { label: "Accessories", value: "accessories" },
+  { label: "3D Printers", value: "3d-printers" },
+  { label: "3D Scanners", value: "3d-scanners" },
+  { label: "Accessories & Tools", value: "accessories" },
+  { label: "Materials", value: "materials" },
+  { label: "Washing & Curing", value: "washing-curing" },
+  { label: "Laser & Milling", value: "laser-milling" },
+  { label: "Spare Parts", value: "spare-parts" },
+  { label: "Used 3D Printers", value: "used-printers" },
 ];
+
+const PRINTER_SLUGS = new Set([
+  "k-series", "k1", "k2", "k2-plus", "k-seies",
+  "ender-series", "spark-i7", "hi-printer", "hi-series",
+  "sermoon-series", "resin-series", "halot-series", "cr-series",
+  "3d-printers", "fdm-printers", "resin-printers",
+]);
+
+const SCANNER_SLUGS = new Set([
+  "3d-scanners", "3d-scanner-series", "3d-scanners-series",
+]);
+
+const ACCESSORY_SLUGS = new Set([
+  "accessories", "filament-dryer", "tools", "wifi-upgrade-kits",
+  "screen-kit", "auto-leveling", "silent-motherboard", "printer-enclosure",
+]);
+
+const MATERIAL_SLUGS = new Set([
+  "materials", "pla-filaments", "petg-filaments", "tpu-filaments",
+  "abs-filaments", "resin",
+]);
+
+const WASHING_CURING_SLUGS = new Set(["washing-curing", "washing-curing-series"]);
+
+const LASER_MILLING_SLUGS = new Set(["laser-milling", "laser-milling-series"]);
+
+const SPARE_PART_SLUGS = new Set([
+  "spare-parts",
+  "extruderkit", "filament-sensor", "nozzle", "bed", "hotend", "hotbid",
+  "bearing", "motors", "power-supply-fdm", "gears", "belt-cable-tubes",
+  "fan", "otherkits",
+  "releasefilm", "protective_cover", "resin-vat-platform-kit",
+  "print_screen", "power-supply-sla", "motherboard-sla",
+  "cables-wires", "fans-sla", "toolkits",
+]);
+
+// Maps category filter values to API category_slug — used when fetching fresh
+// products on pages that have no base category (Shop All).
+const CATEGORY_FILTER_SLUG_MAP: Partial<Record<CategoryFilterValue, string>> = {
+  "3d-printers": "3d-printers",
+  "3d-scanners": "3d-scanners",
+  "accessories": "accessories",
+  "materials": "materials",
+  "washing-curing": "washing-curing",
+  "laser-milling": "laser-milling",
+  "spare-parts": "spare-parts",
+  "used-printers": "used-3d-printers",
+};
 
 const SORT_OPTIONS: Array<{ label: string; value: SortValue }> = [
   { label: "Most popular", value: "popularity_desc" },
@@ -64,40 +126,43 @@ const SORT_OPTIONS: Array<{ label: string; value: SortValue }> = [
   { label: "Name: A to Z", value: "name_asc" },
 ];
 
-const stripHtml = (value?: string) => value?.replace(/<[^>]*>/g, " ") ?? "";
-
 const matchesCategoryFilter = (
   product: Product,
   categoryFilter: CategoryFilterValue
 ) => {
-  if (categoryFilter === "all") {
-    return true;
-  }
+  if (categoryFilter === "all") return true;
 
-  const categories = product.categories.map((category) => ({
-    slug: category.slug.toLowerCase(),
-    name: category.name.toLowerCase(),
-  }));
+  const slugs = [
+    ...(product.category_slug ?? []),
+    ...product.categories.map((c) => c.slug),
+  ].map((s) => s.toLowerCase());
 
   switch (categoryFilter) {
-    case "filaments":
-      return categories.some(
-        (category) =>
-          category.slug.includes("filament") || category.name.includes("filament")
+    case "3d-printers":
+      // Must be in a printer category AND not in laser/milling, accessories or spare parts
+      return (
+        slugs.some((s) => PRINTER_SLUGS.has(s)) &&
+        !slugs.some((s) => LASER_MILLING_SLUGS.has(s)) &&
+        !slugs.some((s) => ACCESSORY_SLUGS.has(s)) &&
+        !slugs.some((s) => SPARE_PART_SLUGS.has(s))
       );
-    case "resins":
-      return categories.some(
-        (category) =>
-          category.slug.includes("resin") || category.name.includes("resin")
-      );
+    case "3d-scanners":
+      return slugs.some((s) => SCANNER_SLUGS.has(s));
     case "accessories":
-      return categories.some(
-        (category) =>
-          category.slug.includes("accessor") ||
-          category.slug.includes("tool") ||
-          category.name.includes("accessor") ||
-          category.name.includes("tool")
+      return (
+        slugs.some((s) => ACCESSORY_SLUGS.has(s)) &&
+        !slugs.some((s) => LASER_MILLING_SLUGS.has(s))
       );
+    case "materials":
+      return slugs.some((s) => MATERIAL_SLUGS.has(s));
+    case "washing-curing":
+      return slugs.some((s) => WASHING_CURING_SLUGS.has(s));
+    case "laser-milling":
+      return slugs.some((s) => LASER_MILLING_SLUGS.has(s));
+    case "spare-parts":
+      return slugs.some((s) => SPARE_PART_SLUGS.has(s));
+    case "used-printers":
+      return slugs.some((s) => s.includes("used-3d-printers") || s.includes("used3dprinters"));
     default:
       return true;
   }
@@ -234,7 +299,14 @@ export default function ProductGrid({
   const [categoryFilter, setCategoryFilter] =
     useState<CategoryFilterValue>("all");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // True when products[] was fetched specifically for a category via the API.
+  // In that case the products are already correctly scoped — skip matchesCategoryFilter.
+  const [isCategoryFetched, setIsCategoryFetched] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
+  const activeCategoryRef = useRef<CategoryFilterValue>("all");
+  // True when this grid is on a page with no pre-set category (Shop All).
+  // Category pages pass category_slug in apiQuery; shop-all does not.
+  const isShopAll = !apiQuery?.category_slug;
   const loadingPlaceholders = Array.from({ length: 4 }, (_, index) => index);
 
   const showToastMessage = useCallback(
@@ -284,6 +356,55 @@ export default function ProductGrid({
     setSortValue(defaultSort);
   }, [defaultSort, filterBySection, initialPage, initialProducts, section, totalPages]);
 
+  // On Shop All: when the user selects a specific category, fetch products for
+  // that category from the API instead of filtering the already-loaded batch.
+  useEffect(() => {
+    activeCategoryRef.current = categoryFilter;
+
+    if (!isShopAll) return; // Category pages filter client-side — nothing to do.
+
+    if (categoryFilter === "all") {
+      // Reset back to the server-rendered products.
+      setIsCategoryFetched(false);
+      setProducts(
+        filterBySection
+          ? filterProductsForSection(initialProducts, section)
+          : initialProducts
+      );
+      setPage(initialPage);
+      setHasMore(initialPage < totalPages);
+      return;
+    }
+
+    const categorySlug = CATEGORY_FILTER_SLUG_MAP[categoryFilter];
+    if (!categorySlug) return;
+
+    setLoading(true);
+    const params = new URLSearchParams({
+      category_slug: categorySlug,
+      page: "1",
+      per_page: "16",
+      cache: "no-store",
+    });
+
+    fetch(`/api/products?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data: { products: Product[]; pagination: { totalPages: number } }) => {
+        if (activeCategoryRef.current !== categoryFilter) return; // stale response
+        setIsCategoryFetched(true);
+        setProducts(data.products ?? []);
+        setPage(1);
+        setHasMore(1 < (data.pagination?.totalPages ?? 1));
+      })
+      .catch((err: unknown) => {
+        console.error("Category fetch failed:", err);
+      })
+      .finally(() => {
+        if (activeCategoryRef.current === categoryFilter) setLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFilter, isShopAll]);
+
   const activeFilterCount = [
     search.trim(),
     minPrice,
@@ -299,13 +420,9 @@ export default function ProductGrid({
 
     const visibleProducts = products.filter((product) => {
       const productName = product.name.toLowerCase();
-      const productDescription = `${stripHtml(product.short_description)} ${stripHtml(
-        product.description
-      )}`.toLowerCase();
       const matchesSearch =
         !normalizedSearch ||
-        productName.includes(normalizedSearch) ||
-        productDescription.includes(normalizedSearch);
+        productName.includes(normalizedSearch);
       const matchesMinPrice =
         parsedMinPrice === null ||
         Number.isNaN(parsedMinPrice) ||
@@ -322,12 +439,17 @@ export default function ProductGrid({
             (filterBySection ? section : resolveProductSection(product))
         ).type === "available";
 
+      // Skip client-side category check when products were fetched from the
+      // API specifically for this category — they are already correctly scoped.
+      const matchesCategory =
+        isCategoryFetched || matchesCategoryFilter(product, categoryFilter);
+
       return (
         matchesSearch &&
         matchesMinPrice &&
         matchesMaxPrice &&
         matchesStock &&
-        matchesCategoryFilter(product, categoryFilter)
+        matchesCategory
       );
     });
 
@@ -344,6 +466,7 @@ export default function ProductGrid({
     return sortedProducts;
   }, [
     categoryFilter,
+    isCategoryFetched,
     inStockOnly,
     maxPrice,
     minPrice,
@@ -363,13 +486,20 @@ export default function ProductGrid({
     try {
       const params = new URLSearchParams();
       params.set("page", String(nextPage));
-      params.set("per_page", "12");
+      params.set("per_page", "16");
 
-      Object.entries(apiQuery ?? {}).forEach(([key, value]) => {
-        if (value !== undefined && value !== "") {
-          params.set(key, String(value));
-        }
-      });
+      // When on Shop All with a category filter active, paginate that category.
+      if (isShopAll && categoryFilter !== "all") {
+        const catSlug = CATEGORY_FILTER_SLUG_MAP[categoryFilter];
+        if (catSlug) params.set("category_slug", catSlug);
+        params.set("cache", "no-store");
+      } else {
+        Object.entries(apiQuery ?? {}).forEach(([key, value]) => {
+          if (value !== undefined && value !== "") {
+            params.set(key, String(value));
+          }
+        });
+      }
 
       const res = await fetch(`/api/products?${params.toString()}`, {
         cache: "no-store",
@@ -398,7 +528,7 @@ export default function ProductGrid({
     } finally {
       setLoading(false);
     }
-  }, [apiQuery, filterBySection, hasMore, loading, page, section]);
+  }, [apiQuery, categoryFilter, filterBySection, hasMore, isShopAll, loading, page, section]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
