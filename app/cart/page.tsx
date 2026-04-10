@@ -170,7 +170,9 @@ export default function CartPage() {
                     const extra = productExtras.get(item.id);
                     const stockQty = extra?.stock_quantity ?? null;
                     const wcMax = item.quantity_limits?.maximum ?? 999;
-                    const max = stockQty !== null ? Math.min(stockQty, wcMax) : wcMax;
+                    // Use quantity_limits.maximum as fallback stock display when manage_stock=false
+                    const effectiveStockQty = stockQty !== null ? stockQty : (wcMax < 9999 ? wcMax : null);
+                    const max = effectiveStockQty !== null ? Math.min(effectiveStockQty, wcMax) : wcMax;
                     const min = item.quantity_limits?.minimum ?? 1;
                     const qty = localQty.get(item.key) ?? item.quantity;
                     const unitPriceValue = item.prices
@@ -202,9 +204,9 @@ export default function CartPage() {
                                         {item.availability && (
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <AvailabilityBadge availability={item.availability} />
-                                                {item.availability.type === "available" && stockQty !== null && (
+                                                {item.availability.type === "available" && effectiveStockQty !== null && (
                                                     <span className="text-xs font-medium text-green-600">
-                                                        ({stockQty} in stock)
+                                                        ({effectiveStockQty} in stock)
                                                     </span>
                                                 )}
                                                 {item.availability.type !== "available" &&
@@ -249,7 +251,7 @@ export default function CartPage() {
                                             type="button"
                                             onClick={() => debouncedUpdate(item.key, Math.min(max, qty + 1))}
                                             disabled={qty >= max}
-                                            title={qty >= max ? `Max stock: ${max}` : undefined}
+                                            title={qty >= max ? `Max available: ${max}` : undefined}
                                             className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Increase quantity"
                                         >

@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
   fetchRelatedStoreProducts,
@@ -43,7 +43,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!product) {
     console.warn(`[ProductPage] Missing product slug: ${slug}`);
-    redirect("/store");
+    notFound();
   }
 
   const relatedProducts = await fetchRelatedStoreProducts(product);

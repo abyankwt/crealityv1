@@ -144,7 +144,6 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
       "resin-series", "halot-series",
       "cr-series",
     ],
-    cache: "no-store",
     filterBySection: false,
     productSectionOverride: "default",
   },
@@ -401,7 +400,7 @@ export async function fetchPrinterSubmenuProducts({
   perPage = 12,
   sort,
   stockStatus,
-  cache = "no-store",
+  cache = "default",
 }: FetchPrinterSubmenuProductsRequest): Promise<FetchProductsResult> {
   const matchedCategory = getPrinterSubmenuCategoryBySlug(submenuSlug);
   const matchedSlugs = matchedCategory?.productCategorySlugs ?? [];

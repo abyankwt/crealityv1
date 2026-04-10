@@ -287,7 +287,7 @@ export default function ProductCard({
               }
               onAddToCart={commitAddToCart}
               onSpecialOrder={handleSpecialOrderClick}
-              onPreOrder={handleSpecialOrderClick}
+              onPreOrder={commitAddToCart}
             />
           </div>
         </div>
