@@ -27,11 +27,31 @@ const DEBOUNCE_MS = 500;
 
 export default function CartPage() {
     const router = useRouter();
-    const { cart, loading, removeItem, updateItem, itemCount } = useCart();
+    const { cart, loading, addItem, removeItem, updateItem, itemCount } = useCart();
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
     const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
     const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
+    const [cartBackup, setCartBackup] = useState<Array<{ id: number; quantity: number; name: string }>>([]);
+    const [restoring, setRestoring] = useState(false);
+
+    // Load cart backup from sessionStorage on mount (set when user was redirected to payment)
+    useEffect(() => {
+        const saved = sessionStorage.getItem("creality_cart_backup");
+        if (saved) {
+            try { setCartBackup(JSON.parse(saved) as Array<{ id: number; quantity: number; name: string }>); } catch { /* ignore */ }
+        }
+    }, []);
+
+    const handleRestoreCart = async () => {
+        setRestoring(true);
+        for (const item of cartBackup) {
+            try { await addItem(item.id, item.quantity); } catch { /* skip failed items */ }
+        }
+        sessionStorage.removeItem("creality_cart_backup");
+        setCartBackup([]);
+        setRestoring(false);
+    };
 
     // Local optimistic quantities — updated instantly on click, API call debounced
     const [localQty, setLocalQty] = useState<Map<string, number>>(new Map());
@@ -169,6 +189,43 @@ export default function CartPage() {
     const displayTotal = itemsSubtotal + effectiveDeliveryFee - discount;
 
     if (items.length === 0) {
+        if (cartBackup.length > 0) {
+            return (
+                <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+                        <h2 className="text-lg font-semibold text-gray-900">Your payment was not completed</h2>
+                        <p className="mt-1 text-sm text-gray-600">Would you like to restore your previous cart?</p>
+                        <ul className="mt-3 space-y-1 text-sm text-gray-700">
+                            {cartBackup.map((i) => (
+                                <li key={i.id} className="flex items-center gap-2">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                    {i.name} × {i.quantity}
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                            <button
+                                onClick={handleRestoreCart}
+                                disabled={restoring}
+                                className="rounded-full bg-black px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                            >
+                                {restoring ? "Restoring…" : "Restore Cart"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    sessionStorage.removeItem("creality_cart_backup");
+                                    setCartBackup([]);
+                                }}
+                                className="rounded-full border border-gray-300 px-6 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="mx-auto flex max-w-4xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:px-8">
                 <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">

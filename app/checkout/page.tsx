@@ -186,10 +186,11 @@ function CheckoutPageContent() {
     }, []);
 
     useEffect(() => {
-        if (!cartLoading && cart && cart.items.length === 0) {
-            router.replace("/store");
+        if (!cartLoading && (!cart || cart.items.length === 0)) {
+            router.replace("/cart");
         }
     }, [cart, cartLoading, router]);
+
 
     const decodeHtml = (html: string) => {
         if (typeof document === "undefined") return html;
@@ -253,8 +254,9 @@ function CheckoutPageContent() {
                 ...billing,
                 country: billing.country || "KW",
                 state: billing.state || "",
+                city: billing.city || "Kuwait City",
                 address_2: billing.address_2 || "",
-                postcode: billing.postcode || "",
+                postcode: billing.postcode || "00000",
             };
             const shippingAddress = {
                 first_name: normalizedBilling.first_name,
@@ -274,6 +276,13 @@ function CheckoutPageContent() {
             });
 
             if (result.redirect_url) {
+                // Save cart so user can restore it if they cancel payment and come back
+                const cartBackup = items.map((i) => ({
+                    id: i.id,
+                    quantity: i.quantity,
+                    name: i.name,
+                }));
+                sessionStorage.setItem("creality_cart_backup", JSON.stringify(cartBackup));
                 window.location.href = result.redirect_url;
             } else {
                 router.push(`/order-success?order=${result.order_id}`);
@@ -304,7 +313,21 @@ function CheckoutPageContent() {
         );
     }
 
-    if (!cart || cart.items.length === 0) return null;
+    if (!cart || cart.items.length === 0) {
+        // Show skeleton while the redirect effect fires
+        return (
+            <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+                <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
+                    Checkout
+                </h1>
+                <div className="space-y-4">
+                    {[1, 2, 3].map((index) => (
+                        <div key={index} className="h-20 animate-pulse rounded-xl bg-gray-100" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     if (!authChecked) {
         return (

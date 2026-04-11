@@ -1,9 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 
 export default function OrderSuccessPage() {
+  useEffect(() => {
+    sessionStorage.removeItem("creality_cart_backup");
+  }, []);
+
   return (
     <main className="flex min-h-[70vh] flex-col items-center justify-center bg-gray-50 px-4 py-16">
       <div className="flex w-full max-w-md flex-col items-center rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
