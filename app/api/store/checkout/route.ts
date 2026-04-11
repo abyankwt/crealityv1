@@ -209,8 +209,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...body.billing_address,
         country: body.billing_address.country || "KW",
         state: body.billing_address.state || "",
+        city: body.billing_address.city || "Kuwait City",
         address_2: body.billing_address.address_2 || "",
-        postcode: body.billing_address.postcode || "",
+        postcode: body.billing_address.postcode || "00000",
     };
 
     // Use shipping = billing if not provided
@@ -247,15 +248,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         syncStoreHeaders(headers, updateCustomerResponse);
 
         const updateCustomerText = await updateCustomerResponse.text();
-        customerCartData = updateCustomerText
-            ? (JSON.parse(updateCustomerText) as WooStoreCartResponse)
-            : null;
+        try {
+            customerCartData = updateCustomerText
+                ? (JSON.parse(updateCustomerText) as WooStoreCartResponse)
+                : null;
+        } catch {
+            customerCartData = null;
+        }
 
         if (!updateCustomerResponse.ok) {
-            const errorMessage =
-                customerCartData?.message ||
-                "Unable to validate shipping for this address.";
-            console.error("[Checkout] Shipping validation failed:", errorMessage);
+            const rawMsg = customerCartData?.message || "";
+            const errorMessage = rawMsg.includes("<") || rawMsg.includes("wordpress.org")
+                ? "Unable to validate your order. Please try again or contact support."
+                : rawMsg || "Unable to validate shipping for this address.";
+            console.error("[Checkout] Shipping validation failed:", rawMsg);
             return NextResponse.json(
                 { error: errorMessage },
                 { status: updateCustomerResponse.status }
@@ -339,10 +345,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (!wooResponse.ok) {
-        const errMsg =
-            (responseData as { message?: string }).message ||
-            "Checkout failed. Please try again.";
-        console.error(`[Checkout] WooCommerce error ${wooResponse.status}:`, errMsg);
+        const rawMsg = (responseData as { message?: string }).message || "";
+        // If WooCommerce returns HTML (e.g. PHP fatal error from a payment plugin), replace with a friendly message
+        const errMsg = rawMsg.includes("<") || rawMsg.includes("wordpress.org")
+            ? "This payment method is currently unavailable. Please choose a different payment method or contact support."
+            : rawMsg || "Checkout failed. Please try again.";
+        console.error(`[Checkout] WooCommerce error ${wooResponse.status}:`, rawMsg);
         return NextResponse.json(
             { error: errMsg },
             { status: wooResponse.status }
@@ -362,16 +370,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
     }
 
-    // Clear the cart token since the order has been placed
-    const res = NextResponse.json({
+    // Do NOT clear cart cookies here — the user may cancel payment and return.
+    // WooCommerce clears the cart on its end when payment is confirmed.
+    // The cart context will refresh automatically on the order-success page.
+    return NextResponse.json({
         success: true,
         order_id: checkout.order_id,
         redirect_url: redirectUrl,
     });
-
-    // Clear cart cookies after successful checkout
-    res.cookies.delete(WC_CART_TOKEN_COOKIE);
-    res.cookies.delete(WC_NONCE_COOKIE);
-
-    return res;
 }

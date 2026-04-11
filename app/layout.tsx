@@ -138,7 +138,7 @@ export default async function RootLayout({
       <body className="bg-white text-gray-900" suppressHydrationWarning>
         <Script
           id="hydration-attribute-cleanup"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{ __html: hydrationAttributeCleanupScript }}
         />
         <CartProvider>

@@ -184,8 +184,8 @@ export default function CartPage() {
             }, 0)
         : 0;
 
-    // Pickup is always free; delivery is free for in-stock/pre-order, formula for special orders
-    const effectiveDeliveryFee = deliveryMethod === "pickup" ? 0 : (hasSpecialOrder ? specialOrderDeliveryFee : 0);
+    // Pickup is free; in-stock/pre-order delivery is 2 KWD; special orders use formula
+    const effectiveDeliveryFee = deliveryMethod === "pickup" ? 0 : (hasSpecialOrder ? specialOrderDeliveryFee : 2);
     const displayTotal = itemsSubtotal + effectiveDeliveryFee - discount;
 
     if (items.length === 0) {
@@ -418,7 +418,7 @@ export default function CartPage() {
                                 {specialOrderDeliveryFee > 0 ? formatKWD(specialOrderDeliveryFee) : "Calculated at order"}
                             </span>
                         ) : (
-                            <span className="font-medium text-green-600">Free</span>
+                            <span className="font-medium text-gray-900">2.000 KWD</span>
                         )}
                     </div>
                     {discount > 0 && (

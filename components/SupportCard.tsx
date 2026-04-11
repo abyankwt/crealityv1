@@ -56,6 +56,10 @@ export default function SupportCard({
             onError={() => setImageSrc(FALLBACK_IMAGE)}
           />
         </div>
+      ) : Icon && price !== undefined ? (
+        <div className="flex aspect-[4/3] items-center justify-center rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 transition duration-300 group-hover:from-black group-hover:to-gray-800">
+          <Icon className="h-14 w-14 text-white opacity-90" />
+        </div>
       ) : Icon ? (
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-100 text-gray-700 transition group-hover:bg-black group-hover:text-white">
           <Icon className="h-6 w-6" />

@@ -56,13 +56,18 @@ export function findMaterialEntryBySlug(
   slug: string
 ) {
   for (const group of groups) {
-    const category = group.links.find((link) => link.slug === slug);
+    for (const link of group.links) {
+      if (link.slug === slug) {
+        return { category: link, group };
+      }
 
-    if (category) {
-      return {
-        category,
-        group,
-      };
+      // Search children (e.g. Hyper PLA, Matte PLA under PLA Filaments)
+      if (link.children) {
+        const child = link.children.find((c) => c.slug === slug);
+        if (child) {
+          return { category: child, group };
+        }
+      }
     }
   }
 

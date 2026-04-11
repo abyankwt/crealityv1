@@ -11,7 +11,7 @@
   "dependencies": {
     "@netlify/plugin-nextjs": "^5.15.8",
     "@types/jsonwebtoken": "^9.0.10",
-    "axios": "^1.7.0",
+    "@types/three": "^0.183.1",
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",
     "jsonwebtoken": "^9.0.3",
@@ -27,7 +27,6 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "25.2.3",
     "@types/react": "19.2.14",
-    "@types/three": "^0.183.1",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.4.38",

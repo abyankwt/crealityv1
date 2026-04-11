@@ -204,6 +204,10 @@ export function isPreOrderSectionProduct(
     return false;
   }
 
+  if (product.stock_status === "onbackorder") {
+    return true;
+  }
+
   if (product.category_slug?.some((slug) => matchesPreOrderToken(slug))) {
     return true;
   }
@@ -481,10 +485,11 @@ export function resolveProductOrderType(
     return "in_stock";
   }
 
-  if (
-    product?.stock_status === "outofstock" ||
-    product?.stock_status === "onbackorder"
-  ) {
+  if (product?.stock_status === "onbackorder") {
+    return "pre_order";
+  }
+
+  if (product?.stock_status === "outofstock") {
     return "special_order";
   }
 
@@ -518,6 +523,7 @@ export function resolveDisplayProductOrderType(
   }
 
   // Use stock_status ONLY — never is_in_stock or stock_quantity
+  if (product?.stock_status === "onbackorder") return "pre_order";
   return product?.stock_status === "instock" ? "in_stock" : "special_order";
 }
 

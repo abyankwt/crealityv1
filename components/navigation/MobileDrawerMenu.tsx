@@ -284,6 +284,7 @@ function MaterialsAccordion({
   onNavigate?: () => void;
 }) {
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [openSubSlug, setOpenSubSlug] = useState<string | null>(null);
 
   return (
     <div className="space-y-4 pb-4 pl-4">
@@ -324,18 +325,72 @@ function MaterialsAccordion({
             >
               <div className="overflow-hidden">
                 <div className="border-t border-gray-200 px-4 py-3">
-                  <div className="flex flex-col gap-2.5 pl-1">
-                    {group.links.map((link) => (
-                      <Link
-                        key={link.slug}
-                        href={link.href}
-                        prefetch
-                        className="text-sm text-gray-700 transition hover:text-black"
-                        onClick={onNavigate}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
+                  <div className="flex flex-col gap-1 pl-1">
+                    {group.links.map((link) => {
+                      const hasChildren = Boolean(link.children?.length);
+                      const subExpanded = openSubSlug === link.slug;
+                      const subContentId = `mobile-material-sub-${link.slug}`;
+
+                      return (
+                        <div key={link.slug}>
+                          <div className="flex items-center justify-between gap-2">
+                            <Link
+                              href={link.href}
+                              prefetch
+                              className="flex-1 py-1.5 text-sm text-gray-700 transition hover:text-black"
+                              onClick={onNavigate}
+                            >
+                              {link.label}
+                            </Link>
+                            {hasChildren && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenSubSlug((cur) =>
+                                    cur === link.slug ? null : link.slug
+                                  )
+                                }
+                                className="p-1 text-gray-400 transition hover:text-gray-900"
+                                aria-expanded={subExpanded}
+                                aria-controls={subContentId}
+                                aria-label={`${subExpanded ? "Collapse" : "Expand"} ${link.label}`}
+                              >
+                                <ChevronDown
+                                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                    subExpanded ? "rotate-180" : "rotate-0"
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            )}
+                          </div>
+                          {hasChildren && (
+                            <div
+                              id={subContentId}
+                              className={`grid transition-all duration-200 ${
+                                subExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                              }`}
+                            >
+                              <div className="overflow-hidden">
+                                <div className="mb-1 ml-2 flex flex-col gap-1 border-l border-gray-200 pl-3 pt-1">
+                                  {link.children?.map((child) => (
+                                    <Link
+                                      key={child.slug}
+                                      href={child.href}
+                                      prefetch
+                                      className="py-1 text-xs text-gray-500 transition hover:text-black"
+                                      onClick={onNavigate}
+                                    >
+                                      {child.label}
+                                    </Link>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

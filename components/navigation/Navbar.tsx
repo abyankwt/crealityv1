@@ -69,7 +69,7 @@ export default function Navbar({
     return () => {
       active = false;
     };
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {

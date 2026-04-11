@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     Loader2,
@@ -75,8 +75,8 @@ const emptyBilling: BillingAddress = {
 
 function CheckoutPageContent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const { cart, loading: cartLoading, itemCount } = useCart();
+    const { cart, loading: cartLoading, itemCount, addItem } = useCart();
+    const [urlParams, setUrlParams] = useState<URLSearchParams>(new URLSearchParams());
 
     const [billing, setBilling] = useState<BillingAddress>(emptyBilling);
     const [paymentMethod, setPaymentMethod] = useState<string>(PAYMENT_METHODS[0].id);
@@ -87,7 +87,39 @@ function CheckoutPageContent() {
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
     const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
-    const isPickup = searchParams.get("pickup") === "1";
+    const [backupChecked, setBackupChecked] = useState(false);
+    const [restoringFromPayment, setRestoringFromPayment] = useState(false);
+    const [cartBackupItems, setCartBackupItems] = useState<Array<{ id: number; quantity: number; name: string }>>([]);
+    const restoringRef = useRef(false);
+    const isPickup = urlParams.get("pickup") === "1";
+
+    // Always land at the top of the page and read URL params on mount
+    useEffect(() => {
+        window.scrollTo(0, 0);
+        setUrlParams(new URLSearchParams(window.location.search));
+    }, []);
+
+    // On mount: load sessionStorage backups saved before the payment redirect
+    useEffect(() => {
+        const savedBilling = sessionStorage.getItem("creality_billing_backup");
+        if (savedBilling) {
+            try {
+                const parsed = JSON.parse(savedBilling) as BillingAddress;
+                setBilling(parsed);
+            } catch { /* ignore */ }
+        }
+        const savedPayment = sessionStorage.getItem("creality_payment_backup");
+        if (savedPayment && PAYMENT_METHODS.some((m) => m.id === savedPayment)) {
+            setPaymentMethod(savedPayment);
+        }
+        const savedCart = sessionStorage.getItem("creality_cart_backup");
+        if (savedCart) {
+            try {
+                setCartBackupItems(JSON.parse(savedCart) as Array<{ id: number; quantity: number; name: string }>);
+            } catch { /* ignore */ }
+        }
+        setBackupChecked(true);
+    }, []);
 
     useEffect(() => {
         const ids = cart?.items.map((i) => i.id).filter(Boolean) ?? [];
@@ -186,10 +218,26 @@ function CheckoutPageContent() {
     }, []);
 
     useEffect(() => {
-        if (!cartLoading && (!cart || cart.items.length === 0)) {
-            router.replace("/cart");
-        }
-    }, [cart, cartLoading, router]);
+        if (!backupChecked || cartLoading) return;
+        const cartItems = cart?.items ?? [];
+        if (cartItems.length > 0) return;
+        if (restoringRef.current) return;
+        if (cartBackupItems.length === 0) return; // No backup — stay on page, show empty state
+
+        restoringRef.current = true;
+        setRestoringFromPayment(true);
+
+        void (async () => {
+            for (const item of cartBackupItems) {
+                try { await addItem(item.id, item.quantity); } catch { /* skip unavailable */ }
+            }
+            sessionStorage.removeItem("creality_cart_backup");
+            sessionStorage.removeItem("creality_billing_backup");
+            sessionStorage.removeItem("creality_payment_backup");
+            setCartBackupItems([]);
+            setRestoringFromPayment(false);
+        })();
+    }, [cart, cartLoading, backupChecked, cartBackupItems, addItem]);
 
 
     const decodeHtml = (html: string) => {
@@ -223,10 +271,10 @@ function CheckoutPageContent() {
             return;
         }
 
-        const acceptedFromQuery = searchParams.get("warning") === "accepted";
+        const acceptedFromQuery = urlParams.get("warning") === "accepted";
         setWarningAccepted(acceptedFromQuery);
         setWarningOpen(!acceptedFromQuery);
-    }, [protectedItems.length, searchParams]);
+    }, [protectedItems.length, urlParams]);
 
     const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
         setBilling((previous) => ({
@@ -276,13 +324,15 @@ function CheckoutPageContent() {
             });
 
             if (result.redirect_url) {
-                // Save cart so user can restore it if they cancel payment and come back
+                // Save cart, billing, and payment so checkout can be fully restored if user cancels
                 const cartBackup = items.map((i) => ({
                     id: i.id,
                     quantity: i.quantity,
                     name: i.name,
                 }));
                 sessionStorage.setItem("creality_cart_backup", JSON.stringify(cartBackup));
+                sessionStorage.setItem("creality_billing_backup", JSON.stringify(billing));
+                sessionStorage.setItem("creality_payment_backup", paymentMethod);
                 window.location.href = result.redirect_url;
             } else {
                 router.push(`/order-success?order=${result.order_id}`);
@@ -295,35 +345,42 @@ function CheckoutPageContent() {
         }
     };
 
-    if (!cart && cartLoading) {
+    const cartItems = cart?.items ?? [];
+
+    if (cartLoading || !backupChecked || restoringFromPayment || (backupChecked && cartBackupItems.length > 0 && cartItems.length === 0)) {
+        // Still loading, backup not checked yet, or restoring cart from payment cancel
         return (
             <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
                 <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
                     Checkout
                 </h1>
+                {restoringFromPayment && (
+                    <p className="mb-4 text-sm text-amber-700 font-medium">Restoring your previous order…</p>
+                )}
                 <div className="space-y-4">
                     {[1, 2, 3].map((index) => (
-                        <div
-                            key={index}
-                            className="h-20 animate-pulse rounded-xl bg-gray-100"
-                        />
+                        <div key={index} className="h-20 animate-pulse rounded-xl bg-gray-100" />
                     ))}
                 </div>
             </div>
         );
     }
 
-    if (!cart || cart.items.length === 0) {
-        // Show skeleton while the redirect effect fires
+    if (cartItems.length === 0) {
+        // Truly empty cart, no backup to restore
         return (
             <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-                <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
+                <h1 className="mb-6 text-2xl font-bold tracking-tight text-gray-900">
                     Checkout
                 </h1>
-                <div className="space-y-4">
-                    {[1, 2, 3].map((index) => (
-                        <div key={index} className="h-20 animate-pulse rounded-xl bg-gray-100" />
-                    ))}
+                <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+                    <p className="text-gray-600 mb-4">Your cart is empty.</p>
+                    <Link
+                        href="/store"
+                        className="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                    >
+                        Continue Shopping
+                    </Link>
                 </div>
             </div>
         );
@@ -391,7 +448,7 @@ function CheckoutPageContent() {
         ) / Math.max(item.quantity, 1);
         return sum + unitPrice * item.quantity;
     }, 0);
-    const checkoutDiscount = parseMinorUnits(cart.totals?.total_discount ?? "0", minorUnit);
+    const checkoutDiscount = parseMinorUnits(cart?.totals?.total_discount ?? "0", minorUnit);
     const checkoutSpecialFee = (!isPickup && checkoutHasSpecialOrder)
         ? items
             .filter((item) => item.availability?.type === "special")
@@ -401,7 +458,8 @@ function CheckoutPageContent() {
                 return sum + calculateSpecialOrderFee({ dimensions: extra.dimensions }, item.quantity);
             }, 0)
         : 0;
-    const checkoutDisplayTotal = checkoutSubtotal + checkoutSpecialFee - checkoutDiscount;
+    const checkoutStandardDeliveryFee = (!isPickup && !checkoutHasSpecialOrder) ? 2 : 0;
+    const checkoutDisplayTotal = checkoutSubtotal + checkoutSpecialFee + checkoutStandardDeliveryFee - checkoutDiscount;
 
     return (
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
@@ -479,7 +537,7 @@ function CheckoutPageContent() {
                                         {checkoutSpecialFee > 0 ? formatKWD(checkoutSpecialFee) : "Calculated at order"}
                                     </span>
                                 ) : (
-                                    <span className="font-medium text-green-600">Free</span>
+                                    <span className="font-medium text-gray-900">2.000 KWD</span>
                                 )}
                             </div>
                             {checkoutDiscount > 0 && (
@@ -768,28 +826,6 @@ function CheckoutPageContent() {
     );
 }
 
-function CheckoutPageFallback() {
-    return (
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-            <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
-                Checkout
-            </h1>
-            <div className="space-y-4">
-                {[1, 2, 3].map((index) => (
-                    <div
-                        key={index}
-                        className="h-20 animate-pulse rounded-xl bg-gray-100"
-                    />
-                ))}
-            </div>
-        </div>
-    );
-}
-
 export default function CheckoutPage() {
-    return (
-        <Suspense fallback={<CheckoutPageFallback />}>
-            <CheckoutPageContent />
-        </Suspense>
-    );
+    return <CheckoutPageContent />;
 }

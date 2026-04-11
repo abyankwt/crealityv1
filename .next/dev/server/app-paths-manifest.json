@@ -1,7 +1,8 @@
 {
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/store/cart/route": "app/api/store/cart/route.js",
+  "/category/[slug]/page": "app/category/[slug]/page.js",
   "/page": "app/page.js",
-  "/used-3d-printers/page": "app/used-3d-printers/page.js",
   "/downloads/page": "app/downloads/page.js",
-  "/store/page": "app/store/page.js",
-  "/cart/page": "app/cart/page.js"
+  "/support/page": "app/support/page.js"
 }

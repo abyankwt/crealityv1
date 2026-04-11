@@ -1,0 +1,3 @@
+module.exports=[70255,a=>{"use strict";var b=a.i(7997);a.s(["default",0,function(){return(0,b.jsxs)("div",{className:"mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8",children:[(0,b.jsx)("h1",{className:"mb-8 text-2xl font-bold tracking-tight text-gray-900",children:"Checkout"}),(0,b.jsx)("div",{className:"space-y-4",children:[1,2,3].map(a=>(0,b.jsx)("div",{className:"h-20 animate-pulse rounded-xl bg-gray-100"},a))})]})}])},61413,a=>{a.n(a.i(70255))}];
+
+//# sourceMappingURL=app_checkout_loading_tsx_0chhae0._.js.map

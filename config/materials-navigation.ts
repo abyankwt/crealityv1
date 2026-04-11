@@ -4,6 +4,7 @@ export type MaterialsNavigationLink = {
   label: string;
   slug: string;
   href: `/materials/${string}`;
+  children?: MaterialsNavigationLink[];
 };
 
 export type MaterialsGroupConfig = {
@@ -21,6 +22,12 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
         label: "PLA Filaments",
         slug: "pla-filaments",
         href: "/materials/pla-filaments",
+        children: [
+          { label: "Hyper PLA", slug: "hyper-pla", href: "/materials/hyper-pla" },
+          { label: "Matte PLA", slug: "matte-pla", href: "/materials/matte-pla" },
+          { label: "PLA", slug: "pla", href: "/materials/pla" },
+          { label: "PLA+", slug: "pla-plus", href: "/materials/pla-plus" },
+        ],
       },
       {
         label: "ABS Filaments",
@@ -33,14 +40,15 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
         href: "/materials/tpu-filaments",
       },
       {
-        label: "Silk Filaments",
-        slug: "silk-filaments",
-        href: "/materials/silk-filaments",
-      },
-      {
-        label: "Carbon Filaments",
-        slug: "carbon-filaments",
-        href: "/materials/carbon-filaments",
+        label: "Filament",
+        slug: "filament",
+        href: "/materials/filament",
+        children: [
+          { label: "Carbon Filaments", slug: "carbon-filaments", href: "/materials/carbon-filaments" },
+          { label: "Nylon Filaments", slug: "nylon-filaments", href: "/materials/nylon-filaments" },
+          { label: "Silk Filaments", slug: "silk-filaments", href: "/materials/silk-filaments" },
+          { label: "Wood Filaments", slug: "wood-filaments", href: "/materials/wood-filaments" },
+        ],
       },
     ],
   },
@@ -87,6 +95,11 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
         label: "Dental Resin",
         slug: "dental-resin",
         href: "/materials/dental-resin",
+      },
+      {
+        label: "Jewelry Resin",
+        slug: "jewelry-resin",
+        href: "/materials/jewelry-resin",
       },
       {
         label: "High Temperature Resin",

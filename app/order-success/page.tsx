@@ -7,6 +7,8 @@ import { CheckCircle2 } from "lucide-react";
 export default function OrderSuccessPage() {
   useEffect(() => {
     sessionStorage.removeItem("creality_cart_backup");
+    sessionStorage.removeItem("creality_billing_backup");
+    sessionStorage.removeItem("creality_payment_backup");
   }, []);
 
   return (

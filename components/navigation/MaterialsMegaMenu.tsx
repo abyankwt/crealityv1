@@ -99,19 +99,37 @@ export default function MaterialsMegaMenu({
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
                   {group.label}
                 </p>
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-1">
                   {group.links.map((link) => (
-                    <Link
-                      key={link.slug}
-                      href={link.href}
-                      prefetch
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-sm text-gray-700 transition hover:border-gray-200 hover:bg-gray-50 hover:text-black"
-                      role="menuitem"
-                    >
-                      <span>{link.label}</span>
-                      <ArrowUpRight className="h-4 w-4 text-gray-300" aria-hidden="true" />
-                    </Link>
+                    <div key={link.slug}>
+                      <Link
+                        href={link.href}
+                        prefetch
+                        onClick={() => setOpen(false)}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-sm text-gray-700 transition hover:border-gray-200 hover:bg-gray-50 hover:text-black"
+                        role="menuitem"
+                      >
+                        <span>{link.label}</span>
+                        <ArrowUpRight className="h-4 w-4 text-gray-300" aria-hidden="true" />
+                      </Link>
+                      {link.children && link.children.length > 0 && (
+                        <div className="mb-1 ml-3 space-y-0.5 border-l border-gray-100 pl-3">
+                          {link.children.map((child) => (
+                            <Link
+                              key={child.slug}
+                              href={child.href}
+                              prefetch
+                              onClick={() => setOpen(false)}
+                              className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-gray-500 transition hover:bg-gray-50 hover:text-black"
+                              role="menuitem"
+                            >
+                              <span className="h-1 w-1 shrink-0 rounded-full bg-gray-300" />
+                              {child.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

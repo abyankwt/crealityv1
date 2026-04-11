@@ -7,13 +7,16 @@ import {
   BookOpenText,
   FileDown,
   Headphones,
-  House,
   MessageCircle,
   PackageSearch,
   Search,
-  ShieldAlert,
   Wrench,
 } from "lucide-react";
+import {
+  FieldServiceIcon,
+  PostWarrantyIcon,
+  TechnicalRepairIcon,
+} from "@/components/icons/ServiceIcons";
 import SupportCard from "@/components/SupportCard";
 import SupportFaqAccordion, {
   type SupportFaqItem,
@@ -51,17 +54,42 @@ const QUICK_ACTIONS = [
 
 const DEFAULT_SERVICE_ICON = Wrench;
 
+const SERVICE_IMAGES: Record<string, string> = {
+  "home-service": "/service-home.png",
+  "home-service-2": "/service-home.png",
+  "check-up": "/service-dealership.png",
+  "printing-service": "/service-dealership.png",
+  "out-of-creality": "/service-dealership.png",
+  "out-of-creality-service": "/service-dealership.png",
+  "out-of-warranty-service": "/service-warranty.png",
+  "maintenance-service": "/service-warranty.png",
+  "maintenance-service-2": "/service-warranty.png",
+};
+
+const SERVICE_TITLE_OVERRIDES: Record<string, string> = {
+  "home-service": "Home Service",
+  "home-service-2": "Home Service",
+  "check-up": "Out of Dealership Service",
+  "printing-service": "Out of Dealership Service",
+  "out-of-creality": "Out of Dealership Service",
+  "out-of-creality-service": "Out of Dealership Service",
+  "out-of-warranty-service": "Post-Warranty Service",
+  "maintenance-service": "Post-Warranty Service",
+  "maintenance-service-2": "Post-Warranty Service",
+};
+
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 const SERVICE_ICONS: Record<string, IconComponent> = {
-  "check-up": ShieldAlert,
-  "printing-service": ShieldAlert,
+  "check-up": TechnicalRepairIcon,
+  "printing-service": TechnicalRepairIcon,
   "maintenance-service": Wrench,
   "maintenance-service-2": Wrench,
-  "home-service": House,
-  "home-service-2": House,
-  "out-of-warranty-service": ShieldAlert,
-  "out-of-creality": ShieldAlert,
+  "home-service": FieldServiceIcon,
+  "home-service-2": FieldServiceIcon,
+  "out-of-warranty-service": PostWarrantyIcon,
+  "out-of-creality": TechnicalRepairIcon,
+  "out-of-creality-service": TechnicalRepairIcon,
 };
 
 const FAQ_ITEMS: SupportFaqItem[] = [
@@ -239,10 +267,10 @@ export default function SupportPageClient({
             {filteredServices.map((service) => (
               <SupportCard
                 key={service.id}
-                title={service.title}
+                title={SERVICE_TITLE_OVERRIDES[normalizeServiceToken(service.slug)] ?? service.title}
                 description={service.description}
+                image={SERVICE_IMAGES[normalizeServiceToken(service.slug)]}
                 icon={resolveServiceIcon(service)}
-                image={service.image || "/images/product-placeholder.svg"}
                 price={service.price}
                 buttonLabel={
                   activeServiceId === service.id ? "Adding..." : "Request & Pay"

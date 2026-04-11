@@ -4,6 +4,7 @@ import type { ComponentType, SVGProps } from "react";
 import {
   Box,
   Boxes,
+  Clock,
   Droplet,
   Factory,
   Package,
@@ -14,7 +15,6 @@ import {
   Upload,
   Wrench,
 } from "lucide-react";
-import PrintEstimator from "@/components/printing-service/PrintEstimator";
 import FaqAccordion from "@/components/printing-service/FaqAccordion";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -154,15 +154,9 @@ export default function PrintingServicePage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <a
-                href="#estimate"
-                className="inline-flex items-center justify-center rounded-lg bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-              >
-                Get Instant Estimate
-              </a>
               <Link
                 href="/support"
-                className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-gray-700"
+                className="inline-flex items-center justify-center rounded-lg bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
               >
                 Talk to Us
               </Link>
@@ -194,21 +188,22 @@ export default function PrintingServicePage() {
             {offerCards.map((card) => {
               const Icon = card.icon;
               return (
-              <div
-                key={card.title}
-                className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
-                  <Icon className="w-5 h-5 text-primary" />
+                <div
+                  key={card.title}
+                  className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="mt-4 text-lg font-semibold text-gray-900">
+                    {card.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    {card.description}
+                  </p>
                 </div>
-                <p className="mt-4 text-lg font-semibold text-gray-900">
-                  {card.title}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                  {card.description}
-                </p>
-              </div>
-            )})}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -225,21 +220,22 @@ export default function PrintingServicePage() {
             {serviceCategories.map((category) => {
               const Icon = category.icon;
               return (
-              <div
-                key={category.title}
-                className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
-                  <Icon className="w-5 h-5 text-primary" />
+                <div
+                  key={category.title}
+                  className="rounded-xl border p-4 bg-white transition hover:scale-[1.02] hover:border-gray-300 hover:shadow-md"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-50">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="mt-4 text-lg font-semibold text-gray-900">
+                    {category.title}
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    {category.description}
+                  </p>
                 </div>
-                <p className="mt-4 text-lg font-semibold text-gray-900">
-                  {category.title}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                  {category.description}
-                </p>
-              </div>
-            )})}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -273,10 +269,36 @@ export default function PrintingServicePage() {
         </div>
       </section>
 
-      {/* Automated Estimator */}
+      {/* File upload / estimator — Coming Soon */}
       <section id="estimate" className="border-b border-gray-200 bg-white py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <PrintEstimator />
+          <div className="mb-6 max-w-2xl">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Upload your 3D file
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              STL and OBJ files are supported. Once uploaded, the inline
+              configuration section appears below.
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-50">
+              <Clock className="h-8 w-8 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-gray-900">Coming Soon</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Online file upload &amp; instant pricing will be available soon.
+                Contact us to request a quote manually.
+              </p>
+            </div>
+            <Link
+              href="/support"
+              className="mt-2 inline-flex items-center justify-center rounded-lg bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+            >
+              Contact Us
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -321,15 +343,15 @@ export default function PrintingServicePage() {
               Ready to start your project?
             </h2>
             <p className="mt-2 text-sm text-gray-500">
-              Submit files and receive a formal quote.
+              Contact us and we&apos;ll get back to you with a quote.
             </p>
           </div>
-          <a
-            href="#estimate"
+          <Link
+            href="/support"
             className="inline-flex items-center justify-center rounded-lg bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
           >
-            Get Instant Estimate
-          </a>
+            Talk to Us
+          </Link>
         </div>
       </section>
     </main>

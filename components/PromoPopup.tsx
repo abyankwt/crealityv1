@@ -13,8 +13,6 @@ type PromoPopupProps = {
 };
 
 export default function PromoPopup({ data }: PromoPopupProps) {
-    console.log("Popup Data:", data);
-    console.log("STATE DATA:", data);
 
     const [open, setOpen] = useState(false);
     const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -79,8 +77,6 @@ export default function PromoPopup({ data }: PromoPopupProps) {
     const description = data.description;
     const buttonText = data?.button_text;
     const buttonLink = data?.button_link;
-
-    console.log("CTA:", buttonText, buttonLink);
 
     return (
         <div

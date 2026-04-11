@@ -9,13 +9,37 @@ const PRE_ORDER_NAV_SCAN_MAX_PAGES = 5;
 
 async function scanCatalogForPreOrders(maxPages?: number) {
   try {
-    const firstPage = await fetchProducts({
-      page: 1,
-      perPage: PRE_ORDER_SCAN_PAGE_SIZE,
-    });
+    // Fetch onbackorder products directly — the Store API returns only instock
+    // products by default, so onbackorder products must be fetched explicitly.
+    const [firstPage, backorderPage] = await Promise.all([
+      fetchProducts({
+        page: 1,
+        perPage: PRE_ORDER_SCAN_PAGE_SIZE,
+      }),
+      fetchProducts({
+        page: 1,
+        perPage: 100,
+        stock_status: "onbackorder",
+      }),
+    ]);
+
     const hasBackendData =
       firstPage.totalProducts > 0 || firstPage.data.length > 0;
-    const preOrders = filterProductsForSection(firstPage.data, "preorders");
+
+    const seen = new Set<number>();
+    const preOrders: Product[] = [];
+
+    const addIfNew = (products: Product[]) => {
+      for (const p of filterProductsForSection(products, "preorders")) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          preOrders.push(p);
+        }
+      }
+    };
+
+    addIfNew(firstPage.data);
+    addIfNew(backorderPage.data);
 
     if (maxPages && preOrders.length > 0) {
       return { hasBackendData, preOrders };
@@ -31,7 +55,7 @@ async function scanCatalogForPreOrders(maxPages?: number) {
         page,
         perPage: PRE_ORDER_SCAN_PAGE_SIZE,
       });
-      preOrders.push(...filterProductsForSection(pageResult.data, "preorders"));
+      addIfNew(pageResult.data);
 
       if (maxPages && preOrders.length > 0) {
         break;

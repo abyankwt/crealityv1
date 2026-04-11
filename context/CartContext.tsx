@@ -283,7 +283,7 @@ function applyOptimisticRemove(currentCart: Cart, key: string) {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [pendingItemKeys, setPendingItemKeys] = useState<Set<string>>(new Set());
   const [pendingProductIds, setPendingProductIds] = useState<Set<number>>(new Set());
   const cartRef = useRef<Cart | null>(null);
