@@ -1,7 +1,7 @@
 {
-  "/cart/page": "app/cart/page.js",
   "/page": "app/page.js",
-  "/spare-parts/[slug]/page": "app/spare-parts/[slug]/page.js",
-  "/product/[slug]/page": "app/product/[slug]/page.js",
-  "/store/page": "app/store/page.js"
+  "/used-3d-printers/page": "app/used-3d-printers/page.js",
+  "/downloads/page": "app/downloads/page.js",
+  "/store/page": "app/store/page.js",
+  "/cart/page": "app/cart/page.js"
 }

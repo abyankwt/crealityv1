@@ -140,12 +140,13 @@ export default function CartPage() {
 
     const hasSpecialOrder = items.some((item) => item.availability?.type === "special");
 
+    // Always use cart-level minorUnit to avoid mismatches with item.prices.currency_minor_unit
     const itemsSubtotal = items.reduce((sum, item) => {
         const qty = localQty.get(item.key) ?? item.quantity;
-        const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
-        const unitPrice = item.prices
-            ? parseMinorUnits(item.prices.price, priceMinorUnit)
-            : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+        const unitPrice = parseMinorUnits(
+            item.totals?.line_subtotal ?? item.totals?.line_total ?? "0",
+            minorUnit
+        ) / Math.max(item.quantity, 1);
         return sum + unitPrice * qty;
     }, 0);
 

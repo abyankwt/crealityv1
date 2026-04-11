@@ -29,18 +29,15 @@ self.__SERVER_FILES_MANIFEST={
         828,
         1080,
         1200,
-        1920,
-        2048,
-        3840
+        1920
       ],
       "imageSizes": [
+        16,
         32,
-        48,
         64,
         96,
         128,
-        256,
-        384
+        256
       ],
       "path": "/_next/image",
       "loader": "default",
@@ -49,6 +46,7 @@ self.__SERVER_FILES_MANIFEST={
       "disableStaticImages": false,
       "minimumCacheTTL": 86400,
       "formats": [
+        "image/avif",
         "image/webp"
       ],
       "maximumRedirects": 3,

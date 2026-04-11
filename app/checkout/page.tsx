@@ -360,11 +360,12 @@ function CheckoutPageContent() {
     }
 
     const checkoutHasSpecialOrder = items.some((item) => item.availability?.type === "special");
+    // Always use cart-level minorUnit to avoid mismatches with item.prices.currency_minor_unit
     const checkoutSubtotal = items.reduce((sum, item) => {
-        const priceMinorUnit = item.prices?.currency_minor_unit ?? minorUnit;
-        const unitPrice = item.prices
-            ? parseMinorUnits(item.prices.price, priceMinorUnit)
-            : parseMinorUnits(item.totals?.line_total ?? "0", minorUnit) / Math.max(item.quantity, 1);
+        const unitPrice = parseMinorUnits(
+            item.totals?.line_subtotal ?? item.totals?.line_total ?? "0",
+            minorUnit
+        ) / Math.max(item.quantity, 1);
         return sum + unitPrice * item.quantity;
     }, 0);
     const checkoutDiscount = parseMinorUnits(cart.totals?.total_discount ?? "0", minorUnit);

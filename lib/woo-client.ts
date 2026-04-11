@@ -308,15 +308,16 @@ export const getWooProductsBySlugs = async (slugs: string[]) => {
     uniqueSlugs.map((slug) => getWooProductsBySlug(slug))
   );
 
-  const failedResponse = responses.find((response) => !response.ok);
-  if (failedResponse && !failedResponse.ok) {
-    return failedResponse as FetchResult<WooProductDetailResponse[]>;
-  }
+  // Skip individual failed lookups rather than failing the entire batch.
+  // A single missing or errored slug should not prevent other products loading.
+  const successfulData = responses.flatMap((response) =>
+    response.ok ? response.data : []
+  );
 
   return {
     ok: true as const,
     status: 200,
-    data: responses.flatMap((response) => (response.ok ? response.data : [])),
+    data: successfulData,
   };
 };
 

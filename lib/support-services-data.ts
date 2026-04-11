@@ -55,18 +55,7 @@ export async function fetchSupportServices(): Promise<SupportService[]> {
     return [product];
   });
 
-  console.log(
-    "Woo support service products",
-    products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.images?.[0]?.src,
-      images: product.images,
-    }))
-  );
-
-  const services = products.map((product) => ({
+  return products.map((product) => ({
     id: product.id,
     title: product.name,
     description: stripHtml(product.short_description),
@@ -74,8 +63,4 @@ export async function fetchSupportServices(): Promise<SupportService[]> {
     image: product.images?.[0]?.src || FALLBACK_SUPPORT_SERVICE_IMAGE,
     slug: product.slug,
   }));
-
-  console.log("Mapped support services", services);
-
-  return services;
 }
