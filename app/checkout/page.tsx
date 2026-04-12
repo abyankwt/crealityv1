@@ -7,11 +7,46 @@ import {
     Loader2,
     ShieldCheck,
     CreditCard,
-    Banknote,
-    Clock,
     LogIn,
     UserPlus,
 } from "lucide-react";
+
+function DeemaIcon({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+            <circle cx="13" cy="12" r="11" fill="#C27A87" />
+            <circle cx="23" cy="12" r="11" fill="#B8697A" fillOpacity="0.85" />
+            <path
+                d="M18 5.2a11 11 0 0 1 0 13.6A11 11 0 0 1 18 5.2z"
+                fill="#C27A87"
+                opacity="0.5"
+            />
+        </svg>
+    );
+}
+
+function TalyIcon({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+            <rect width="24" height="24" rx="5" fill="#0F172A" />
+            <path
+                d="M6 17.5 L11.5 7 L17 12.5"
+                stroke="#3B82F6"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M11.5 7 L17 12.5"
+                stroke="#94A3B8"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.6"
+            />
+        </svg>
+    );
+}
 import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import SmartImage from "@/components/SmartImage";
@@ -44,7 +79,7 @@ type CustomerProfileResponse = {
 const PAYMENT_METHODS = [
     {
         id: "hesabe",
-        label: "Hesabe / KNET",
+        label: "KNET / Credit Card / ApplePay",
         description: "Pay with your KNET card",
         icon: CreditCard,
     },
@@ -52,13 +87,13 @@ const PAYMENT_METHODS = [
         id: "deema_payment",
         label: "Deema",
         description: "Pay with Deema",
-        icon: Banknote,
+        icon: DeemaIcon,
     },
     {
         id: "talypayment",
         label: "Taly",
         description: "Buy Now, Pay Later",
-        icon: Clock,
+        icon: TalyIcon,
     },
 ] as const;
 
@@ -99,6 +134,17 @@ function CheckoutPageContent() {
         setUrlParams(new URLSearchParams(window.location.search));
     }, []);
 
+    // Reset submitting state if page is restored from browser back/forward cache
+    useEffect(() => {
+        const handlePageShow = (event: PageTransitionEvent) => {
+            if (event.persisted) {
+                setSubmitting(false);
+            }
+        };
+        window.addEventListener("pageshow", handlePageShow);
+        return () => window.removeEventListener("pageshow", handlePageShow);
+    }, []);
+
     // On mount: load sessionStorage backups saved before the payment redirect
     useEffect(() => {
         const savedBilling = sessionStorage.getItem("creality_billing_backup");
@@ -136,9 +182,12 @@ function CheckoutPageContent() {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const response = await fetch("/api/auth/me", { credentials: "include" });
-                if (response.ok) {
-                    const data = (await response.json()) as AuthMeResponse;
+                const [authResponse, customerResponse] = await Promise.all([
+                    fetch("/api/auth/me", { credentials: "include" }),
+                    fetch("/api/account/customer", { credentials: "include" }),
+                ]);
+                if (authResponse.ok) {
+                    const data = (await authResponse.json()) as AuthMeResponse;
                     if (data.authenticated) {
                         const sessionUser = {
                             userId: data.user.id,
@@ -147,9 +196,6 @@ function CheckoutPageContent() {
                         };
                         setUser(sessionUser);
                         const nameParts = (sessionUser.name || "").split(" ");
-                        const customerResponse = await fetch("/api/account/customer", {
-                            credentials: "include",
-                        });
                         const customerPayload = customerResponse.ok
                             ? ((await customerResponse.json()) as CustomerProfileResponse)
                             : null;
@@ -227,16 +273,21 @@ function CheckoutPageContent() {
         restoringRef.current = true;
         setRestoringFromPayment(true);
 
-        void (async () => {
-            for (const item of cartBackupItems) {
-                try { await addItem(item.id, item.quantity); } catch { /* skip unavailable */ }
-            }
+        const restoreTimeout = setTimeout(() => {
+            setRestoringFromPayment(false);
+            restoringRef.current = false;
+        }, 10000);
+
+        void Promise.allSettled(
+            cartBackupItems.map((item) => addItem(item.id, item.quantity).catch(() => {}))
+        ).then(() => {
+            clearTimeout(restoreTimeout);
             sessionStorage.removeItem("creality_cart_backup");
             sessionStorage.removeItem("creality_billing_backup");
             sessionStorage.removeItem("creality_payment_backup");
             setCartBackupItems([]);
             setRestoringFromPayment(false);
-        })();
+        });
     }, [cart, cartLoading, backupChecked, cartBackupItems, addItem]);
 
 
@@ -347,16 +398,13 @@ function CheckoutPageContent() {
 
     const cartItems = cart?.items ?? [];
 
-    if (cartLoading || !backupChecked || restoringFromPayment || (backupChecked && cartBackupItems.length > 0 && cartItems.length === 0)) {
-        // Still loading, backup not checked yet, or restoring cart from payment cancel
+    if (cartLoading || !backupChecked || !authChecked) {
+        // Wait for cart, session backup, and auth to resolve in parallel before rendering
         return (
             <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
                 <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
                     Checkout
                 </h1>
-                {restoringFromPayment && (
-                    <p className="mb-4 text-sm text-amber-700 font-medium">Restoring your previous order…</p>
-                )}
                 <div className="space-y-4">
                     {[1, 2, 3].map((index) => (
                         <div key={index} className="h-20 animate-pulse rounded-xl bg-gray-100" />
@@ -366,7 +414,7 @@ function CheckoutPageContent() {
         );
     }
 
-    if (cartItems.length === 0) {
+    if (cartItems.length === 0 && !restoringFromPayment && cartBackupItems.length === 0) {
         // Truly empty cart, no backup to restore
         return (
             <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
@@ -386,25 +434,7 @@ function CheckoutPageContent() {
         );
     }
 
-    if (!authChecked) {
-        return (
-            <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-                <h1 className="mb-8 text-2xl font-bold tracking-tight text-gray-900">
-                    Checkout
-                </h1>
-                <div className="space-y-4">
-                    {[1, 2, 3].map((index) => (
-                        <div
-                            key={index}
-                            className="h-20 animate-pulse rounded-xl bg-gray-100"
-                        />
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    if (authChecked && !user) {
+    if (!user) {
         return (
             <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
                 <h1 className="mb-6 text-2xl font-bold tracking-tight text-gray-900">
@@ -467,12 +497,28 @@ function CheckoutPageContent() {
                 Checkout
             </h1>
 
+            {restoringFromPayment && (
+                <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <svg className="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Restoring your cart… your details are ready, items are loading.
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-8">
                 <section>
                     <h2 className="mb-4 text-lg font-semibold text-gray-900">
                         Order Summary
                     </h2>
                     <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+                        {restoringFromPayment && items.length === 0 && (
+                            <div className="space-y-2 px-4 py-3">
+                                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+                                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+                            </div>
+                        )}
                         {items.map((item) => {
                             const imageSrc =
                                 item.images?.[0]?.thumbnail ||

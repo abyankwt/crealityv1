@@ -40,7 +40,12 @@ export const MATERIALS_NAVIGATION: MaterialsGroupConfig[] = [
         href: "/materials/tpu-filaments",
       },
       {
-        label: "Filament",
+        label: "PETG Filaments",
+        slug: "petg-filaments",
+        href: "/materials/petg-filaments",
+      },
+      {
+        label: "Special Filaments",
         slug: "filament",
         href: "/materials/filament",
         children: [

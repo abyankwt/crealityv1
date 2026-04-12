@@ -34,6 +34,10 @@ const remotePatterns = imageHosts
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
+  experimental: {
+    // Tree-shake icon libraries — only bundle the icons actually imported
+    optimizePackageImports: ["lucide-react"],
+  },
   images: {
     remotePatterns,
     minimumCacheTTL: 86400,

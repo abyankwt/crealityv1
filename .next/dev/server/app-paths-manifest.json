@@ -1,8 +1,10 @@
 {
+  "/api/store/cart/add-item/route": "app/api/store/cart/add-item/route.js",
+  "/api/products-data/route": "app/api/products-data/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/store/cart/route": "app/api/store/cart/route.js",
+  "/api/account/customer/route": "app/api/account/customer/route.js",
   "/category/[slug]/page": "app/category/[slug]/page.js",
   "/page": "app/page.js",
-  "/downloads/page": "app/downloads/page.js",
-  "/support/page": "app/support/page.js"
+  "/cart/page": "app/cart/page.js",
+  "/checkout/page": "app/checkout/page.js"
 }
