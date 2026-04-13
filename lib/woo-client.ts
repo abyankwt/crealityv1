@@ -638,6 +638,20 @@ export const verifyWpUser = async (email: string, password: string) => {
   }
 };
 
+/**
+ * Returns the set of product IDs that belong to the "specialorder" WooCommerce category.
+ * Used to decide which out-of-stock products are permitted to show on the frontend.
+ * Products in this set are shown even when out of stock; removing a product from the
+ * "specialorder" category hides it from all category pages.
+ */
+export async function getSpecialOrderProductIds(): Promise<Set<number>> {
+  const result = await getWooPublishedProductsByCategorySlug("specialorder", {
+    revalidate: 60,
+  });
+  if (!result.ok) return new Set();
+  return new Set(result.data.map((p) => p.id));
+}
+
 export const getWpUserById = async (userId: number) => {
   const baseUrl = getWordpressUrl();
   const { user, password } = getWpAppCredentials();

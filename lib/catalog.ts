@@ -3,6 +3,7 @@ import "server-only";
 import {
   getWooPublishedProductsByCategorySlug,
   getProductsRestData,
+  getSpecialOrderProductIds,
 } from "@/lib/woo-client";
 import { fetchProducts, fetchProductsByCategory } from "@/lib/woocommerce";
 import { fetchPreOrderProducts } from "@/lib/preOrders";
@@ -150,6 +151,7 @@ const GROUPED_CATEGORY_CONFIGS: GroupedCategoryConfig[] = [
     ],
     filterBySection: false,
     productSectionOverride: "default",
+    dataSource: "woo-rest",
   },
 ];
 
@@ -338,7 +340,14 @@ async function fetchGroupedCategoryProducts({
       (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p) && !isPreOrderSectionProduct(p)
     );
 
-    return paginateProducts(filteredProducts, page, perPage);
+    // Only show out-of-stock products that are in the "specialorder" WooCommerce
+    // category. Removing a product from that category hides it from all pages.
+    const specialOrderIds = await getSpecialOrderProductIds();
+    const visibleProducts = filteredProducts.filter(
+      (p) => p.stock_status === "instock" || specialOrderIds.has(p.id)
+    );
+
+    return paginateProducts(visibleProducts, page, perPage);
   }
 
   const allProducts = await fetchAllProductsForFiltering({
@@ -491,7 +500,15 @@ export async function fetchCatalogProducts({
         .filter((p) => p.status === "publish")
         .map(normalizeWooRestProduct);
       const filtered = filterProductsForSection(normalized, categorySection);
-      return paginateProducts(filtered, page, perPage);
+
+      // Only show out-of-stock products that are in the "specialorder" WooCommerce
+      // category. Removing a product from that category hides it from all pages.
+      const specialOrderIds = await getSpecialOrderProductIds();
+      const visible = filtered.filter(
+        (p) => p.stock_status === "instock" || specialOrderIds.has(p.id)
+      );
+
+      return paginateProducts(visible, page, perPage);
     }
 
     // REST API returned nothing — try the Store API as a secondary source.

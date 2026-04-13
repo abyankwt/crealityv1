@@ -49,7 +49,7 @@ export type ProductMeta = {
   value: string;
 };
 
-export type ProductOrderType = "pre_order" | "special_order" | "in_stock";
+export type ProductOrderType = "pre_order" | "special_order" | "in_stock" | "unavailable";
 
 export interface Product {
   id: number;

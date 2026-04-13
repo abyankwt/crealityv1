@@ -25,12 +25,15 @@ const BUTTON_STYLES: Record<ProductOrderType, string> = {
     "bg-[#F97316] hover:bg-[#EA580C]",
   pre_order:
     "bg-gradient-to-r from-[#9333EA] to-[#7E22CE] hover:from-[#7E22CE] hover:to-[#6B21A8]",
+  unavailable:
+    "bg-gray-400 cursor-not-allowed",
 };
 
 const BUTTON_LABELS: Record<ProductOrderType, string> = {
   in_stock: "Add to Cart",
   special_order: "Special Order",
   pre_order: "Pre-Order",
+  unavailable: "Out of Stock",
 };
 
 const SHIPPING_MESSAGES: Partial<Record<ProductOrderType, string>> = {

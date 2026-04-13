@@ -37,6 +37,7 @@ type CategorySlugFilterOptions = {
 };
 
 const PRE_ORDER_DEFAULT_LEAD_TIME = "~45 days";
+const SPECIAL_ORDER_CATEGORY_SLUG = "specialorder";
 const USED_PRINTERS_CATEGORY_SLUG = "used-3d-printers";
 const SERVICE_CATEGORY_SLUG = "services";
 const SERVICE_TAG_SLUG = "service";
@@ -462,6 +463,19 @@ export function resolveProductLeadTime(
   return isPreOrderProduct(product) ? PRE_ORDER_DEFAULT_LEAD_TIME : null;
 }
 
+/**
+ * Returns true if the product belongs to the "specialorder" WooCommerce category.
+ * This is the source of truth for whether an out-of-stock product should be shown
+ * as "Special Order" on the frontend. Removing a product from that category hides
+ * the special-order UI even if the product remains out of stock.
+ */
+export function isSpecialOrderProduct(product: ProductLike | null | undefined): boolean {
+  if (!product) return false;
+  if (product.category_slug?.some((s) => s === SPECIAL_ORDER_CATEGORY_SLUG)) return true;
+  if (product.categories?.some((c) => c.slug === SPECIAL_ORDER_CATEGORY_SLUG)) return true;
+  return false;
+}
+
 export function resolveProductOrderType(
   product: ProductLike | null | undefined
 ): ProductOrderType {
@@ -489,10 +503,6 @@ export function resolveProductOrderType(
     return "pre_order";
   }
 
-  if (product?.stock_status === "outofstock") {
-    return "special_order";
-  }
-
   // stock_status absent — fall back to is_in_stock / stock_quantity (raw API fields)
   if (product?.is_in_stock === true) {
     return "in_stock";
@@ -502,7 +512,9 @@ export function resolveProductOrderType(
     return "in_stock";
   }
 
-  return "special_order";
+  // Only products explicitly in the "specialorder" WooCommerce category are shown
+  // as Special Order. Out-of-stock products NOT in that category are unavailable.
+  return isSpecialOrderProduct(product) ? "special_order" : "unavailable";
 }
 
 export function resolveDisplayProductOrderType(
@@ -524,7 +536,9 @@ export function resolveDisplayProductOrderType(
 
   // Use stock_status ONLY — never is_in_stock or stock_quantity
   if (product?.stock_status === "onbackorder") return "pre_order";
-  return product?.stock_status === "instock" ? "in_stock" : "special_order";
+  if (product?.stock_status === "instock") return "in_stock";
+  // Only products in the "specialorder" WooCommerce category show as Special Order.
+  return isSpecialOrderProduct(product) ? "special_order" : "unavailable";
 }
 
 export type ProductAvailability = {
