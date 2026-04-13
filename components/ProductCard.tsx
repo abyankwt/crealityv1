@@ -96,6 +96,8 @@ export default function ProductCard({
       ? stockQuantity !== null && stockQuantity > 0
         ? `In Stock (${stockQuantity})`
         : "In Stock"
+      : availability.type === "preorder" && stockQuantity !== null && stockQuantity > 0
+      ? `${stockQuantity} unit${stockQuantity !== 1 ? "s" : ""} available`
       : null;
   const successMessage =
     productOrderType === "pre_order"
@@ -246,7 +248,11 @@ export default function ProductCard({
           {statusText ? (
             <p
               className={`mt-2 text-sm font-semibold ${
-                availability.type === "available" ? "text-green-600" : "text-orange-600"
+                availability.type === "available"
+                  ? "text-green-600"
+                  : availability.type === "preorder"
+                  ? "text-purple-600"
+                  : "text-orange-600"
               }`}
             >
               {statusText}

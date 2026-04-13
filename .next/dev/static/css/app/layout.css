@@ -2111,6 +2111,9 @@
   .text-orange-900 {
     color: var(--color-orange-900);
   }
+  .text-purple-600 {
+    color: var(--color-purple-600);
+  }
   .text-red-500 {
     color: var(--color-red-500);
   }

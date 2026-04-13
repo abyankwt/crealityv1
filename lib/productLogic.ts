@@ -361,7 +361,7 @@ export function filterProductsForSection<T extends ProductLike>(
       return isVisibleUsedPrinterProduct(product);
     }
 
-    return !isPreOrderSectionProduct(product) && !isUsedPrinterProduct(product);
+    return !isUsedPrinterProduct(product);
   });
 }
 

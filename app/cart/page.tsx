@@ -172,7 +172,8 @@ export default function CartPage() {
 
     const discount = parseMinorUnits(cart.totals?.total_discount ?? "0", minorUnit);
 
-    // Compute special order delivery fee using the same formula as OrderWarningModal
+    // Special order handling fee — calculated from product dimensions.
+    // This fee is fixed regardless of delivery method (same for delivery and pickup).
     const specialOrderDeliveryFee = hasSpecialOrder
         ? items
             .filter((item) => item.availability?.type === "special")
@@ -184,8 +185,11 @@ export default function CartPage() {
             }, 0)
         : 0;
 
-    // Pickup is free; in-stock/pre-order delivery is 2 KWD; special orders use formula
-    const effectiveDeliveryFee = deliveryMethod === "pickup" ? 0 : (hasSpecialOrder ? specialOrderDeliveryFee : 2);
+    // For special orders: fixed handling fee (same for delivery and pickup).
+    // For regular orders: 2 KWD delivery fee, free for pickup.
+    const effectiveDeliveryFee = hasSpecialOrder
+        ? specialOrderDeliveryFee
+        : deliveryMethod === "pickup" ? 0 : 2;
     const displayTotal = itemsSubtotal + effectiveDeliveryFee - discount;
 
     if (items.length === 0) {
@@ -410,13 +414,13 @@ export default function CartPage() {
                         </span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
-                        <span>{deliveryMethod === "pickup" ? "Pickup" : "Delivery"}</span>
-                        {deliveryMethod === "pickup" ? (
-                            <span className="font-medium text-green-600">Free</span>
-                        ) : hasSpecialOrder ? (
+                        <span>{hasSpecialOrder ? "Special Order Fee" : deliveryMethod === "pickup" ? "Pickup" : "Delivery"}</span>
+                        {hasSpecialOrder ? (
                             <span className="font-medium text-gray-900">
-                                {specialOrderDeliveryFee > 0 ? formatKWD(specialOrderDeliveryFee) : "Calculated at order"}
+                                {specialOrderDeliveryFee > 0 ? formatKWD(specialOrderDeliveryFee) : "Calculating..."}
                             </span>
+                        ) : deliveryMethod === "pickup" ? (
+                            <span className="font-medium text-green-600">Free</span>
                         ) : (
                             <span className="font-medium text-gray-900">2.000 KWD</span>
                         )}

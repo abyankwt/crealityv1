@@ -333,18 +333,17 @@ async function fetchGroupedCategoryProducts({
       return true;
     });
 
-    // Products were already fetched from the correct categories — only exclude
-    // service listings, used printers, and pre-orders (pre-orders belong on their
-    // own dedicated page, not in category view-all listings).
+    // Exclude service listings and used printers. Pre-orders are intentionally
+    // kept so they appear on their sub-category pages alongside in-stock products.
     const filteredProducts = normalizedProducts.filter(
-      (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p) && !isPreOrderSectionProduct(p)
+      (p) => !isServiceListingProduct(p) && !isUsedPrinterProduct(p)
     );
 
-    // Only show out-of-stock products that are in the "specialorder" WooCommerce
-    // category. Removing a product from that category hides it from all pages.
+    // Only show out-of-stock products that are either in the "specialorder"
+    // WooCommerce category or are pre-order products.
     const specialOrderIds = await getSpecialOrderProductIds();
     const visibleProducts = filteredProducts.filter(
-      (p) => p.stock_status === "instock" || specialOrderIds.has(p.id)
+      (p) => p.stock_status === "instock" || specialOrderIds.has(p.id) || isPreOrderSectionProduct(p)
     );
 
     return paginateProducts(visibleProducts, page, perPage);
@@ -405,9 +404,7 @@ export async function fetchPrinterSubmenuProducts({
     cache,
   });
 
-  const filteredProducts = allProducts.filter((product) => {
-    // Exclude pre-orders — they belong on the dedicated pre-order page only.
-    if (isPreOrderSectionProduct(product)) return false;
+  const candidateProducts = allProducts.filter((product) => {
     // Exclude products whose name matches a disqualifying token (e.g. exclude
     // washing/curing machines from the Halot Series page).
     if (excludeNameTokens.length > 0) {
@@ -418,6 +415,11 @@ export async function fetchPrinterSubmenuProducts({
     }
     return filterProductsByCategorySlugs([product], matchedSlugs).length > 0;
   });
+
+  const specialOrderIds = await getSpecialOrderProductIds();
+  const filteredProducts = candidateProducts.filter(
+    (p) => p.stock_status === "instock" || specialOrderIds.has(p.id) || isPreOrderSectionProduct(p)
+  );
 
   const paginated = paginateProducts(filteredProducts, page, perPage);
   const enriched = await enrichWithRestData(paginated.data);
@@ -501,11 +503,11 @@ export async function fetchCatalogProducts({
         .map(normalizeWooRestProduct);
       const filtered = filterProductsForSection(normalized, categorySection);
 
-      // Only show out-of-stock products that are in the "specialorder" WooCommerce
-      // category. Removing a product from that category hides it from all pages.
+      // Only show out-of-stock products that are either in the "specialorder"
+      // WooCommerce category or are pre-order products.
       const specialOrderIds = await getSpecialOrderProductIds();
       const visible = filtered.filter(
-        (p) => p.stock_status === "instock" || specialOrderIds.has(p.id)
+        (p) => p.stock_status === "instock" || specialOrderIds.has(p.id) || isPreOrderSectionProduct(p)
       );
 
       return paginateProducts(visible, page, perPage);
