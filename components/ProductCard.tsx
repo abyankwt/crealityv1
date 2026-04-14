@@ -97,7 +97,7 @@ export default function ProductCard({
         ? `In Stock (${stockQuantity})`
         : "In Stock"
       : availability.type === "preorder" && stockQuantity !== null && stockQuantity > 0
-      ? `${stockQuantity} unit${stockQuantity !== 1 ? "s" : ""} available`
+      ? `In Stock (${stockQuantity})`
       : null;
   const successMessage =
     productOrderType === "pre_order"

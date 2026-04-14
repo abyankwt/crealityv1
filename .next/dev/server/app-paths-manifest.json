@@ -1,8 +1,6 @@
 {
-  "/cart/page": "app/cart/page.js",
-  "/3d-printers/[slug]/page": "app/3d-printers/[slug]/page.js",
-  "/product/[slug]/page": "app/product/[slug]/page.js",
-  "/materials/[slug]/page": "app/materials/[slug]/page.js",
+  "/page": "app/page.js",
+  "/category/[slug]/page": "app/category/[slug]/page.js",
   "/pre-orders/page": "app/pre-orders/page.js",
-  "/category/[slug]/page": "app/category/[slug]/page.js"
+  "/3d-printers/[slug]/page": "app/3d-printers/[slug]/page.js"
 }
