@@ -308,6 +308,11 @@ export default function CartPage() {
                                                         {effectiveStockQty !== null ? `(${effectiveStockQty} in stock)` : "In Stock"}
                                                     </span>
                                                 )}
+                                                {item.availability.type === "preorder" && effectiveStockQty !== null && (
+                                                    <span className="text-xs font-medium text-purple-600">
+                                                        {`Amount for Pre-order (${effectiveStockQty})`}
+                                                    </span>
+                                                )}
                                                 {item.availability.type !== "available" &&
                                                     item.availability.leadTime && (
                                                     <span className="text-xs text-gray-500">
