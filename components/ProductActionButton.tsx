@@ -38,6 +38,7 @@ const BUTTON_LABELS: Record<ProductOrderType, string> = {
 
 const SHIPPING_MESSAGES: Partial<Record<ProductOrderType, string>> = {
   pre_order: "Delivery: ~45 days",
+  special_order: "Delivery: ~20 days",
 };
 
 export default function ProductActionButton({

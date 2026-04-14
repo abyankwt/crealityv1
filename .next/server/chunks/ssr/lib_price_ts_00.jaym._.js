@@ -1,3 +1,3 @@
-module.exports=[80945,a=>{"use strict";a.s(["formatPrice",0,function(a){return`${Number(a??0).toFixed(2)} KWD`},"getProductPriceInfo",0,function(a){let b=Number(a.regular_price??0),c=Number(a.sale_price??0),d=Number(a.price??c??b??0),e=Number.isFinite(b)&&Number.isFinite(c)&&b>0&&c>0&&c<b;return{regularPrice:b,salePrice:c,currentPrice:d,hasSale:e}}])}];
+module.exports=[80945,a=>{"use strict";a.s(["formatPrice",0,function(a){return`${Number(a??0).toFixed(2)} KD`},"getProductPriceInfo",0,function(a){let b=Number(a.regular_price??0),c=Number(a.sale_price??0),d=Number(a.price??c??b??0),e=Number.isFinite(b)&&Number.isFinite(c)&&b>0&&c>0&&c<b;return{regularPrice:b,salePrice:c,currentPrice:d,hasSale:e}}])}];
 
 //# sourceMappingURL=lib_price_ts_00.jaym._.js.map

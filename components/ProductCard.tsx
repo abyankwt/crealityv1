@@ -230,16 +230,16 @@ export default function ProductCard({
 
           <div className="mt-2">
             {priceInfo.hasSale ? (
-              <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base">
-                <span className="text-sm text-gray-400 line-through sm:text-base">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400 line-through">
                   {formatPrice(priceInfo.regularPrice)}
                 </span>
-                <span className="text-sm font-semibold text-black sm:text-base">
+                <span className="text-sm font-semibold text-black">
                   {formatPrice(priceInfo.salePrice)}
                 </span>
               </div>
             ) : (
-              <span className="text-sm font-bold text-text sm:text-base">
+              <span className="text-sm font-bold text-text">
                 {formatPrice(priceInfo.currentPrice)}
               </span>
             )}
@@ -260,10 +260,10 @@ export default function ProductCard({
           ) : null}
 
           {product.sku ? (
-            <p className="mt-1 text-xs text-gray-400">SKU: {product.sku}</p>
+            <p className="mt-2 mb-4 text-xs text-gray-400">SKU: {product.sku}</p>
           ) : null}
 
-          <div className="product-actions mt-3">
+          <div className="product-actions mt-2">
             {hasMoq && (
               <p className="mb-1 text-center text-[11px] text-orange-500">
                 Min. {SPECIAL_ORDER_MOQ} pcs
