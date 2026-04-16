@@ -157,6 +157,8 @@ export default function ProductDetail({
   const cleanDescription = sanitizeWooDescription(product.description);
   const stockCount =
     availability.type === "available" && restStockQty !== null ? restStockQty : null;
+  const preorderStockCount =
+    availability.type === "preorder" && restStockQty !== null ? restStockQty : null;
   const stockLabel =
     availability.type === "available"
       ? stockCount !== null
@@ -461,6 +463,11 @@ export default function ProductDetail({
                     }`}
                   >
                     {stockLabel}
+                  </span>
+                ) : null}
+                {availability.type === "preorder" && preorderStockCount !== null ? (
+                  <span className="font-semibold text-purple-600">
+                    {`Amount for Pre-order (${preorderStockCount})`}
                   </span>
                 ) : null}
                 {availability.type === "preorder" && (

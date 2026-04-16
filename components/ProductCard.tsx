@@ -96,10 +96,8 @@ export default function ProductCard({
       ? stockQuantity !== null && stockQuantity > 0
         ? `In Stock (${stockQuantity})`
         : "In Stock"
-      : availability.type === "preorder"
-      ? stockQuantity !== null && stockQuantity > 0
-        ? `In Stock (${stockQuantity})`
-        : "In Stock"
+      : availability.type === "preorder" && stockQuantity !== null && stockQuantity > 0
+      ? `Amount for Pre-order (${stockQuantity})`
       : null;
   const successMessage =
     productOrderType === "pre_order"
@@ -246,7 +244,7 @@ export default function ProductCard({
                 </span>
               </div>
             ) : (
-              <span className="text-sm font-bold text-text sm:text-base">
+              <span className="text-sm font-bold text-text">
                 {formatPrice(priceInfo.currentPrice)}
               </span>
             )}
@@ -267,7 +265,7 @@ export default function ProductCard({
           ) : null}
 
           {product.sku ? (
-            <p className="mt-1 text-xs text-gray-400">SKU: {product.sku}</p>
+            <p className="mt-2 mb-4 text-xs text-gray-400">SKU: {product.sku}</p>
           ) : null}
 
           <div

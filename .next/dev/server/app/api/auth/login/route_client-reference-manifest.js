@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/auth/login/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"C:\\Users\\WIN-11\\Desktop\\crealityv1 - Copy\\app\\api\\auth\\login\\route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};
