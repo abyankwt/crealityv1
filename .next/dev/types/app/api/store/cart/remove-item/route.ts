@@ -1,4 +1,4 @@
-// File: C:\Users\WIN-11\Desktop\crealityv1\app\api\store\cart\remove-item\route.ts
+// File: C:\Users\WIN-11\Desktop\crealityv1 - Copy\app\api\store\cart\remove-item\route.ts
 import * as entry from '../../../../../../../../app/api/store/cart/remove-item/route.js'
 import type { NextRequest } from 'next/server.js'
 

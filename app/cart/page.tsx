@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag, Trash2, Truck, Store } from "lucide-react";
-import AvailabilityBadge from "@/components/AvailabilityBadge";
 import OrderWarningModal from "@/components/OrderWarningModal";
 import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
@@ -19,6 +18,7 @@ type ProductExtra = {
     id: number;
     sku: string | null;
     stock_quantity: number | null;
+    stock_status: string | null;
     weight?: string | null;
     dimensions?: { length?: string; width?: string; height?: string } | null;
 };
@@ -27,10 +27,11 @@ const DEBOUNCE_MS = 500;
 
 export default function CartPage() {
     const router = useRouter();
-    const { cart, loading, addItem, removeItem, updateItem, itemCount } = useCart();
+    const { cart, loading, addItem, removeItem, updateItem, itemCount, isItemPending, isProductPending } = useCart();
     const [warningOpen, setWarningOpen] = useState(false);
     const [warningAccepted, setWarningAccepted] = useState(false);
     const [productExtras, setProductExtras] = useState<Map<number, ProductExtra>>(new Map());
+    const [productExtrasLoading, setProductExtrasLoading] = useState(false);
     const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
     const [cartBackup, setCartBackup] = useState<Array<{ id: number; quantity: number; name: string }>>([]);
     const [restoring, setRestoring] = useState(false);
@@ -100,16 +101,46 @@ export default function CartPage() {
         };
     }, []);
 
+    const lastFetchedIdsRef = useRef<string>("");
+
     useEffect(() => {
-        const ids = cart?.items.map((i) => i.id).filter(Boolean) ?? [];
+        const ids = (cart?.items.map((i) => i.id).filter(Boolean) ?? []).sort((a, b) => a - b);
         if (ids.length === 0) return;
-        fetch(`/api/products-data?ids=${ids.join(",")}`)
+        const idsKey = ids.join(",");
+
+        // Load from sessionStorage first — shows fee instantly on repeat visits
+        const CACHE_KEY = `cart_extras_${idsKey}`;
+        const CACHE_TTL = 5 * 60 * 1000;
+        try {
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                const { data, ts } = JSON.parse(cached) as { data: [number, ProductExtra][]; ts: number };
+                if (Date.now() - ts < CACHE_TTL) {
+                    setProductExtras(new Map(data));
+                    setProductExtrasLoading(false);
+                    lastFetchedIdsRef.current = idsKey;
+                    return;
+                }
+            }
+        } catch { /* sessionStorage unavailable */ }
+
+        // Skip re-fetch if IDs haven't changed since last fetch
+        if (lastFetchedIdsRef.current === idsKey) return;
+
+        setProductExtrasLoading(true);
+        fetch(`/api/products-data?ids=${idsKey}`)
             .then((r) => r.json())
             .then((data: ProductExtra[]) => {
                 if (!Array.isArray(data)) return;
-                setProductExtras(new Map(data.map((d) => [d.id, d])));
+                const map = new Map(data.map((d) => [d.id, d]));
+                setProductExtras(map);
+                lastFetchedIdsRef.current = idsKey;
+                try {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: [...map.entries()], ts: Date.now() }));
+                } catch { /* sessionStorage unavailable */ }
             })
-            .catch(() => {/* silent */});
+            .catch(() => { /* silent */ })
+            .finally(() => setProductExtrasLoading(false));
     }, [cart?.items]);
 
     const decodeHtml = (html: string) => {
@@ -146,8 +177,18 @@ export default function CartPage() {
 
     if (!cart) return null;
 
+    // Derive special-order status from productExtras.stock_status — reliable even after
+    // cart mutations that wipe item.availability (POST responses aren't enriched).
+    const isItemSpecialOrder = (item: { id: number; availability?: { type: string } | null }) => {
+        const extra = productExtras.get(item.id);
+        if (extra?.stock_status) {
+            return extra.stock_status === "outofstock" || extra.stock_status === "onbackorder";
+        }
+        return item.availability?.type === "special";
+    };
+
     const protectedItems = items.filter((item) =>
-        item.availability ? requiresOrderWarning(item.availability) : false
+        isItemSpecialOrder(item) || (item.availability ? requiresOrderWarning(item.availability) : false)
     );
 
     const primaryWarningAvailability: ProductAvailability =
@@ -158,7 +199,7 @@ export default function CartPage() {
             leadTime: "10-12 days",
         };
 
-    const hasSpecialOrder = items.some((item) => item.availability?.type === "special");
+    const hasSpecialOrder = items.some((item) => isItemSpecialOrder(item));
 
     // Always use cart-level minorUnit to avoid mismatches with item.prices.currency_minor_unit
     const itemsSubtotal = items.reduce((sum, item) => {
@@ -176,7 +217,7 @@ export default function CartPage() {
     // This fee is fixed regardless of delivery method (same for delivery and pickup).
     const specialOrderDeliveryFee = hasSpecialOrder
         ? items
-            .filter((item) => item.availability?.type === "special")
+            .filter((item) => isItemSpecialOrder(item))
             .reduce((sum, item) => {
                 const extra = productExtras.get(item.id);
                 if (!extra) return sum;
@@ -185,8 +226,8 @@ export default function CartPage() {
             }, 0)
         : 0;
 
-    // For special orders: fixed handling fee (same for delivery and pickup).
-    // For regular orders: 2 KWD delivery fee, free for pickup.
+    // For special orders: calculated handling fee (same for delivery and pickup).
+    // For regular orders: 2 KD delivery fee, free for pickup.
     const effectiveDeliveryFee = hasSpecialOrder
         ? specialOrderDeliveryFee
         : deliveryMethod === "pickup" ? 0 : 2;
@@ -282,8 +323,13 @@ export default function CartPage() {
                         ? formatKWD(parseMinorUnits(item.prices.price, item.prices.currency_minor_unit ?? minorUnit))
                         : null;
 
+                    const itemPending = isItemPending(item.key) || isProductPending(item.id);
+
                     return (
-                        <div key={item.key} className="flex gap-4 py-6 sm:gap-6">
+                        <div
+                            key={item.key}
+                            className={`flex gap-4 py-6 sm:gap-6 transition-opacity duration-200 ${itemPending ? "opacity-50 pointer-events-none" : ""}`}
+                        >
                             <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 sm:h-28 sm:w-28">
                                 <SmartImage
                                     src={imageSrc}
@@ -300,22 +346,22 @@ export default function CartPage() {
                                         <h3 className="text-sm font-semibold text-gray-900 sm:text-base">
                                             {decodeHtml(item.name)}
                                         </h3>
-                                        {item.availability && (
-                                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                <AvailabilityBadge availability={item.availability} />
-                                                {item.availability.type === "available" && (
-                                                    <span className="text-xs font-medium text-green-600">
-                                                        {effectiveStockQty !== null ? `(${effectiveStockQty} in stock)` : "In Stock"}
-                                                    </span>
-                                                )}
-                                                {item.availability.type !== "available" &&
-                                                    item.availability.leadTime && (
-                                                    <span className="text-xs text-gray-500">
-                                                        Lead time: {item.availability.leadTime}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            const isSpecial = isItemSpecialOrder(item);
+                                            const isPreorder = !isSpecial && (item.availability?.type === "preorder");
+                                            const isInStock = extra?.stock_status === "instock" || (!isSpecial && !isPreorder && item.availability?.type === "available");
+                                            if (isPreorder) return (
+                                                <p className="mt-1 text-xs font-semibold text-pink-600">
+                                                    {`In Stock${effectiveStockQty !== null ? ` (${effectiveStockQty})` : ""}`}
+                                                </p>
+                                            );
+                                            if (isInStock) return (
+                                                <p className="mt-1 text-xs font-semibold text-green-600">
+                                                    {`In Stock${effectiveStockQty !== null ? ` (${effectiveStockQty})` : ""}`}
+                                                </p>
+                                            );
+                                            return null;
+                                        })()}
                                         {extra?.sku && (
                                             <p className="mt-1 text-xs text-gray-400">
                                                 SKU: {extra.sku}
@@ -333,25 +379,25 @@ export default function CartPage() {
                                 </div>
 
                                 <div className="mt-3 flex items-center gap-4">
-                                    <div className="flex items-center overflow-hidden rounded-lg border border-gray-200">
+                                    <div className="flex items-center overflow-hidden rounded-lg border border-gray-200" style={{ contain: "layout" }}>
                                         <button
                                             type="button"
                                             onClick={() => debouncedUpdate(item.key, Math.max(min, qty - 1))}
-                                            disabled={qty <= min}
-                                            className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                            disabled={qty <= min || itemPending}
+                                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Decrease quantity"
                                         >
                                             <Minus className="h-3.5 w-3.5" />
                                         </button>
-                                        <span className="flex h-9 w-10 items-center justify-center border-x border-gray-200 text-sm font-medium text-gray-900">
+                                        <span className="flex h-9 w-12 flex-shrink-0 items-center justify-center border-x border-gray-200 text-sm font-medium tabular-nums text-gray-900">
                                             {qty}
                                         </span>
                                         <button
                                             type="button"
                                             onClick={() => debouncedUpdate(item.key, Math.min(max, qty + 1))}
-                                            disabled={qty >= max}
+                                            disabled={qty >= max || itemPending}
                                             title={qty >= max ? `Max available: ${max}` : undefined}
-                                            className="flex h-9 w-9 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                             aria-label="Increase quantity"
                                         >
                                             <Plus className="h-3.5 w-3.5" />
@@ -360,8 +406,9 @@ export default function CartPage() {
 
                                     <button
                                         type="button"
-                                        onClick={() => removeItem(item.key)}
-                                        className="flex items-center gap-1 text-xs text-gray-500 transition hover:text-red-600"
+                                        onClick={() => { if (!itemPending) void removeItem(item.key); }}
+                                        disabled={itemPending}
+                                        className="flex items-center gap-1 text-xs text-gray-500 transition hover:text-red-600 disabled:cursor-not-allowed"
                                         aria-label={`Remove ${item.name}`}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -414,15 +461,17 @@ export default function CartPage() {
                         </span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
-                        <span>{hasSpecialOrder ? "Special Order Fee" : deliveryMethod === "pickup" ? "Pickup" : "Delivery"}</span>
+                        <span>{hasSpecialOrder || productExtrasLoading ? "Special Order Fee" : deliveryMethod === "pickup" ? "Pickup" : "Delivery"}</span>
                         {hasSpecialOrder ? (
                             <span className="font-medium text-gray-900">
                                 {specialOrderDeliveryFee > 0 ? formatKWD(specialOrderDeliveryFee) : "Calculating..."}
                             </span>
+                        ) : productExtrasLoading ? (
+                            <span className="font-medium text-gray-400">Calculating...</span>
                         ) : deliveryMethod === "pickup" ? (
                             <span className="font-medium text-green-600">Free</span>
                         ) : (
-                            <span className="font-medium text-gray-900">2.000 KWD</span>
+                            <span className="font-medium text-gray-900">2.000 KD</span>
                         )}
                     </div>
                     {discount > 0 && (

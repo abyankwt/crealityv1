@@ -44,7 +44,7 @@
       "loaderFile": "",
       "domains": [],
       "disableStaticImages": false,
-      "minimumCacheTTL": 86400,
+      "minimumCacheTTL": 604800,
       "formats": [
         "image/avif",
         "image/webp"
@@ -111,7 +111,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "C:\\Users\\WIN-11\\Desktop\\crealityv1",
+    "outputFileTracingRoot": "C:\\Users\\WIN-11\\Desktop\\crealityv1 - Copy",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -311,7 +311,7 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.js",
     "turbopack": {
-      "root": "C:\\Users\\WIN-11\\Desktop\\crealityv1"
+      "root": "C:\\Users\\WIN-11\\Desktop\\crealityv1 - Copy"
     },
     "distDirRoot": ".next",
     "_originalRewrites": {
@@ -325,7 +325,7 @@
       "fallback": []
     }
   },
-  "appDir": "C:\\Users\\WIN-11\\Desktop\\crealityv1",
+  "appDir": "C:\\Users\\WIN-11\\Desktop\\crealityv1 - Copy",
   "relativeAppDir": "",
   "files": [
     ".next\\routes-manifest.json",

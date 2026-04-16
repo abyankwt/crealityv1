@@ -72,10 +72,11 @@ function fromMinorUnits(value: number) {
 
 function estimateUnitTotals(item: CartItem) {
   const quantity = Math.max(item.quantity, 1);
+  // Use line_subtotal/quantity first (already in correct minor units).
+  // Fall back to prices.price — never raw_prices.price which uses a different precision.
   const unitSubtotal =
-    toMinorUnits(item.prices?.raw_prices?.price) ||
-    toMinorUnits(item.prices?.price) ||
-    Math.round(toMinorUnits(item.totals.line_subtotal) / quantity);
+    Math.round(toMinorUnits(item.totals.line_subtotal) / quantity) ||
+    toMinorUnits(item.prices?.price);
   const unitTotal =
     Math.round(toMinorUnits(item.totals.line_total) / quantity) || unitSubtotal;
   const unitSubtotalTax = Math.round(
@@ -133,9 +134,7 @@ function buildOptimisticCartItem(
   quantity: number,
   optimisticItem: OptimisticAddItem
 ): CartItem {
-  const unitPrice =
-    toMinorUnits(optimisticItem.prices?.raw_prices?.price) ||
-    toMinorUnits(optimisticItem.prices?.price);
+  const unitPrice = toMinorUnits(optimisticItem.prices?.price);
 
   return {
     key: `optimistic:${productId}`,
@@ -281,6 +280,8 @@ function applyOptimisticRemove(currentCart: Cart, key: string) {
   };
 }
 
+const CART_STALE_MS = 30_000;
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
@@ -290,6 +291,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const refreshResolversRef = useRef<Array<() => void>>([]);
+  const lastCartFetchRef = useRef<number>(0);
+  // Keys currently being removed — used to prevent server responses from re-introducing them
+  const pendingRemoveKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     cartRef.current = cart;
@@ -332,6 +336,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const data = await fetchCart();
+      lastCartFetchRef.current = Date.now();
       startTransition(() => {
         setCart(data);
       });
@@ -341,6 +346,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
+
 
   const refreshCart = useCallback(() => {
     return new Promise<void>((resolve) => {
@@ -365,6 +371,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [flushRefreshResolvers, runRefreshCart]);
 
+  // Re-apply all in-flight removes on top of a server response so concurrent
+  // removals don't cause items to flash back into the cart.
+  const stripPendingRemoves = useCallback((serverCart: Cart, exceptKey?: string): Cart => {
+    const pending = pendingRemoveKeysRef.current;
+    if (pending.size === 0) return serverCart;
+    let result = serverCart;
+    for (const k of pending) {
+      if (k !== exceptKey) result = applyOptimisticRemove(result, k);
+    }
+    return result;
+  }, []);
+
   const addItem = useCallback(
     async (
       productId: number,
@@ -385,14 +403,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       try {
         const updatedCart = await apiAddToCart(productId, quantity);
         startTransition(() => {
-          setCart(updatedCart);
+          setCart(stripPendingRemoves(updatedCart));
         });
       } catch (err) {
         console.error("Failed to add item:", err);
 
         startTransition(() => {
           if (err instanceof CartConflictError && err.cart) {
-            setCart(err.cart);
+            setCart(stripPendingRemoves(err.cart));
             return;
           }
 
@@ -403,7 +421,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updatePendingProduct(productId, false);
       }
     },
-    [updatePendingProduct]
+    [updatePendingProduct, stripPendingRemoves]
   );
 
   const removeItem = useCallback(
@@ -411,6 +429,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const previousCart = cartRef.current;
       const currentItem = previousCart?.items.find((item) => item.key === key) ?? null;
 
+      pendingRemoveKeysRef.current.add(key);
       updatePendingItem(key, true);
       if (currentItem?.id) {
         updatePendingProduct(currentItem.id, true);
@@ -425,7 +444,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       try {
         const updatedCart = await apiRemoveItem(key);
         startTransition(() => {
-          setCart(updatedCart);
+          // Strip all other in-flight removes — server response predates them
+          setCart(stripPendingRemoves(updatedCart, key));
         });
       } catch (err) {
         console.error("Failed to remove item:", err);
@@ -433,7 +453,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         startTransition(() => {
           if (err instanceof CartConflictError && err.cart) {
             console.warn("[Cart] Stale item - syncing with real cart state");
-            setCart(err.cart);
+            setCart(stripPendingRemoves(err.cart, key));
             return;
           }
 
@@ -444,13 +464,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
           throw err;
         }
       } finally {
+        pendingRemoveKeysRef.current.delete(key);
         updatePendingItem(key, false);
         if (currentItem?.id) {
           updatePendingProduct(currentItem.id, false);
         }
       }
     },
-    [updatePendingItem, updatePendingProduct]
+    [updatePendingItem, updatePendingProduct, stripPendingRemoves]
   );
 
   const updateItem = useCallback(
@@ -472,7 +493,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       try {
         const updatedCart = await apiUpdateItem(key, quantity);
         startTransition(() => {
-          setCart(updatedCart);
+          setCart(stripPendingRemoves(updatedCart));
         });
       } catch (err) {
         console.error("Failed to update item:", err);
@@ -480,7 +501,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         startTransition(() => {
           if (err instanceof CartConflictError && err.cart) {
             console.warn("[Cart] Stale item - syncing with real cart state");
-            setCart(err.cart);
+            setCart(stripPendingRemoves(err.cart));
             return;
           }
 
@@ -497,10 +518,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [updatePendingItem, updatePendingProduct]
+    [updatePendingItem, updatePendingProduct, stripPendingRemoves]
   );
 
   useEffect(() => {
+    if (Date.now() - lastCartFetchRef.current < CART_STALE_MS) return;
     void refreshCart();
   }, [refreshCart]);
 

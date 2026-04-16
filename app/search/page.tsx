@@ -3,6 +3,9 @@ import ProductCard from "@/components/ProductCard";
 import { fetchProducts } from "@/lib/api";
 import { isServiceListingProduct } from "@/lib/productLogic";
 
+// Cache each unique search query for 60 s so repeat searches are instant.
+export const revalidate = 60;
+
 type SearchPageProps = {
   searchParams: Promise<{ q?: string }>;
 };

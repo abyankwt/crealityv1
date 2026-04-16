@@ -1,5 +1,5 @@
 export function formatPrice(price: number | string | null | undefined) {
-  return `${Number(price ?? 0).toFixed(2)} KWD`;
+  return `${Number(price ?? 0).toFixed(2)} KD`;
 }
 
 export function getProductPriceInfo(product: {

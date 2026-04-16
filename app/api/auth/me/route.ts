@@ -87,13 +87,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<AuthRespon
       if (!jwtUser) {
         return unauthenticated();
       }
-      return NextResponse.json(
-        {
-          authenticated: true,
-          user: jwtUser,
-        },
+      const jwtRes = NextResponse.json(
+        { authenticated: true, user: jwtUser },
         { status: 200 }
       );
+      jwtRes.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+      return jwtRes;
     }
 
     // Legacy HMAC-signed session flow
@@ -105,7 +104,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AuthRespon
           return unauthenticated();
         }
 
-        return NextResponse.json(
+        const legacyRes = NextResponse.json(
           {
             authenticated: true,
             user: {
@@ -116,6 +115,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<AuthRespon
           },
           { status: 200 }
         );
+        legacyRes.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+        return legacyRes;
       } catch (error) {
         console.error("[auth/me] Legacy session verification threw:", error);
         return unauthenticated();

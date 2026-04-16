@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
@@ -306,6 +307,8 @@ export default function ProductGrid({
   const [isCategoryFetched, setIsCategoryFetched] = useState(false);
   const toastTimerRef = useRef<number | null>(null);
   const activeCategoryRef = useRef<CategoryFilterValue>("all");
+  // Tracks whether the most recent sortValue change came from a user interaction.
+  const userChangedSortRef = useRef(false);
   // True when this grid is on a page with no pre-set category (Shop All).
   // Category pages pass category_slug in apiQuery; shop-all does not.
   const isShopAll = !apiQuery?.category_slug;
@@ -407,6 +410,49 @@ export default function ProductGrid({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, isShopAll]);
 
+  // Re-fetch page 1 from API when user changes to a server-side sort (popularity/date).
+  // Client-side sorts (price/name) are applied in filteredProducts without a re-fetch.
+  useEffect(() => {
+    if (!userChangedSortRef.current) return;
+    userChangedSortRef.current = false;
+
+    if (sortValue !== "popularity_desc" && sortValue !== "date_desc") return;
+
+    setLoading(true);
+    const params = new URLSearchParams({ page: "1", per_page: "16", sort: sortValue, cache: "no-store" });
+
+    if (isShopAll && categoryFilter !== "all") {
+      const catSlug = CATEGORY_FILTER_SLUG_MAP[categoryFilter];
+      if (catSlug) params.set("category_slug", catSlug);
+    } else {
+      Object.entries(apiQuery ?? {}).forEach(([key, val]) => {
+        if (key === "sort") return;
+        if (val !== undefined && val !== "") params.set(key, String(val));
+      });
+    }
+
+    let active = true;
+    fetch(`/api/products?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data: { products: Product[]; pagination: { totalPages: number } }) => {
+        if (!active) return;
+        const nextProducts = filterBySection
+          ? filterProductsForSection(data.products, section)
+          : data.products;
+        setProducts(nextProducts);
+        setPage(1);
+        setIsCategoryFetched(false);
+        setHasMore(1 < (data.pagination?.totalPages ?? 1));
+      })
+      .catch((err: unknown) => console.error("Sort re-fetch failed:", err))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortValue]);
+
   const activeFilterCount = [
     search.trim(),
     minPrice,
@@ -490,6 +536,9 @@ export default function ProductGrid({
       params.set("page", String(nextPage));
       params.set("per_page", "16");
 
+      // Always include the user's current sort so paginated pages match the displayed order.
+      params.set("sort", sortValue);
+
       // When on Shop All with a category filter active, paginate that category.
       if (isShopAll && categoryFilter !== "all") {
         const catSlug = CATEGORY_FILTER_SLUG_MAP[categoryFilter];
@@ -497,6 +546,7 @@ export default function ProductGrid({
         params.set("cache", "no-store");
       } else {
         Object.entries(apiQuery ?? {}).forEach(([key, value]) => {
+          if (key === "sort") return; // already set above
           if (value !== undefined && value !== "") {
             params.set(key, String(value));
           }
@@ -530,7 +580,7 @@ export default function ProductGrid({
     } finally {
       setLoading(false);
     }
-  }, [apiQuery, categoryFilter, filterBySection, hasMore, isShopAll, loading, page, section]);
+  }, [apiQuery, categoryFilter, filterBySection, hasMore, isShopAll, loading, page, section, sortValue]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
@@ -556,6 +606,14 @@ export default function ProductGrid({
               placeholder="Search products"
               className="w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none"
             />
+            {search.trim() && (
+              <Link
+                href={`/search?q=${encodeURIComponent(search.trim())}`}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 hover:text-gray-700 transition"
+              >
+                Search all →
+              </Link>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -576,7 +634,10 @@ export default function ProductGrid({
             {showSort && (
               <select
                 value={sortValue}
-                onChange={(event) => setSortValue(event.target.value as SortValue)}
+                onChange={(event) => {
+                  userChangedSortRef.current = true;
+                  setSortValue(event.target.value as SortValue);
+                }}
                 className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 focus:border-black focus:outline-none"
               >
                 {SORT_OPTIONS.map((option) => (

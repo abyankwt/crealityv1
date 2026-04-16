@@ -427,27 +427,27 @@ export async function fetchProductsByIds(ids: number[]): Promise<FetchProductsRe
 export async function fetchProductCategories(
   options: Pick<FetchProductsOptions, "cache" | "revalidate"> = {}
 ): Promise<ProductCategory[]> {
-  const allCategories: RawProductCategory[] = [];
+  const reqOpts = { fallbackData: [] as RawProductCategory[], cache: options.cache, revalidate: options.revalidate };
 
-  for (let page = 1; page <= 10; page++) {
-    const { data, totalPages } = await storeRequest<RawProductCategory[]>(
-      "products/categories",
-      { per_page: 100, page },
-      {
-        fallbackData: [],
-        cache: options.cache,
-        revalidate: options.revalidate,
-      }
-    );
+  // Fetch page 1 to discover totalPages, then fire the rest in parallel.
+  const { data: firstPage, totalPages } = await storeRequest<RawProductCategory[]>(
+    "products/categories",
+    { per_page: 100, page: 1 },
+    reqOpts
+  );
 
-    allCategories.push(...data);
-
-    if (page >= totalPages || data.length === 0) {
-      break;
-    }
+  if (totalPages <= 1) {
+    return firstPage.map(normalizeCategory);
   }
 
-  return allCategories.map(normalizeCategory);
+  const remaining = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map((page) =>
+      storeRequest<RawProductCategory[]>("products/categories", { per_page: 100, page }, reqOpts)
+    )
+  );
+
+  const all = [firstPage, ...remaining.map((r) => r.data)].flat();
+  return all.map(normalizeCategory);
 }
 
 export async function fetchProductCategoryBySlug(

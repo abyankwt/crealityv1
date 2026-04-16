@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import AddToCartConfirmationModal from "@/components/AddToCartConfirmationModal";
-import OrderWarningModal from "@/components/OrderWarningModal";
+import OrderWarningModal, { prefetchShippingData } from "@/components/OrderWarningModal";
 import ProductActionButton from "@/components/ProductActionButton";
 import SmartImage from "@/components/SmartImage";
 import { useCart } from "@/context/CartContext";
@@ -96,8 +96,10 @@ export default function ProductCard({
       ? stockQuantity !== null && stockQuantity > 0
         ? `In Stock (${stockQuantity})`
         : "In Stock"
-      : availability.type === "preorder" && stockQuantity !== null && stockQuantity > 0
-      ? `${stockQuantity} unit${stockQuantity !== 1 ? "s" : ""} available`
+      : availability.type === "preorder"
+      ? stockQuantity !== null && stockQuantity > 0
+        ? `In Stock (${stockQuantity})`
+        : "In Stock"
       : null;
   const successMessage =
     productOrderType === "pre_order"
@@ -150,19 +152,24 @@ export default function ProductCard({
       return;
     }
 
+    // Show feedback immediately — don't wait for the API
+    setLoading(true);
+    setAddedFeedback(true);
+    setConfirmationOpen(true);
+    if (onAddToCart) {
+      onAddToCart(successMessage);
+    } else {
+      showLocalToast(successMessage);
+    }
+    window.setTimeout(() => setAddedFeedback(false), 2000);
+
     try {
-      setLoading(true);
       await addItem(product.id, hasMoq ? SPECIAL_ORDER_MOQ : 1, { optimisticItem: optimisticCartItem });
-      setAddedFeedback(true);
-      setConfirmationOpen(true);
-      if (onAddToCart) {
-        onAddToCart(successMessage);
-      } else {
-        showLocalToast(successMessage);
-      }
-      window.setTimeout(() => setAddedFeedback(false), 2000);
     } catch (error) {
       console.error("Failed to add to cart:", error);
+      // Roll back the optimistic UI
+      setConfirmationOpen(false);
+      setAddedFeedback(false);
       const errorMessage =
         error instanceof Error ? error.message : "Unable to add item to cart.";
       if (onAddToCartError) {
@@ -230,11 +237,11 @@ export default function ProductCard({
 
           <div className="mt-2">
             {priceInfo.hasSale ? (
-              <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base">
-                <span className="text-sm text-gray-400 line-through sm:text-base">
+              <div className="flex flex-nowrap items-center gap-2">
+                <span className="text-sm text-gray-400 line-through whitespace-nowrap">
                   {formatPrice(priceInfo.regularPrice)}
                 </span>
-                <span className="text-sm font-semibold text-black sm:text-base">
+                <span className="text-sm font-semibold text-black whitespace-nowrap">
                   {formatPrice(priceInfo.salePrice)}
                 </span>
               </div>
@@ -263,7 +270,14 @@ export default function ProductCard({
             <p className="mt-1 text-xs text-gray-400">SKU: {product.sku}</p>
           ) : null}
 
-          <div className="product-actions mt-3">
+          <div
+            className="product-actions mt-auto pt-4"
+            onMouseEnter={() => {
+              if (productOrderType === "special_order" && product.id) {
+                prefetchShippingData(Number(product.id));
+              }
+            }}
+          >
             {hasMoq && (
               <p className="mb-1 text-center text-[11px] text-orange-500">
                 Min. {SPECIAL_ORDER_MOQ} pcs

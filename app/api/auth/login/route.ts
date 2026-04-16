@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError, apiSuccess, ERROR_MESSAGES, resolveErrorMessage } from "@/lib/errors";
-import { createSession, SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "@/lib/auth-session";
-import { verifyCustomerPassword, verifyWpUser } from "@/lib/woo-client";
-import { verifyPassword } from "@/lib/password";
+import { createSession, SESSION_COOKIE_NAME, SESSION_MAX_AGE, REMEMBER_ME_MAX_AGE } from "@/lib/auth-session";
+import { verifyCustomerPassword, verifyWpUser, updateWooCustomer } from "@/lib/woo-client";
+import { verifyPassword, hashPassword } from "@/lib/password";
 import type { UserSession } from "@/lib/types";
 
 type LoginPayload = {
   email?: string;
   password?: string;
+  rememberMe?: boolean;
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
     }
     const email = body?.email?.trim().toLowerCase() ?? "";
     const password = body?.password ?? "";
+    const rememberMe = body?.rememberMe === true;
 
     if (!email || !password || !emailRegex.test(email)) {
       return NextResponse.json(apiError(ERROR_MESSAGES.badRequest), { status: 400 });
@@ -46,11 +48,20 @@ export async function POST(request: NextRequest) {
     } else {
       // Pre-existing WooCommerce account (no hash) — verify against WordPress directly
       console.log(`[Login] No stored hash for customer ${customer.id}, falling back to WP auth`);
-      const wpAuth = await verifyWpUser(email, password);
+      const wpAuth = await verifyWpUser(email, password, {
+        id: customer.id,
+        username: customer.username || email,
+        name: `${customer.first_name} ${customer.last_name}`.trim() || email,
+        email: customer.email,
+      });
       console.log(`[Login] WP auth result ok=${wpAuth.ok} status=${wpAuth.status}`);
       if (!wpAuth.ok) {
         return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
       }
+      // Save hash so future logins skip WordPress entirely (fire-and-forget)
+      void updateWooCustomer(customer.id, {
+        meta_data: [{ key: "app_password_hash", value: hashPassword(password) }],
+      });
     }
 
     const session: UserSession = {
@@ -68,7 +79,7 @@ export async function POST(request: NextRequest) {
       secure: true,
       sameSite: "lax",
       path: "/",
-      maxAge: SESSION_MAX_AGE,
+      maxAge: rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE,
     });
 
     return res;

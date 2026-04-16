@@ -135,6 +135,11 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        {/* Pre-connect to WooCommerce origin — reduces TLS handshake latency on first API call */}
+        <link rel="preconnect" href="https://creality.com.kw" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://creality.com.kw" />
+      </head>
       <body className="bg-white text-gray-900" suppressHydrationWarning>
         <Script
           id="hydration-attribute-cleanup"

@@ -1,7 +1,8 @@
 const SESSION_COOKIE_NAME = "session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
+const REMEMBER_ME_MAX_AGE = 60 * 60 * 24 * 30;
 
-export { SESSION_COOKIE_NAME, SESSION_MAX_AGE };
+export { SESSION_COOKIE_NAME, SESSION_MAX_AGE, REMEMBER_ME_MAX_AGE };
 
 export type SessionPayload = {
   userId: number;

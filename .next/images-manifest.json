@@ -22,7 +22,7 @@
     "loaderFile": "",
     "domains": [],
     "disableStaticImages": false,
-    "minimumCacheTTL": 86400,
+    "minimumCacheTTL": 604800,
     "formats": [
       "image/avif",
       "image/webp"

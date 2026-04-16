@@ -64,7 +64,7 @@ export async function GET(
       headers: {
         Authorization: `Basic ${auth}`,
       },
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
 
     if (!response.ok) {

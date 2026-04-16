@@ -40,7 +40,7 @@ const nextConfig = {
   },
   images: {
     remotePatterns,
-    minimumCacheTTL: 86400,
+    minimumCacheTTL: 604800, // 7 days — product images rarely change
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 64, 96, 128, 256],
@@ -57,6 +57,26 @@ const nextConfig = {
           {
             key: "Pragma",
             value: "no-cache",
+          },
+        ],
+      },
+      {
+        // Immutable JS/CSS bundles — Next.js content-hashes these filenames
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        // Public read-only API routes — safe to cache at CDN for 60 s
+        source: "/api/search",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=60, stale-while-revalidate=30",
           },
         ],
       },

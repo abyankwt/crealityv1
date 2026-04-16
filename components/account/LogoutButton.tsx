@@ -21,6 +21,7 @@ export default function LogoutButton({ fullWidth = false, label = "Logout" }: Pr
         credentials: "include",
       });
 
+      try { sessionStorage.removeItem("auth_me_cache"); } catch { /* ignore */ }
       window.location.href = "/";
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to sign out.";

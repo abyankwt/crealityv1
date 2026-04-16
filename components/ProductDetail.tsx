@@ -216,20 +216,24 @@ export default function ProductDetail({
   }, [toast]);
 
   const performAddToCart = async (itemQuantity: number) => {
+    // Show feedback immediately — don't wait for the API
+    setAdding(true);
+    setToast({
+      message:
+        availability.type === "preorder"
+          ? "Pre-order item added to cart."
+          : "Added to cart.",
+      type: "success",
+    });
+    setConfirmationOpen(true);
+
     try {
-      setAdding(true);
       await addItem(product.id, itemQuantity, {
         optimisticItem: optimisticCartItem,
       });
-      setToast({
-        message:
-          availability.type === "preorder"
-            ? "Pre-order item added to cart."
-            : "Added to cart.",
-        type: "success",
-      });
-      setConfirmationOpen(true);
     } catch {
+      // Roll back optimistic UI
+      setConfirmationOpen(false);
       setToast({ message: "Unable to add to cart.", type: "error" });
     } finally {
       setAdding(false);

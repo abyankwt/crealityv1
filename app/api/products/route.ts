@@ -111,6 +111,9 @@ export async function GET(request: NextRequest) {
 
     if (cacheMode === "no-store") {
       response.headers.set("Cache-Control", "no-store");
+    } else {
+      // Cache at the CDN/edge for 60 s, allow stale-while-revalidate for 30 s more.
+      response.headers.set("Cache-Control", "public, max-age=60, stale-while-revalidate=30");
     }
 
     return response;

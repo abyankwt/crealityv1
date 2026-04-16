@@ -1,4 +1,4 @@
-// File: C:\Users\WIN-11\Desktop\crealityv1\app\store\page.tsx
+// File: C:\Users\WIN-11\Desktop\crealityv1 - Copy\app\store\page.tsx
 import * as entry from '../../../../../app/store/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

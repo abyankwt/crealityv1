@@ -66,17 +66,20 @@ export async function proxyToWooStore(
 
   let wooResponse: Response;
   try {
-    // Add cache-busting for GET requests to avoid stale cart data
-    const fetchUrl = method === "GET"
-      ? `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`
-      : url;
+    const fetchUrl = url;
 
     if (method === "GET") {
       outgoing.set("Cache-Control", "no-cache, no-store, must-revalidate");
       outgoing.set("Pragma", "no-cache");
     }
 
-    wooResponse = await fetch(fetchUrl, { method, headers: outgoing, body, cache: "no-store" });
+    const proxyController = new AbortController();
+    const proxyTimeout = setTimeout(() => proxyController.abort(), 15000);
+    try {
+      wooResponse = await fetch(fetchUrl, { method, headers: outgoing, body, cache: "no-store", signal: proxyController.signal });
+    } finally {
+      clearTimeout(proxyTimeout);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Network error";
     return NextResponse.json({ error: `Failed to reach WooCommerce: ${msg}` }, { status: 502 });
@@ -123,6 +126,7 @@ export async function proxyToWooStore(
     }
   }
 
+  // Enrich all successful cart responses (GET and POST) with availability data
   if (wooResponse.ok && (path === "cart" || path.startsWith("cart/"))) {
     data = await enrichCartResponseWithAvailability(data);
   }

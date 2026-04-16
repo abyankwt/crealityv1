@@ -1,0 +1,3 @@
+module.exports=[49505,a=>{"use strict";var b=a.i(7997);a.s(["default",0,function(){return(0,b.jsxs)("div",{className:"mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 animate-pulse space-y-6",children:[(0,b.jsx)("div",{className:"h-8 w-40 rounded bg-gray-100"}),(0,b.jsx)("div",{className:"h-4 w-72 rounded bg-gray-100"}),(0,b.jsxs)("div",{className:"space-y-4 pt-2",children:[Array.from({length:4}).map((a,c)=>(0,b.jsx)("div",{className:"h-11 w-full rounded-xl bg-gray-100"},c)),(0,b.jsx)("div",{className:"h-32 w-full rounded-xl bg-gray-100"}),(0,b.jsx)("div",{className:"h-11 w-40 rounded-xl bg-gray-100"})]})]})}])},808,a=>{a.n(a.i(49505))}];
+
+//# sourceMappingURL=app_contact_loading_tsx_0f~w5yw._.js.map

@@ -5,6 +5,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts } from "@/lib/api";
+import { fetchCatalogProducts } from "@/lib/catalog";
 import { filterProductsForSection } from "@/lib/productLogic";
 import { getProductsRestData } from "@/lib/woo-client";
 import { fetchHomepageHeroSlides } from "@/lib/creality-cms";
@@ -36,23 +37,18 @@ export default async function HomePage({ searchParams }: PageProps) {
   const params: RawSearchParams = await (searchParams ?? Promise.resolve({}));
   const sort = getString(params, "sort");
   const stock = getString(params, "stock");
+  const series = getString(params, "series");
   const { orderby, order } = resolveSort(sort);
   const shouldReusePrimaryProductsForNewArrivals =
-    !stock && orderby === "date" && order === "desc";
+    !stock && !series && orderby === "date" && order === "desc";
 
   const [productResult, newProductsResult, heroSlides] = await Promise.all([
-    fetchProducts({
-      orderby,
-      order,
-      stock_status: stock || undefined,
-    }),
+    series
+      ? fetchCatalogProducts({ categorySlug: series, sort, stockStatus: stock || undefined })
+      : fetchProducts({ orderby, order, stock_status: stock || undefined }),
     shouldReusePrimaryProductsForNewArrivals
       ? Promise.resolve(null)
-      : fetchProducts({
-          orderby: "date",
-          order: "desc",
-          perPage: 8,
-        }),
+      : fetchProducts({ orderby: "date", order: "desc", perPage: 8 }),
     fetchHomepageHeroSlides(),
   ]);
 
@@ -81,11 +77,17 @@ export default async function HomePage({ searchParams }: PageProps) {
   const visibleProducts = filterProductsForSection(products, "default");
   const visibleNewProducts = filterProductsForSection(newProducts, "default");
 
-  const featuredProducts = visibleProducts.filter(
-    (p) => p.featured
-  );
+  const featuredProducts = visibleProducts.filter((p) => p.featured);
 
-  const displayProducts = featuredProducts.length ? featuredProducts : visibleProducts;
+  // When a series filter is active, show all products from that series (not just featured).
+  const displayProducts = series
+    ? visibleProducts
+    : (featuredProducts.length ? featuredProducts : visibleProducts);
+
+  const gridApiQuery: Record<string, string | number | undefined> = {};
+  if (sort) gridApiQuery.sort = sort;
+  if (stock) gridApiQuery.stock_status = stock;
+  if (series) gridApiQuery.category_slug = series;
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
@@ -182,6 +184,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             totalPages={totalPages}
             section="default"
             showSort={false}
+            apiQuery={gridApiQuery}
           />
         </div>
       </section>

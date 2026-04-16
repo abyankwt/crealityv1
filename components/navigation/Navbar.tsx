@@ -28,9 +28,38 @@ type NavbarProps = {
 type AuthMeResponse =
   | { authenticated: false }
   | {
-    authenticated: true;
-    user: { id: number; email: string; name: string };
-  };
+      authenticated: true;
+      // Support both id (API) and userId (sessionStorage cache written by login page)
+      user: { id?: number; userId?: number; email: string; name: string };
+    };
+
+const AUTH_CACHE_KEY = "auth_me_cache";
+const AUTH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const readAuthCache = (): UserSession | null => {
+  try {
+    const raw = sessionStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: AuthMeResponse; ts: number };
+    if (Date.now() - parsed.ts > AUTH_CACHE_TTL) {
+      sessionStorage.removeItem(AUTH_CACHE_KEY);
+      return null;
+    }
+    if (!parsed.data.authenticated) return null;
+    const u = parsed.data.user;
+    const userId = u.id ?? u.userId ?? 0;
+    if (!userId) return null;
+    return { userId, email: u.email, name: u.name };
+  } catch {
+    return null;
+  }
+};
+
+const writeAuthCache = (data: AuthMeResponse) => {
+  try {
+    sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* sessionStorage unavailable */ }
+};
 
 export default function Navbar({
   categories = [],
@@ -47,28 +76,33 @@ export default function Navbar({
 
   useEffect(() => {
     let active = true;
+
+    // Show cached auth state immediately — no network wait for returning users.
+    const cached = readAuthCache();
+    if (cached) setUser(cached);
+
+    // Background-verify the session is still valid (catches logouts/expiry).
     const load = async () => {
       try {
         const response = await fetch("/api/auth/me", { cache: "no-store" });
         const data = (await response.json()) as AuthMeResponse;
         if (!active) return;
         if (response.ok && data.authenticated) {
-          setUser({
-            userId: data.user.id,
-            email: data.user.email,
-            name: data.user.name,
-          });
+          const u = data.user;
+          const userId = u.id ?? u.userId ?? 0;
+          setUser({ userId, email: u.email, name: u.name });
+          writeAuthCache(data);
         } else {
           setUser(null);
+          try { sessionStorage.removeItem(AUTH_CACHE_KEY); } catch { /* ignore */ }
         }
       } catch {
-        if (active) setUser(null);
+        // Network error — keep showing cached state if available
+        if (active && !cached) setUser(null);
       }
     };
     void load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

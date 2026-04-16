@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, X } from "lucide-react";
 import type { ProductAvailability } from "@/lib/productAvailability";
 import {
@@ -8,6 +8,35 @@ import {
   type SpecialOrderPricedProduct,
 } from "@/lib/specialOrderPricing";
 import { SPECIAL_ORDER_MOQ } from "@/lib/specialOrderMoq";
+
+// Module-level cache: product id → resolved shipping data
+const shippingCache = new Map<number, SpecialOrderPricedProduct>();
+// In-flight promises to avoid duplicate requests for the same product
+const shippingInFlight = new Map<number, Promise<SpecialOrderPricedProduct | null>>();
+
+async function fetchShippingData(productId: number): Promise<SpecialOrderPricedProduct | null> {
+  if (shippingCache.has(productId)) return shippingCache.get(productId)!;
+  if (shippingInFlight.has(productId)) return shippingInFlight.get(productId)!;
+
+  const promise = fetch(`/api/product-shipping/${productId}`)
+    .then((r) => r.ok ? r.json() as Promise<SpecialOrderPricedProduct> : null)
+    .then((data) => {
+      if (data) shippingCache.set(productId, data);
+      shippingInFlight.delete(productId);
+      return data;
+    })
+    .catch(() => { shippingInFlight.delete(productId); return null; });
+
+  shippingInFlight.set(productId, promise);
+  return promise;
+}
+
+/** Call this when hovering/focusing the Special Order button to warm the cache early */
+export function prefetchShippingData(productId: number) {
+  if (!shippingCache.has(productId) && !shippingInFlight.has(productId)) {
+    void fetchShippingData(productId);
+  }
+}
 
 type OrderWarningModalProps = {
   open: boolean;
@@ -40,62 +69,37 @@ export default function OrderWarningModal({
     useState<SpecialOrderPricedProduct | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
+  const loadedIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!open || availability.type !== "special" || !product?.id) {
-      setShippingData(null);
-      setShippingError(null);
+    if (availability.type !== "special" || !product?.id) return;
+    const productId = Number(product.id);
+    if (!productId) return;
+
+    // Already loaded for this product — instant display
+    if (loadedIdRef.current === productId && shippingCache.has(productId)) {
+      setShippingData(shippingCache.get(productId)!);
       setShippingLoading(false);
       return;
     }
 
-    const controller = new AbortController();
+    let cancelled = false;
+    setShippingLoading(!shippingCache.has(productId));
+    setShippingError(null);
 
-    const loadShippingData = async () => {
-      try {
-        setShippingLoading(true);
-        setShippingError(null);
-
-        const response = await fetch(`/api/product-shipping/${product.id}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        const payload = (await response.json()) as
-          | SpecialOrderPricedProduct
-          | { error?: string };
-
-        if (!response.ok) {
-          const message =
-            "error" in payload
-              ? payload.error || "Unable to load shipping data."
-              : "Unable to load shipping data.";
-          throw new Error(message);
-        }
-
-        setShippingData(payload as SpecialOrderPricedProduct);
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Unable to load shipping data.";
-        setShippingError(message);
-        setShippingData(null);
-      } finally {
-        if (!controller.signal.aborted) {
-          setShippingLoading(false);
-        }
+    fetchShippingData(productId).then((data) => {
+      if (cancelled) return;
+      if (data) {
+        loadedIdRef.current = productId;
+        setShippingData(data);
+      } else {
+        setShippingError("Unable to load shipping data.");
       }
-    };
+      setShippingLoading(false);
+    });
 
-    void loadShippingData();
-
-    return () => controller.abort();
-  }, [availability.type, open, product?.id]);
+    return () => { cancelled = true; };
+  }, [availability.type, product?.id]);
 
   if (!open) return null;
 
@@ -164,7 +168,7 @@ export default function OrderWarningModal({
             )}
             {deliveryFee !== null && (
               <p className="delivery-fee mt-2 text-sm font-medium text-gray-700">
-                Special order delivery charge: {deliveryFee} KWD
+                Special order delivery charge: {deliveryFee} KD
               </p>
             )}
             {shippingError && availability.type === "special" && (

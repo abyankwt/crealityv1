@@ -1,4 +1,4 @@
-// File: C:\Users\WIN-11\Desktop\crealityv1\app\3d-printers\[slug]\page.tsx
+// File: C:\Users\WIN-11\Desktop\crealityv1 - Copy\app\3d-printers\[slug]\page.tsx
 import * as entry from '../../../../../../app/3d-printers/[slug]/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

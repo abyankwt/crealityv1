@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiError, apiSuccess, ERROR_MESSAGES, resolveErrorMessage } from "@/lib/errors";
 import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth-session";
 import { buildOrderTrackingSummary } from "@/lib/orderTracking";
-import { getWooOrders, getWooProductsByIds } from "@/lib/woo-client";
+import { getWooOrders } from "@/lib/woo-client";
 import type { WooOrder } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -23,21 +23,6 @@ export async function GET(request: NextRequest) {
         status: response.status || 502,
       });
     }
-
-    const productIds = [
-      ...new Set(
-        response.data.flatMap((order) =>
-          (order.line_items ?? []).map((item) => item.product_id)
-        )
-      ),
-    ];
-    const productResponse = await getWooProductsByIds(productIds);
-    const productsById = new Map(
-      (productResponse.ok ? productResponse.data : []).map((product) => [
-        product.id,
-        product,
-      ])
-    );
 
     const orders: WooOrder[] = response.data.map((order) => ({
       id: order.id,
@@ -62,13 +47,13 @@ export async function GET(request: NextRequest) {
       tracking: buildOrderTrackingSummary({
         date_created: order.date_created,
         status: order.status,
-        products: (order.line_items ?? []).map((item) =>
-          productsById.get(item.product_id)
-        ),
+        products: [],
       }),
     }));
 
-    return NextResponse.json(apiSuccess(orders));
+    const res = NextResponse.json(apiSuccess(orders));
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   } catch (error) {
     const message = resolveErrorMessage(error, ERROR_MESSAGES.serverError);
     return NextResponse.json(apiError(message), { status: 500 });

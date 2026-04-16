@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { UserSession } from "@/lib/types";
 import LogoutButton from "./LogoutButton";
 
@@ -9,6 +10,23 @@ type Props = {
 };
 
 export default function ProfileSection({ session }: Props) {
+    const [phone, setPhone] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch("/api/account/customer", { cache: "no-store" })
+            .then((r) => r.json())
+            .then((body: { success: boolean; data?: { billing?: { phone?: string }; shipping?: { phone?: string } } }) => {
+                if (!body.success) return;
+                // Prefer billing phone, fall back to shipping phone
+                const resolved =
+                    body.data?.billing?.phone?.trim() ||
+                    body.data?.shipping?.phone?.trim() ||
+                    "";
+                setPhone(resolved || null);
+            })
+            .catch(() => null);
+    }, []);
+
     return (
         <div className="space-y-4">
             {/* Info grid */}
@@ -20,6 +38,19 @@ export default function ProfileSection({ session }: Props) {
                 <div className="rounded-xl border border-gray-200 bg-white p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Email</p>
                     <p className="mt-1 text-sm font-semibold text-gray-900">{session?.email ?? "—"}</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Phone</p>
+                    {phone ? (
+                        <p className="mt-1 text-sm font-semibold text-gray-900">{phone}</p>
+                    ) : (
+                        <p className="mt-1 text-sm text-gray-400">
+                            Not set —{" "}
+                            <Link href="/account/addresses" className="text-black underline hover:no-underline">
+                                add phone
+                            </Link>
+                        </p>
+                    )}
                 </div>
             </div>
 

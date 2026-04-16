@@ -60,10 +60,24 @@ export default function Header() {
 
   useEffect(() => {
     let isMounted = true;
+    const AUTH_CACHE_KEY = "auth_me_cache";
+    const AUTH_CACHE_TTL_MS = 60_000;
+
     const loadAuth = async () => {
       try {
+        // Use sessionStorage to avoid re-fetching on every navigation
+        const cached = sessionStorage.getItem(AUTH_CACHE_KEY);
+        if (cached) {
+          const { data, ts } = JSON.parse(cached) as { data: AuthResponse; ts: number };
+          if (Date.now() - ts < AUTH_CACHE_TTL_MS) {
+            if (isMounted) setUser(data.authenticated ? data.user : null);
+            return;
+          }
+        }
+
         const response = await fetch("/api/auth/me");
         const data = (await response.json()) as AuthResponse;
+        sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
         if (isMounted) {
           setUser(data.authenticated ? data.user : null);
         }
@@ -174,6 +188,7 @@ export default function Header() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
+      sessionStorage.removeItem("auth_me_cache");
       setUser(null);
       setIsAccountOpen(false);
     }

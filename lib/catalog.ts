@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   getWooPublishedProductsByCategorySlug,
+  getWooPublishedProductsByCategorySlugs,
+  getWooAllPublishedProducts,
   getProductsRestData,
   getSpecialOrderProductIds,
 } from "@/lib/woo-client";
@@ -298,32 +300,22 @@ async function fetchGroupedCategoryProducts({
 
   const { orderby, order } = resolveCatalogSort(sort);
   if (config.dataSource === "woo-rest") {
-    const categoryResults = await Promise.all(
-      config.productCategorySlugs.map((productCategorySlug) =>
-        getWooPublishedProductsByCategorySlug(productCategorySlug, {
-          orderby,
-          order,
-        })
-      )
+    // Single batched request: resolve all category IDs in one API call,
+    // then fetch products per category ID in parallel — far fewer round-trips.
+    const batchResult = await getWooPublishedProductsByCategorySlugs(
+      config.productCategorySlugs,
+      { orderby, order }
     );
 
-    // Log individual failures but don't abort — treat failed slugs as empty
-    // so one missing/broken category doesn't wipe out the entire result set.
-    for (const result of categoryResults) {
-      if (!result.ok) {
-        console.error(
-          `[fetchGroupedCategoryProducts] REST fetch failed for a category in "${categorySlug}" — skipping it.`
-        );
-      }
+    if (!batchResult.ok) {
+      console.error(`[fetchGroupedCategoryProducts] Batch REST fetch failed for "${categorySlug}".`);
     }
 
-    const allNormalized = categoryResults.flatMap((result) =>
-      result.ok
-        ? result.data
-            .filter((product) => product.status === "publish")
-            .map(normalizeWooRestProduct)
-        : []
-    );
+    const allNormalized = batchResult.ok
+      ? batchResult.data
+          .filter((product) => product.status === "publish")
+          .map(normalizeWooRestProduct)
+      : [];
 
     // Deduplicate by product ID (products can belong to multiple categories)
     const seenIds = new Set<number>();
@@ -530,6 +522,30 @@ export async function fetchCatalogProducts({
     return { data: [], totalPages: 0, totalProducts: 0 };
   }
 
+  // Use the REST API for the store-all page so out-of-stock special order
+  // products are included — the Store API hides them when the WooCommerce
+  // "hide out of stock items" setting is on.
+  if (!tag) {
+    const restResult = await getWooAllPublishedProducts({
+      orderby,
+      order,
+      revalidate: 300,
+    });
+
+    if (restResult.ok && restResult.data.length > 0) {
+      const normalized = restResult.data
+        .filter((p) => p.status === "publish")
+        .map(normalizeWooRestProduct);
+      const filtered = filterProductsForSection(normalized, "default");
+      const specialOrderIds = await getSpecialOrderProductIds();
+      const visible = filtered.filter(
+        (p) => p.stock_status === "instock" || specialOrderIds.has(p.id) || isPreOrderSectionProduct(p)
+      );
+      return paginateProducts(visible, page, perPage);
+    }
+  }
+
+  // Fallback to Store API (used when a tag/promotion filter is active).
   const result = await fetchProducts({
     page,
     perPage,

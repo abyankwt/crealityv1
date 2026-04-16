@@ -156,15 +156,22 @@ const parseJson = async <T>(response: Response): Promise<T> => {
   return JSON.parse(text) as T;
 };
 
+const WOO_REQUEST_TIMEOUT_MS = 10000;
+
 const requestJson = async <T>(input: string, init: WooRequestInit): Promise<FetchResult<T>> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WOO_REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(input, {
       ...init,
+      signal: controller.signal,
       ...(init.next ? { next: init.next } : { cache: "no-store" }),
     });
   } catch {
     return { ok: false, status: 503 };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -209,7 +216,10 @@ export const createWooCustomer = async (payload: Record<string, unknown>) => {
 };
 
 export const getWooCustomer = async (customerId: number) => {
-  return wooRequest<WooCustomerResponse>(`customers/${customerId}`);
+  // Always fresh — personal data must never be served stale from ISR cache
+  return wooRequest<WooCustomerResponse>(`customers/${customerId}`, {
+    next: { revalidate: 0 },
+  });
 };
 
 export const updateWooCustomer = async (customerId: number, payload: Record<string, unknown>) => {
@@ -220,8 +230,10 @@ export const updateWooCustomer = async (customerId: number, payload: Record<stri
 };
 
 export const getWooOrders = async (customerId: number) => {
+  // per_page=50 ensures all products across all orders are included.
+  // revalidate:0 — order statuses must always reflect WooCommerce in real-time.
   const path = `orders?customer=${encodeURIComponent(String(customerId))}&per_page=50&orderby=date&order=desc`;
-  return wooRequest<WooOrderResponse[]>(path);
+  return wooRequest<WooOrderResponse[]>(path, { next: { revalidate: 0 } });
 };
 
 export const getWooOrder = async (orderId: number) => {
@@ -379,6 +391,68 @@ export const getWooPublishedProductBySlug = async (slug: string) => {
   );
 };
 
+/**
+ * Fetch products for multiple category slugs in an optimised way:
+ * 1 request to resolve all category IDs, then parallel product fetches per ID.
+ * Much faster than calling getWooPublishedProductsByCategorySlug N times.
+ */
+export const getWooPublishedProductsByCategorySlugs = async (
+  categorySlugs: string[],
+  options: { orderby?: string; order?: "asc" | "desc"; revalidate?: number } = {}
+): Promise<FetchResult<WooRestProduct[]>> => {
+  if (!categorySlugs.length) return { ok: true as const, status: 200, data: [] };
+
+  const nextOpts = options.revalidate !== undefined ? { next: { revalidate: options.revalidate } } : {};
+
+  // Fetch up to 3 pages of categories in parallel (covers up to 300 categories)
+  // WooCommerce caps per_page at 100, so we fire pages 1-3 simultaneously.
+  const slugSet = new Set(categorySlugs.map((s) => s.trim().toLowerCase()));
+  const catPages = await Promise.all(
+    [1, 2, 3].map((p) =>
+      wooRequest<WooProductTaxonomyTermResponse[]>(
+        `products/categories?per_page=100&page=${p}`,
+        nextOpts
+      )
+    )
+  );
+  const allCategories = catPages.flatMap((r) => (r.ok ? r.data : []));
+  if (!allCategories.length) return { ok: true as const, status: 200, data: [] };
+
+  const matchedIds = allCategories
+    .filter((c) => slugSet.has(c.slug.toLowerCase()))
+    .map((c) => c.id);
+
+  if (!matchedIds.length) return { ok: true as const, status: 200, data: [] };
+
+  const perPage = 100;
+  const buildPath = (categoryId: number, page: number) => {
+    const p = new URLSearchParams({
+      category: String(categoryId),
+      status: "publish",
+      page: String(page),
+      per_page: String(perPage),
+    });
+    if (options.orderby) p.set("orderby", options.orderby);
+    if (options.order) p.set("order", options.order);
+    return `products?${p.toString()}`;
+  };
+
+  const allResults = await Promise.all(
+    matchedIds.map((id) => wooRequest<WooRestProduct[]>(buildPath(id, 1), nextOpts))
+  );
+
+  const seenIds = new Set<number>();
+  const products: WooRestProduct[] = [];
+  for (const result of allResults) {
+    if (!result.ok) continue;
+    for (const p of result.data) {
+      if (!seenIds.has(p.id)) { seenIds.add(p.id); products.push(p); }
+    }
+  }
+
+  return { ok: true as const, status: 200, data: products };
+};
+
 export const getWooPublishedProductsByCategorySlug = async (
   categorySlug: string,
   options: {
@@ -420,46 +494,80 @@ export const getWooPublishedProductsByCategorySlug = async (
     };
   }
 
-  const products: WooRestProduct[] = [];
   const perPage = 100;
 
-  for (let page = 1; page <= 20; page += 1) {
-    const path = new URLSearchParams({
+  const buildProductPath = (page: number) => {
+    const p = new URLSearchParams({
       category: String(matchedCategory.id),
       status: "publish",
       page: String(page),
       per_page: String(perPage),
     });
+    if (options.orderby) p.set("orderby", options.orderby);
+    if (options.order) p.set("order", options.order);
+    return `products?${p.toString()}`;
+  };
 
-    if (options.orderby) {
-      path.set("orderby", options.orderby);
-    }
-
-    if (options.order) {
-      path.set("order", options.order);
-    }
-
-    const productResult = await wooRequest<WooRestProduct[]>(
-      `products?${path.toString()}`,
-      nextOpts
-    );
-
-    if (!productResult.ok) {
-      return productResult;
-    }
-
-    products.push(...productResult.data);
-
-    if (productResult.data.length < perPage) {
-      break;
-    }
+  // Fetch page 1 first to check if more pages exist.
+  const firstResult = await wooRequest<WooRestProduct[]>(buildProductPath(1), nextOpts);
+  if (!firstResult.ok) return firstResult;
+  if (firstResult.data.length < perPage) {
+    return { ok: true as const, status: 200, data: firstResult.data };
   }
 
-  return {
-    ok: true as const,
-    status: 200,
-    data: products,
+  // Page 1 was full — fire remaining pages (up to 19 more) in parallel.
+  const remainingResults = await Promise.all(
+    Array.from({ length: 19 }, (_, i) => i + 2).map((page) =>
+      wooRequest<WooRestProduct[]>(buildProductPath(page), nextOpts)
+    )
+  );
+
+  const products = [...firstResult.data];
+  for (const result of remainingResults) {
+    if (!result.ok || result.data.length === 0) break;
+    products.push(...result.data);
+    if (result.data.length < perPage) break;
+  }
+
+  return { ok: true as const, status: 200, data: products };
+};
+
+export const getWooAllPublishedProducts = async (options: {
+  orderby?: string;
+  order?: "asc" | "desc";
+  revalidate?: number;
+} = {}) => {
+  const perPage = 100;
+  const nextOpts = options.revalidate !== undefined ? { next: { revalidate: options.revalidate } } : {};
+
+  const buildPath = (page: number) => {
+    const p = new URLSearchParams({ status: "publish", page: String(page), per_page: String(perPage) });
+    if (options.orderby) p.set("orderby", options.orderby);
+    if (options.order) p.set("order", options.order);
+    return `products?${p.toString()}`;
   };
+
+  // Fetch page 1 first; if it's a full page, fire the rest in parallel.
+  const firstResult = await wooRequest<WooRestProduct[]>(buildPath(1), nextOpts);
+  if (!firstResult.ok) return firstResult;
+  if (firstResult.data.length < perPage) {
+    return { ok: true as const, status: 200, data: firstResult.data };
+  }
+
+  const remainingResults = await Promise.all(
+    Array.from({ length: 19 }, (_, i) => i + 2).map((page) =>
+      wooRequest<WooRestProduct[]>(buildPath(page), nextOpts)
+    )
+  );
+
+  const products = [...firstResult.data];
+  for (const result of remainingResults) {
+    if (!result.ok || result.data.length === 0) break;
+    products.push(...result.data);
+    if (result.data.length < perPage) break;
+  }
+
+  return { ok: true as const, status: 200, data: products };
 };
 
 export const updateWooOrder = async (orderId: number, payload: Record<string, unknown>) => {
@@ -515,64 +623,50 @@ export const verifyCustomerPassword = async (email: string) => {
     storedHash: hashMeta?.value ?? null,
   };
 };
-export const verifyWpUser = async (email: string, password: string) => {
+type PreloadedCustomer = {
+  id: number;
+  username: string;
+  name: string;
+  email: string;
+};
+
+export const verifyWpUser = async (email: string, password: string, preloaded?: PreloadedCustomer) => {
   const baseUrl = getWordpressUrl();
 
-  // Step 1: Look up the WooCommerce customer by email using admin credentials
-  const customerResult = await wooRequest<{ id: number; first_name: string; last_name: string; email: string; username: string }[]>(
-    `customers?email=${encodeURIComponent(email)}&per_page=1`
-  );
+  let username: string;
+  let fallbackId: number;
+  let fallbackName: string;
+  let fallbackEmail: string;
 
-  if (!customerResult.ok || !customerResult.data?.length) {
-    console.log(`[Login] No customer found for email: ${email}`);
-    return { ok: false as const, status: 401 };
-  }
+  if (preloaded) {
+    // Caller already fetched the customer — skip the redundant lookup
+    username = preloaded.username || email;
+    fallbackId = preloaded.id;
+    fallbackName = preloaded.name;
+    fallbackEmail = preloaded.email;
+  } else {
+    // Step 1: Look up the WooCommerce customer by email using admin credentials
+    const customerResult = await wooRequest<{ id: number; first_name: string; last_name: string; email: string; username: string }[]>(
+      `customers?email=${encodeURIComponent(email)}&per_page=1`
+    );
 
-  const customer = customerResult.data[0];
-  const username = customer.username || email;
-
-  // Step 2: Verify password via WordPress REST API with Basic auth
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const wpResponse = await fetch(`${baseUrl}/wp-json/wp/v2/users/me?context=edit`, {
-      headers: {
-        Authorization: buildBasicAuth(username, password),
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    console.log(`[Login] WP REST API /users/me status: ${wpResponse.status}`);
-
-    // If WP REST API confirms the user (requires Application Passwords), use its data
-    if (wpResponse.ok) {
-      const wpUser = await wpResponse.json() as { id: number; name: string; email?: string };
-      return {
-        ok: true as const,
-        status: 200,
-        data: {
-          id: wpUser.id,
-          name: wpUser.name || `${customer.first_name} ${customer.last_name}`.trim() || email,
-          email: wpUser.email ?? customer.email,
-        },
-      };
+    if (!customerResult.ok || !customerResult.data?.length) {
+      console.log(`[Login] No customer found for email: ${email}`);
+      return { ok: false as const, status: 401 };
     }
-    // 401/403 means regular password — fall through to wp-login.php
-    console.log(`[Login] WP REST API returned ${wpResponse.status}, trying wp-login.php...`);
-  } catch (err) {
-    clearTimeout(timeoutId);
-    const msg = err instanceof Error ? err.message : "unknown";
-    console.log(`[Login] WP REST API timed out or failed: ${msg}. Trying wp-login.php fallback...`);
+
+    const customer = customerResult.data[0];
+    username = customer.username || email;
+    fallbackId = customer.id;
+    fallbackName = `${customer.first_name} ${customer.last_name}`.trim() || email;
+    fallbackEmail = customer.email;
   }
 
-  // Step 3: Fallback — try wp-login.php with timeout
+  // Verify via wp-login.php (direct, no WP REST API round-trip)
   // WordPress requires the test cookie to be present as an HTTP cookie on the POST request.
   // We GET first to obtain it, then POST with it included.
   const loginController = new AbortController();
-  const loginTimeout = setTimeout(() => loginController.abort(), 15000);
+  const loginTimeout = setTimeout(() => loginController.abort(), 8000);
 
   try {
     // Step 3a: GET wp-login.php to obtain the wordpress_test_cookie
@@ -613,9 +707,9 @@ export const verifyWpUser = async (email: string, password: string) => {
         ok: true as const,
         status: 200,
         data: {
-          id: customer.id,
-          name: `${customer.first_name} ${customer.last_name}`.trim() || email,
-          email: customer.email,
+          id: fallbackId,
+          name: fallbackName,
+          email: fallbackEmail,
         },
       };
     }

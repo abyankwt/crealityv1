@@ -1,4 +1,4 @@
-// File: C:\Users\WIN-11\Desktop\crealityv1\app\layout.tsx
+// File: C:\Users\WIN-11\Desktop\crealityv1 - Copy\app\layout.tsx
 import * as entry from '../../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

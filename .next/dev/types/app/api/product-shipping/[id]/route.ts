@@ -1,4 +1,4 @@
-// File: C:\Users\WIN-11\Desktop\crealityv1\app\api\product-shipping\[id]\route.ts
+// File: C:\Users\WIN-11\Desktop\crealityv1 - Copy\app\api\product-shipping\[id]\route.ts
 import * as entry from '../../../../../../../app/api/product-shipping/[id]/route.js'
 import type { NextRequest } from 'next/server.js'
 

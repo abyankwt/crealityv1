@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -27,6 +27,7 @@ type LoadState =
 
 type OrdersSectionProps = {
   variant?: "dashboard" | "page";
+  initialOrders?: WooOrder[];
 };
 
 const STATUS_CONFIG: Record<
@@ -118,10 +119,15 @@ const formatCountdown = (daysLeft: number | null | undefined) => {
 
 export default function OrdersSection({
   variant = "dashboard",
+  initialOrders,
 }: OrdersSectionProps) {
   const isPage = variant === "page";
   const router = useRouter();
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [state, setState] = useState<LoadState>(
+    initialOrders
+      ? { status: "success", orders: initialOrders }
+      : { status: "loading" }
+  );
   const [expanded, setExpanded] = useState<number | null>(null);
   const [reordering, setReordering] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<
@@ -131,45 +137,52 @@ export default function OrdersSection({
       }
     | null
   >(null);
+  const didFetch = useRef(!!initialOrders);
+
+  const fetchOrders = async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch("/api/account/orders", {
+        cache: "no-store",
+        signal,
+      });
+      const data = (await response.json()) as ApiResponse<WooOrder[]>;
+
+      if (!response.ok || !data.success) {
+        setState({
+          status: "error",
+          message: data.success ? "Unable to load orders." : data.error,
+        });
+        return;
+      }
+
+      setState({ status: "success", orders: data.data });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      setState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Unable to load orders.",
+      });
+    }
+  };
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
-    (async () => {
-      try {
-        const response = await fetch("/api/account/orders", {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as ApiResponse<WooOrder[]>;
+    if (!didFetch.current) {
+      didFetch.current = true;
+      void fetchOrders(controller.signal);
+    }
 
-        if (!response.ok || !data.success) {
-          if (active) {
-            setState({
-              status: "error",
-              message: data.success ? "Unable to load orders." : data.error,
-            });
-          }
-          return;
-        }
+    // Re-fetch when the tab regains focus so order statuses stay in sync with WooCommerce
+    const handleFocus = () => void fetchOrders(controller.signal);
+    window.addEventListener("focus", handleFocus);
 
-        if (active) {
-          setState({ status: "success", orders: data.data });
-        }
-      } catch (error) {
-        if (active) {
-          setState({
-            status: "error",
-            message:
-              error instanceof Error ? error.message : "Unable to load orders.",
-          });
-        }
-      }
-    })();
 
     return () => {
-      active = false;
+      controller.abort();
+      window.removeEventListener("focus", handleFocus);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleReorder = async (order: WooOrder) => {
     if (!order.line_items?.length) return;
