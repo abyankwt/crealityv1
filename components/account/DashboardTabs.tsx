@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { ChevronDown, Gift, Package, RefreshCcw, User } from "lucide-react";
-import OrdersSection from "./OrdersSection";
 import ProfileSection from "./ProfileSection";
 import LogoutButton from "./LogoutButton";
-import type { UserSession, WooOrder } from "@/lib/types";
+import type { UserSession } from "@/lib/types";
 
 type Tab = "orders" | "subscriptions" | "loyalty" | "profile";
 
@@ -32,20 +32,20 @@ function ComingSoonPanel({ label }: { label: string }) {
 
 type Props = {
   session: UserSession | null;
-  initialOrders?: WooOrder[];
+  ordersContent: ReactNode;
 };
 
-function TabContent({ tab, session, initialOrders }: { tab: Tab; session: UserSession | null; initialOrders?: WooOrder[] }) {
+function TabContent({ tab, session, ordersContent }: { tab: Tab; session: UserSession | null; ordersContent: ReactNode }) {
   if (COMING_SOON_TABS.includes(tab)) {
     const label = tabs.find((t) => t.key === tab)?.label ?? tab;
     return <ComingSoonPanel label={label} />;
   }
-  if (tab === "orders") return <OrdersSection initialOrders={initialOrders} />;
+  if (tab === "orders") return <>{ordersContent}</>;
   if (tab === "profile") return <ProfileSection session={session} />;
   return null;
 }
 
-export default function DashboardTabs({ session, initialOrders }: Props) {
+export default function DashboardTabs({ session, ordersContent }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("orders");
 
   return (
@@ -108,7 +108,7 @@ export default function DashboardTabs({ session, initialOrders }: Props) {
               </button>
               {isOpen ? (
                 <div className="border-t border-gray-100 px-4 py-4">
-                  <TabContent tab={tab.key} session={session} initialOrders={initialOrders} />
+                  <TabContent tab={tab.key} session={session} ordersContent={ordersContent} />
                 </div>
               ) : null}
             </div>
@@ -125,7 +125,7 @@ export default function DashboardTabs({ session, initialOrders }: Props) {
       </div>
 
       <div className="hidden sm:block">
-        <TabContent tab={activeTab} session={session} initialOrders={initialOrders} />
+        <TabContent tab={activeTab} session={session} ordersContent={ordersContent} />
       </div>
     </div>
   );

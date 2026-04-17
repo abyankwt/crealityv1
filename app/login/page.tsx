@@ -102,8 +102,8 @@ function LoginForm() {
         localStorage.setItem(EMAIL_KEY, email);
       } catch { /* localStorage unavailable */ }
 
-      // Destination is already prefetched — navigation is instant
-      router.replace(redirectTo);
+      // Full navigation so the browser sends the new session cookie and middleware reads it fresh
+      window.location.replace(redirectTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {

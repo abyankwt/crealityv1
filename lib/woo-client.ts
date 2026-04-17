@@ -230,10 +230,8 @@ export const updateWooCustomer = async (customerId: number, payload: Record<stri
 };
 
 export const getWooOrders = async (customerId: number) => {
-  // per_page=50 ensures all products across all orders are included.
-  // revalidate:0 — order statuses must always reflect WooCommerce in real-time.
   const path = `orders?customer=${encodeURIComponent(String(customerId))}&per_page=50&orderby=date&order=desc`;
-  return wooRequest<WooOrderResponse[]>(path, { next: { revalidate: 0 } });
+  return wooRequest<WooOrderResponse[]>(path, { next: { revalidate: 60 } });
 };
 
 export const getWooOrder = async (orderId: number) => {
