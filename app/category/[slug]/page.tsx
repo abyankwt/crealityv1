@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { unstable_cache } from "next/cache";
 import CatalogPage from "@/components/CatalogPage";
 import CatalogPageSkeleton from "@/components/CatalogPageSkeleton";
 import {
@@ -12,7 +11,7 @@ import {
 } from "@/lib/catalog";
 import { resolveProductSectionFromSlug } from "@/lib/productLogic";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -22,17 +21,6 @@ export async function generateMetadata({
   const { slug } = await params;
   return { title: slugToTitle(slug) };
 }
-
-const getCachedCategoryProducts = unstable_cache(
-  (slug: string, sort: string, stock: string) =>
-    fetchCatalogProducts({
-      categorySlug: slug,
-      sort: sort || undefined,
-      stockStatus: stock || undefined,
-    }),
-  ["category-products"],
-  { revalidate: 3600 }
-);
 
 async function CategoryProducts({
   slug,
@@ -48,11 +36,11 @@ async function CategoryProducts({
   const filterBySection = !shouldBypassSectionFilteringForCategory(slug);
   const productSectionOverride = getCategoryProductSectionOverride(slug);
 
-  const { data: products, totalPages } = await getCachedCategoryProducts(
-    slug,
-    sort ?? "",
-    stock ?? ""
-  );
+  const { data: products, totalPages } = await fetchCatalogProducts({
+    categorySlug: slug,
+    sort: sort || undefined,
+    stockStatus: stock || undefined,
+  });
 
   const apiQuery =
     section === "used_printers"

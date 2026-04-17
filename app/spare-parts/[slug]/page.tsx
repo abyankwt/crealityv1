@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
@@ -17,7 +16,7 @@ import {
 } from "@/lib/catalog";
 import { fetchProductsByCategory } from "@/lib/woocommerce";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 type SparePartPageProps = {
   params: Promise<{ slug: string }>;
@@ -39,17 +38,6 @@ export async function generateMetadata(
   };
 }
 
-const getCachedSparePartProducts = unstable_cache(
-  (wooSlug: string, orderby: string, order: string, stock: string) =>
-    fetchProductsByCategory(wooSlug, 1, {
-      orderby,
-      order: order as "asc" | "desc",
-      stock_status: stock || undefined,
-    }),
-  ["spare-parts-products"],
-  { revalidate: 3600 }
-);
-
 async function SparePartProducts({
   wooSlug,
   orderby,
@@ -60,17 +48,16 @@ async function SparePartProducts({
 }: {
   wooSlug: string;
   orderby: string;
-  order: string;
+  order: "asc" | "desc";
   stock?: string;
   sort?: string;
   label: string;
 }) {
-  const { data: products, totalPages } = await getCachedSparePartProducts(
-    wooSlug,
+  const { data: products, totalPages } = await fetchProductsByCategory(wooSlug, 1, {
     orderby,
     order,
-    stock ?? ""
-  );
+    stock_status: stock || undefined,
+  });
 
   return (
     <ProductGrid
@@ -117,7 +104,6 @@ export default async function SparePartPage({
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-      {/* Header */}
       <div className="rounded-4xl bg-[#f6f8f3] px-6 py-8 sm:px-8">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#5f6b52]">
           Spare Parts / {sparePart.groupLabel}
@@ -127,7 +113,6 @@ export default async function SparePartPage({
         </h1>
       </div>
 
-      {/* Category navigation */}
       <SparePartsNav
         groups={SPARE_PARTS_GROUPS}
         activeSlug={sparePart.slug}
@@ -135,7 +120,6 @@ export default async function SparePartPage({
         activeItem={sparePart}
       />
 
-      {/* Products */}
       <div className="mt-8">
         <Suspense fallback={<ProductsSkeleton />}>
           <SparePartProducts

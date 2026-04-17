@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { unstable_cache } from "next/cache";
 import CatalogPage from "@/components/CatalogPage";
 import CatalogPageSkeleton from "@/components/CatalogPageSkeleton";
 import {
@@ -10,18 +9,7 @@ import {
   type RawCatalogSearchParams,
 } from "@/lib/catalog";
 
-export const revalidate = 300;
-
-const getCachedStoreProducts = unstable_cache(
-  (sort: string, stock: string, promotion: string) =>
-    fetchCatalogProducts({
-      sort: sort || undefined,
-      stockStatus: stock || undefined,
-      tag: promotion || undefined,
-    }),
-  ["store-products"],
-  { revalidate: 3600 }
-);
+export const revalidate = 3600;
 
 type PageProps = {
   searchParams?: Promise<RawCatalogSearchParams>;
@@ -36,11 +24,11 @@ async function StoreProducts({
   stock?: string;
   promotion?: string;
 }) {
-  const { data: products, totalPages } = await getCachedStoreProducts(
-    sort ?? "",
-    stock ?? "",
-    promotion ?? ""
-  );
+  const { data: products, totalPages } = await fetchCatalogProducts({
+    sort: sort || undefined,
+    stockStatus: stock || undefined,
+    tag: promotion || undefined,
+  });
   const title = promotion ? slugToTitle(promotion) : "Shop All Products";
 
   return (

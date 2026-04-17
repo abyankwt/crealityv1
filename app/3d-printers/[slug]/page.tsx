@@ -4,7 +4,7 @@ import ProductGrid from "@/components/ProductGrid";
 import { getPrinterSubmenuCategoryBySlug } from "@/lib/categories";
 import { fetchPrinterSubmenuProducts } from "@/lib/catalog";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 type PrinterCategoryPageProps = {
   params: Promise<{

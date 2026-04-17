@@ -6,7 +6,7 @@ import {
 } from "@/lib/store";
 import ProductDetail from "@/components/ProductDetail";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 type ProductPageProps = {
   params: Promise<{

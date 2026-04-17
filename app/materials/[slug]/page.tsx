@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
 import ProductCardSkeleton from "@/components/ProductCardSkeleton";
@@ -15,7 +14,7 @@ import {
 } from "@/lib/materials";
 import type { Product } from "@/lib/woocommerce-types";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -24,49 +23,8 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const material = findMaterialEntryBySlug(await getMaterialsNavigation(), slug);
-
-  return {
-    title: material?.category.label ?? "Materials",
-  };
+  return { title: material?.category.label ?? "Materials" };
 }
-
-const getCachedLeafProducts = unstable_cache(
-  (slug: string, sort: string, stock: string) =>
-    fetchCatalogProducts({
-      categorySlug: slug,
-      sort: sort || undefined,
-      stockStatus: stock || undefined,
-    }),
-  ["materials-leaf-products"],
-  { revalidate: 3600 }
-);
-
-const getCachedParentProducts = unstable_cache(
-  async (childSlugs: string[], sort: string, stock: string) => {
-    const results = await Promise.all(
-      childSlugs.map((childSlug) =>
-        fetchCatalogProducts({
-          categorySlug: childSlug,
-          sort: sort || undefined,
-          stockStatus: stock || undefined,
-        })
-      )
-    );
-    const seenIds = new Set<number>();
-    const products: Product[] = [];
-    for (const result of results) {
-      for (const product of result.data) {
-        if (!seenIds.has(product.id)) {
-          seenIds.add(product.id);
-          products.push(product);
-        }
-      }
-    }
-    return { products, totalPages: 1 };
-  },
-  ["materials-parent-products"],
-  { revalidate: 3600 }
-);
 
 async function MaterialProducts({
   slug,
@@ -87,11 +45,32 @@ async function MaterialProducts({
   let totalPages: number;
 
   if (isParentCategory) {
-    const result = await getCachedParentProducts(childSlugs, sort ?? "", stock ?? "");
-    products = result.products;
-    totalPages = result.totalPages;
+    const results = await Promise.all(
+      childSlugs.map((childSlug) =>
+        fetchCatalogProducts({
+          categorySlug: childSlug,
+          sort: sort || undefined,
+          stockStatus: stock || undefined,
+        })
+      )
+    );
+    const seenIds = new Set<number>();
+    products = [];
+    for (const result of results) {
+      for (const product of result.data) {
+        if (!seenIds.has(product.id)) {
+          seenIds.add(product.id);
+          products.push(product);
+        }
+      }
+    }
+    totalPages = 1;
   } else {
-    const result = await getCachedLeafProducts(slug, sort ?? "", stock ?? "");
+    const result = await fetchCatalogProducts({
+      categorySlug: slug,
+      sort: sort || undefined,
+      stockStatus: stock || undefined,
+    });
     products = result.data;
     totalPages = result.totalPages;
   }
