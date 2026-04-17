@@ -1,6 +1,9 @@
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProductGrid from "@/components/ProductGrid";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import SparePartsNav from "@/components/SparePartsNav";
 import {
   getSparePartBySlug,
@@ -36,6 +39,65 @@ export async function generateMetadata(
   };
 }
 
+const getCachedSparePartProducts = unstable_cache(
+  (wooSlug: string, orderby: string, order: string, stock: string) =>
+    fetchProductsByCategory(wooSlug, 1, {
+      orderby,
+      order: order as "asc" | "desc",
+      stock_status: stock || undefined,
+    }),
+  ["spare-parts-products"],
+  { revalidate: 3600 }
+);
+
+async function SparePartProducts({
+  wooSlug,
+  orderby,
+  order,
+  stock,
+  sort,
+  label,
+}: {
+  wooSlug: string;
+  orderby: string;
+  order: string;
+  stock?: string;
+  sort?: string;
+  label: string;
+}) {
+  const { data: products, totalPages } = await getCachedSparePartProducts(
+    wooSlug,
+    orderby,
+    order,
+    stock ?? ""
+  );
+
+  return (
+    <ProductGrid
+      initialProducts={products}
+      initialPage={1}
+      totalPages={totalPages}
+      apiQuery={{
+        category_slug: wooSlug,
+        sort,
+        stock_status: stock,
+        strict_category: "1",
+      }}
+      emptyMessage={`No products found in ${label}.`}
+    />
+  );
+}
+
+function ProductsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }, (_, i) => (
+        <ProductCardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
 export default async function SparePartPage({
   params,
   searchParams,
@@ -52,12 +114,6 @@ export default async function SparePartPage({
     getCatalogParam(resolvedSearchParams, "stock") ??
     getCatalogParam(resolvedSearchParams, "stock_status");
   const { orderby, order } = resolveCatalogSort(sort);
-
-  const { data: products, totalPages } = await fetchProductsByCategory(
-    sparePart.wooSlug,
-    1,
-    { orderby, order, stock_status: stock }
-  );
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
@@ -81,18 +137,16 @@ export default async function SparePartPage({
 
       {/* Products */}
       <div className="mt-8">
-        <ProductGrid
-          initialProducts={products}
-          initialPage={1}
-          totalPages={totalPages}
-          apiQuery={{
-            category_slug: sparePart.wooSlug,
-            sort,
-            stock_status: stock,
-            strict_category: "1",
-          }}
-          emptyMessage={`No products found in ${sparePart.label}.`}
-        />
+        <Suspense fallback={<ProductsSkeleton />}>
+          <SparePartProducts
+            wooSlug={sparePart.wooSlug}
+            orderby={orderby}
+            order={order}
+            stock={stock}
+            sort={sort}
+            label={sparePart.label}
+          />
+        </Suspense>
       </div>
     </section>
   );

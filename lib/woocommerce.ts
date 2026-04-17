@@ -127,7 +127,7 @@ type StoreRequestOptions<T> = {
 };
 
 const STORE_API_TIMEOUT_MS = 5000;
-const STORE_API_REVALIDATE_SECONDS = 60;
+const STORE_API_REVALIDATE_SECONDS = 3600;
 const storeResponseCache = new Map<string, StoreRequestResult<unknown>>();
 
 const getBaseUrl = () => {

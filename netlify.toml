@@ -7,3 +7,26 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Cache static Next.js assets forever (filenames are content-hashed)
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache public images for 7 days
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+
+# CDN-cache the hero and popup API responses for 1 hour, serve stale for 24 h
+[[headers]]
+  for = "/api/hero"
+  [headers.values]
+    Cache-Control = "public, s-maxage=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/api/popup"
+  [headers.values]
+    Cache-Control = "public, s-maxage=3600, stale-while-revalidate=86400"

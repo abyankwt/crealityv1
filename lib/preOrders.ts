@@ -30,6 +30,9 @@ async function enrichPreOrdersWithRestData(products: Product[]): Promise<Product
 const PRE_ORDER_SCAN_PAGE_SIZE = 12;
 const PRE_ORDER_NAV_SCAN_MAX_PAGES = 5;
 
+// Long revalidate for the nav check — pre-orders don't change every minute.
+const PRE_ORDER_REVALIDATE = 3600;
+
 async function scanCatalogForPreOrders(maxPages?: number) {
   try {
     // Fetch onbackorder products directly — the Store API returns only instock
@@ -38,11 +41,13 @@ async function scanCatalogForPreOrders(maxPages?: number) {
       fetchProducts({
         page: 1,
         perPage: PRE_ORDER_SCAN_PAGE_SIZE,
+        revalidate: PRE_ORDER_REVALIDATE,
       }),
       fetchProducts({
         page: 1,
         perPage: 100,
         stock_status: "onbackorder",
+        revalidate: PRE_ORDER_REVALIDATE,
       }),
     ]);
 
@@ -77,6 +82,7 @@ async function scanCatalogForPreOrders(maxPages?: number) {
       const pageResult = await fetchProducts({
         page,
         perPage: PRE_ORDER_SCAN_PAGE_SIZE,
+        revalidate: PRE_ORDER_REVALIDATE,
       });
       addIfNew(pageResult.data);
 

@@ -21,6 +21,7 @@
   "/api/debug-product/[id]/route": "app/api/debug-product/[id]/route.js",
   "/api/debug-search/route": "app/api/debug-search/route.js",
   "/api/hero/route": "app/api/hero/route.js",
+  "/api/popup/route": "app/api/popup/route.js",
   "/api/print/add-to-cart/route": "app/api/print/add-to-cart/route.js",
   "/api/print/analyze/route": "app/api/print/analyze/route.js",
   "/api/printing-service/quote/route": "app/api/printing-service/quote/route.js",

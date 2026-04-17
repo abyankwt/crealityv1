@@ -13,6 +13,29 @@ type LoginPayload = {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// ── Server-side customer lookup cache (per server instance, 10-minute TTL) ──
+// Eliminates the WooCommerce REST API round-trip for returning users.
+type CachedCustomer = {
+  result: Awaited<ReturnType<typeof verifyCustomerPassword>>;
+  expiresAt: number;
+};
+const customerCache = new Map<string, CachedCustomer>();
+const CUSTOMER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+async function getCachedCustomer(email: string) {
+  const cached = customerCache.get(email);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.result;
+  }
+  const result = await verifyCustomerPassword(email);
+  customerCache.set(email, { result, expiresAt: Date.now() + CUSTOMER_CACHE_TTL });
+  return result;
+}
+
+function invalidateCustomerCache(email: string) {
+  customerCache.delete(email);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as LoginPayload;
@@ -27,22 +50,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(apiError(ERROR_MESSAGES.badRequest), { status: 400 });
     }
 
-    // Look up customer and check for stored hash
-    const customerResult = await verifyCustomerPassword(email);
+    // Look up customer — served from server-side cache for returning users (no WooCommerce round-trip)
+    const customerResult = await getCachedCustomer(email);
     if (!customerResult) {
       console.log(`[Login] No customer found for email: ${email}`);
       return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
     }
 
     const { customer, storedHash } = customerResult;
-    console.log(`[Login] customer id=${customer.id} hasHash=${!!storedHash} hashValue=${storedHash ?? "null"}`);
+    console.log(`[Login] customer id=${customer.id} hasHash=${!!storedHash}`);
 
     if (storedHash) {
-      // Accounts registered via the app — verify against stored hash
+      // Accounts registered via the app — verify against stored hash (instant, no network)
       const hashMatch = verifyPassword(password, storedHash);
-      console.log(`[Login] verifyPassword result=${hashMatch}`);
       if (!hashMatch) {
-        console.log(`[Login] Password mismatch for customer ${customer.id}`);
+        // Wrong password — don't cache wrong credentials, but keep customer data cached
         return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
       }
     } else {
@@ -54,11 +76,12 @@ export async function POST(request: NextRequest) {
         name: `${customer.first_name} ${customer.last_name}`.trim() || email,
         email: customer.email,
       });
-      console.log(`[Login] WP auth result ok=${wpAuth.ok} status=${wpAuth.status}`);
       if (!wpAuth.ok) {
         return NextResponse.json(apiError(ERROR_MESSAGES.invalidCredentials), { status: 401 });
       }
-      // Save hash so future logins skip WordPress entirely (fire-and-forget)
+      // Save hash so future logins skip WordPress entirely — also invalidate cache so
+      // next login reads the new hash from WooCommerce.
+      invalidateCustomerCache(email);
       void updateWooCustomer(customer.id, {
         meta_data: [{ key: "app_password_hash", value: hashPassword(password) }],
       });

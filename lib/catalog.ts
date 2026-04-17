@@ -486,7 +486,7 @@ export async function fetchCatalogProducts({
     const restResult = await getWooPublishedProductsByCategorySlug(categorySlug, {
       orderby,
       order,
-      revalidate: 60,
+      revalidate: 3600,
     });
 
     if (restResult.ok && restResult.data.length > 0) {
@@ -529,7 +529,7 @@ export async function fetchCatalogProducts({
     const restResult = await getWooAllPublishedProducts({
       orderby,
       order,
-      revalidate: 300,
+      revalidate: 3600,
     });
 
     if (restResult.ok && restResult.data.length > 0) {

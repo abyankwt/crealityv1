@@ -1,7 +1,10 @@
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import { fetchProductsByIds } from "@/lib/api";
 import { fetchSeasonalCampaign } from "@/lib/creality-cms";
 import { normalizeImageUrl, shouldBypassImageOptimization } from "@/lib/image";
@@ -26,18 +29,19 @@ function sortProductsByCampaignOrder<T extends { id: number }>(
   });
 }
 
+const getCachedCampaign = unstable_cache(
+  () => fetchSeasonalCampaign(),
+  ["seasonal-campaign"],
+  { revalidate: 3600 }
+);
+
 export async function generateMetadata({
   params,
 }: SeasonPageProps): Promise<Metadata> {
-  const [{ slug }, campaign] = await Promise.all([
-    params,
-    fetchSeasonalCampaign(),
-  ]);
+  const [{ slug }, campaign] = await Promise.all([params, getCachedCampaign()]);
 
   if (!campaign?.enabled || campaign.slug !== slug) {
-    return {
-      title: "Seasonal Campaign | Creality Kuwait",
-    };
+    return { title: "Seasonal Campaign | Creality Kuwait" };
   }
 
   return {
@@ -47,23 +51,53 @@ export async function generateMetadata({
   };
 }
 
-export default async function SeasonPage({ params }: SeasonPageProps) {
-  const [{ slug }, campaign] = await Promise.all([params, fetchSeasonalCampaign()]);
+async function CampaignProducts({ productIds }: { productIds: number[] }) {
+  if (productIds.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
+        No products are currently assigned to this campaign.
+      </div>
+    );
+  }
 
-  if (
-    !campaign?.enabled ||
-    !campaign.slug ||
-    campaign.slug !== slug
-  ) {
+  const productResult = await fetchProductsByIds(productIds);
+  const visibleProducts = filterProductsForSection(productResult.data, "default");
+  const orderedProducts = sortProductsByCampaignOrder(productIds, visibleProducts);
+
+  if (orderedProducts.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
+        No products are currently assigned to this campaign.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {orderedProducts.map((product) => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  );
+}
+
+function ProductsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {Array.from({ length: 8 }, (_, i) => (
+        <ProductCardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+export default async function SeasonPage({ params }: SeasonPageProps) {
+  const [{ slug }, campaign] = await Promise.all([params, getCachedCampaign()]);
+
+  if (!campaign?.enabled || !campaign.slug || campaign.slug !== slug) {
     notFound();
   }
 
-  const productResult =
-    campaign.products.length > 0
-      ? await fetchProductsByIds(campaign.products)
-      : { data: [], totalPages: 0, totalProducts: 0 };
-  const visibleProducts = filterProductsForSection(productResult.data, "default");
-  const orderedProducts = sortProductsByCampaignOrder(campaign.products, visibleProducts);
   const heroImage = normalizeImageUrl(campaign.hero.image);
 
   return (
@@ -114,17 +148,9 @@ export default async function SeasonPage({ params }: SeasonPageProps) {
           </p>
         </div>
 
-        {orderedProducts.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
-            No products are currently assigned to this campaign.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {orderedProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+        <Suspense fallback={<ProductsSkeleton />}>
+          <CampaignProducts productIds={campaign.products} />
+        </Suspense>
       </section>
     </main>
   );

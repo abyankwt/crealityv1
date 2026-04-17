@@ -1,1 +1,0 @@
-globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/auth/logout/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"C:\\Users\\WIN-11\\Desktop\\crealityv1 - Copy\\app\\api\\auth\\logout\\route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

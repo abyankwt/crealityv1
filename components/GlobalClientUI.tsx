@@ -1,11 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { CrealityPopupData } from "@/types/creality-cms";
 
-// Lazy-load floating client-only UI — must be in a Client Component
-// because `ssr: false` is only allowed in Client Components in App Router
 const RouteProgressBar = dynamic(() => import("@/components/RouteProgressBar"), {
     ssr: false,
 });
@@ -22,18 +20,29 @@ const SupportChatbot = dynamic(() => import("@/components/SupportChatbot"), {
     ssr: false,
 });
 
-type GlobalClientUIProps = {
-    popupData: CrealityPopupData | null;
-};
+// Fetch popup data client-side so it never blocks the layout render.
+// The popup appears after a delay anyway, so lazy client fetching is ideal.
+function PopupLoader() {
+    const [popupData, setPopupData] = useState<CrealityPopupData | null>(null);
 
-export default function GlobalClientUI({ popupData }: GlobalClientUIProps) {
+    useEffect(() => {
+        fetch("/api/popup")
+            .then((r) => r.ok ? r.json() : null)
+            .then((data: CrealityPopupData | null) => { if (data) setPopupData(data); })
+            .catch(() => { /* non-critical */ });
+    }, []);
+
+    return <PromoPopup data={popupData} />;
+}
+
+export default function GlobalClientUI() {
     return (
         <>
             <Suspense fallback={null}>
                 <RouteProgressBar />
             </Suspense>
             <CompareBar />
-            <PromoPopup data={popupData} />
+            <PopupLoader />
             <SupportChatbot />
         </>
     );

@@ -38,7 +38,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/_not-found",
       "dataRoute": "/_not-found.rsc",
@@ -63,7 +63,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/account/addresses",
       "dataRoute": "/account/addresses.rsc",
@@ -88,7 +88,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/account/orders",
       "dataRoute": "/account/orders.rsc",
@@ -103,6 +103,7 @@
     },
     "/api/hero": {
       "initialHeaders": {
+        "cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
         "content-type": "application/json",
         "x-next-cache-tags": "_N_T_/layout,_N_T_/api/layout,_N_T_/api/hero/layout,_N_T_/api/hero/route,_N_T_/api/hero"
       },
@@ -120,6 +121,36 @@
       "initialRevalidateSeconds": 300,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/api/hero",
+      "dataRoute": null,
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/api/popup": {
+      "initialHeaders": {
+        "cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        "content-type": "application/json",
+        "x-next-cache-tags": "_N_T_/layout,_N_T_/api/layout,_N_T_/api/popup/layout,_N_T_/api/popup/route,_N_T_/api/popup"
+      },
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": 3600,
+      "initialExpireSeconds": 31536000,
+      "srcRoute": "/api/popup",
       "dataRoute": null,
       "allowHeader": [
         "host",
@@ -171,7 +202,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/cart",
       "dataRoute": "/cart.rsc",
@@ -196,7 +227,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/checkout",
       "dataRoute": "/checkout.rsc",
@@ -221,7 +252,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/compare",
       "dataRoute": "/compare.rsc",
@@ -246,7 +277,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/contact",
       "dataRoute": "/contact.rsc",
@@ -271,7 +302,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/downloads",
       "dataRoute": "/downloads.rsc",
@@ -325,7 +356,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/login",
       "dataRoute": "/login.rsc",
@@ -350,7 +381,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/materials",
       "dataRoute": "/materials.rsc",
@@ -375,7 +406,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/cable-clamp-kit.rsc",
@@ -400,7 +431,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/camera-mount-arm.rsc",
@@ -425,7 +456,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/filament-spool-rack.rsc",
@@ -450,7 +481,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/gear-organizer-v2.rsc",
@@ -475,7 +506,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/hex-storage-bin-set.rsc",
@@ -500,7 +531,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/miniature-display-plinth.rsc",
@@ -525,7 +556,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/phone-dock-pro.rsc",
@@ -550,7 +581,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/models/[id]",
       "dataRoute": "/models/precision-parts-tray.rsc",
@@ -575,7 +606,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/order-success",
       "dataRoute": "/order-success.rsc",
@@ -600,7 +631,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/pre-orders",
       "dataRoute": "/pre-orders.rsc",
@@ -625,7 +656,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/printing-service",
       "dataRoute": "/printing-service.rsc",
@@ -650,7 +681,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/printing-services",
       "dataRoute": "/printing-services.rsc",
@@ -675,7 +706,7 @@
           "value": "multipart/form-data;.*"
         }
       ],
-      "initialRevalidateSeconds": 60,
+      "initialRevalidateSeconds": 3600,
       "initialExpireSeconds": 31536000,
       "srcRoute": "/register",
       "dataRoute": "/register.rsc",

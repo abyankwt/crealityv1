@@ -1,4 +1,7 @@
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import CatalogPage from "@/components/CatalogPage";
+import CatalogPageSkeleton from "@/components/CatalogPageSkeleton";
 import {
   buildCatalogApiQuery,
   fetchCatalogProducts,
@@ -9,9 +12,51 @@ import {
 
 export const revalidate = 300;
 
+const getCachedStoreProducts = unstable_cache(
+  (sort: string, stock: string, promotion: string) =>
+    fetchCatalogProducts({
+      sort: sort || undefined,
+      stockStatus: stock || undefined,
+      tag: promotion || undefined,
+    }),
+  ["store-products"],
+  { revalidate: 3600 }
+);
+
 type PageProps = {
   searchParams?: Promise<RawCatalogSearchParams>;
 };
+
+async function StoreProducts({
+  sort,
+  stock,
+  promotion,
+}: {
+  sort?: string;
+  stock?: string;
+  promotion?: string;
+}) {
+  const { data: products, totalPages } = await getCachedStoreProducts(
+    sort ?? "",
+    stock ?? "",
+    promotion ?? ""
+  );
+  const title = promotion ? slugToTitle(promotion) : "Shop All Products";
+
+  return (
+    <CatalogPage
+      title={title}
+      products={products}
+      totalPages={totalPages}
+      apiQuery={buildCatalogApiQuery({ sort, stockStatus: stock, tag: promotion })}
+      emptyMessage={
+        promotion
+          ? `No products found for ${slugToTitle(promotion)}.`
+          : "No products found."
+      }
+    />
+  );
+}
 
 export default async function StorePage({ searchParams }: PageProps) {
   const params = await (searchParams ?? Promise.resolve({}));
@@ -20,28 +65,10 @@ export default async function StorePage({ searchParams }: PageProps) {
     getCatalogParam(params, "stock") ??
     getCatalogParam(params, "stock_status");
   const promotion = getCatalogParam(params, "promotion");
-  const { data: products, totalPages } = await fetchCatalogProducts({
-    sort,
-    stockStatus: stock,
-    tag: promotion,
-  });
-  const title = promotion ? slugToTitle(promotion) : "Shop All Products";
 
   return (
-    <CatalogPage
-      title={title}
-      products={products}
-      totalPages={totalPages}
-      apiQuery={buildCatalogApiQuery({
-        sort,
-        stockStatus: stock,
-        tag: promotion,
-      })}
-      emptyMessage={
-        promotion
-          ? `No products found for ${slugToTitle(promotion)}.`
-          : "No products found."
-      }
-    />
+    <Suspense fallback={<CatalogPageSkeleton />}>
+      <StoreProducts sort={sort} stock={stock} promotion={promotion} />
+    </Suspense>
   );
 }

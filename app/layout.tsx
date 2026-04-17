@@ -4,23 +4,10 @@ import type { ReactNode } from "react";
 import Script from "next/script";
 import Footer from "@/components/Footer";
 import GlobalClientUI from "@/components/GlobalClientUI";
-import Navbar from "@/components/navigation/Navbar";
-import {
-  buildNavigation,
-  buildNavigationFromMenu,
-  type PromotionMenuItem,
-} from "@/config/navigation";
+import NavbarServer from "@/components/navigation/NavbarServer";
 import { CartProvider } from "@/context/CartContext";
-import { getCategoryTree } from "@/lib/categories";
-import {
-  fetchHomepagePopup,
-  fetchSeasonalCampaign,
-} from "@/lib/creality-cms";
-import { getMaterialsNavigation } from "@/lib/materials";
-import { getMenu } from "@/lib/menu-api";
-import { hasPreOrderProducts } from "@/lib/preOrders";
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Creality Kuwait",
@@ -87,56 +74,10 @@ const hydrationAttributeCleanupScript = `
   })();
 `;
 
-export default async function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [
-    categories,
-    materialsGroups,
-    hasPreOrders,
-    menuItems,
-    popupData,
-    seasonalCampaign,
-  ] = await Promise.all([
-    getCategoryTree(),
-    getMaterialsNavigation(),
-    hasPreOrderProducts(),
-    getMenu(),
-    fetchHomepagePopup(),
-    fetchSeasonalCampaign(),
-  ]);
-  const seasonalPromotions: PromotionMenuItem[] =
-    seasonalCampaign?.enabled && seasonalCampaign.slug && seasonalCampaign.nav_label
-      ? [
-          {
-            id: `season-${seasonalCampaign.slug}`,
-            label: seasonalCampaign.nav_label,
-            href: `/season/${seasonalCampaign.slug}`,
-            startDate: "2000-01-01",
-            endDate: "2099-12-31",
-          },
-        ]
-      : [];
-  const navigation =
-    menuItems.length > 0
-      ? buildNavigationFromMenu({
-          menuItems,
-          hasPreOrders,
-          promotions: seasonalPromotions,
-          now: new Date(),
-        })
-      : buildNavigation({
-          hasPreOrders,
-          promotions: seasonalPromotions,
-          now: new Date(),
-        });
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="scroll-smooth">
       <head>
-        {/* Pre-connect to WooCommerce origin — reduces TLS handshake latency on first API call */}
         <link rel="preconnect" href="https://creality.com.kw" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://creality.com.kw" />
       </head>
@@ -147,14 +88,10 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: hydrationAttributeCleanupScript }}
         />
         <CartProvider>
-          <Navbar
-            categories={categories}
-            materialsGroups={materialsGroups}
-            navigation={navigation}
-          />
+          <NavbarServer />
           <main className="min-h-screen">{children}</main>
           <Footer />
-          <GlobalClientUI popupData={popupData} />
+          <GlobalClientUI />
         </CartProvider>
       </body>
     </html>

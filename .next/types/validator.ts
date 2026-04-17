@@ -434,6 +434,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/api/popup/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/popup">> = Specific
+  const handler = {} as typeof import("../../app/api/popup/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../app/api/print/add-to-cart/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/print/add-to-cart">> = Specific

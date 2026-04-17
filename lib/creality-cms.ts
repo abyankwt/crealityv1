@@ -24,7 +24,7 @@ export async function fetchHomepagePopup(): Promise<CrealityPopupData | null> {
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/creality/v1/popup`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 3600 },
     });
 
     if (!res.ok) {
@@ -53,7 +53,7 @@ export async function fetchHomepageHeroSlides(): Promise<CrealityHeroSlideData[]
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/creality/v1/hero`, {
-      next: { revalidate: 300 },
+      next: { revalidate: 3600 },
     });
 
     if (!res.ok) {
@@ -84,7 +84,7 @@ export async function fetchSeasonalCampaign(): Promise<CrealitySeasonalCampaignD
 
   try {
     const res = await fetch(`${baseUrl}/wp-json/creality/v1/season`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 3600 },
     });
 
     if (!res.ok) {

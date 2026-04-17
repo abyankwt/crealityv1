@@ -29,6 +29,7 @@ type ProductCardProps = {
   onAddToCart?: (message?: string) => void;
   onAddToCartError?: (message?: string) => void;
   showShortDescription?: boolean;
+  imagePriority?: boolean;
 };
 
 const stripHtml = (value?: string) => {
@@ -44,6 +45,7 @@ export default function ProductCard({
   onAddToCart,
   onAddToCartError,
   showShortDescription = false,
+  imagePriority = false,
 }: ProductCardProps) {
   const router = useRouter();
   const { addItem, cart } = useCart();
@@ -96,8 +98,10 @@ export default function ProductCard({
       ? stockQuantity !== null && stockQuantity > 0
         ? `In Stock (${stockQuantity})`
         : "In Stock"
-      : availability.type === "preorder" && stockQuantity !== null && stockQuantity > 0
-      ? `Amount for Pre-order (${stockQuantity})`
+      : availability.type === "preorder"
+      ? stockQuantity !== null && stockQuantity > 0
+        ? `Amount for Pre-order (${stockQuantity})`
+        : "Pre-Order"
       : null;
   const successMessage =
     productOrderType === "pre_order"
@@ -214,6 +218,7 @@ export default function ProductCard({
               alt={product.name}
               mode="product"
               sizes="(max-width: 768px) 50vw, 25vw"
+              priority={imagePriority}
               className="h-full w-full rounded-xl"
               imageClassName="transition duration-300 group-hover:scale-[1.03]"
             />

@@ -282,8 +282,42 @@ function applyOptimisticRemove(currentCart: Cart, key: string) {
 
 const CART_STALE_MS = 30_000;
 
+// ── sessionStorage cart cache ─────────────────────────────────────────────────
+// Shows cart count instantly on page refresh without waiting for the API.
+const CART_CACHE_KEY = "creality_cart_v1";
+const CART_CACHE_TTL = 60_000; // 60 seconds
+
+function readCartCache(): Cart | null {
+  try {
+    const raw = sessionStorage.getItem(CART_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: Cart; ts: number };
+    if (Date.now() - parsed.ts > CART_CACHE_TTL) {
+      sessionStorage.removeItem(CART_CACHE_KEY);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCartCache(cart: Cart) {
+  try {
+    sessionStorage.setItem(CART_CACHE_KEY, JSON.stringify({ data: cart, ts: Date.now() }));
+  } catch { /* sessionStorage unavailable */ }
+}
+
+function clearCartCache() {
+  try { sessionStorage.removeItem(CART_CACHE_KEY); } catch { /* ignore */ }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<Cart | null>(null);
+  // Seed from sessionStorage so cart count renders instantly on page load/refresh.
+  const [cart, setCart] = useState<Cart | null>(() => {
+    if (typeof window === "undefined") return null;
+    return readCartCache();
+  });
   const [loading, setLoading] = useState(true);
   const [pendingItemKeys, setPendingItemKeys] = useState<Set<string>>(new Set());
   const [pendingProductIds, setPendingProductIds] = useState<Set<number>>(new Set());
@@ -337,6 +371,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const data = await fetchCart();
       lastCartFetchRef.current = Date.now();
+      writeCartCache(data);
       startTransition(() => {
         setCart(data);
       });
@@ -389,6 +424,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       quantity: number,
       options?: { optimisticItem?: OptimisticAddItem }
     ) => {
+      clearCartCache();
       const previousCart = cartRef.current;
       updatePendingProduct(productId, true);
 
@@ -426,6 +462,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = useCallback(
     async (key: string) => {
+      clearCartCache();
       const previousCart = cartRef.current;
       const currentItem = previousCart?.items.find((item) => item.key === key) ?? null;
 
@@ -476,6 +513,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateItem = useCallback(
     async (key: string, quantity: number) => {
+      clearCartCache();
       const previousCart = cartRef.current;
       const currentItem = previousCart?.items.find((item) => item.key === key) ?? null;
 

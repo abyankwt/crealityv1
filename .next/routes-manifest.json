@@ -277,6 +277,12 @@
       "namedRegex": "^/api/hero(?:/)?$"
     },
     {
+      "page": "/api/popup",
+      "regex": "^/api/popup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/popup(?:/)?$"
+    },
+    {
       "page": "/api/print/add-to-cart",
       "regex": "^/api/print/add\\-to\\-cart(?:/)?$",
       "routeKeys": {},

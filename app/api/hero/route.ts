@@ -1,4 +1,4 @@
-export const revalidate = 300;
+export const revalidate = 3600;
 
 function getWordPressBaseUrl() {
   return (
@@ -31,7 +31,9 @@ export async function GET() {
 
     const data = await res.json();
 
-    return Response.json(data);
+    return Response.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+    });
   } catch (error) {
     console.error("Hero API error:", error);
     return Response.json([]);

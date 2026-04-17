@@ -1,2 +1,2 @@
-:HL["/_next/static/chunks/0wid.6know~lx.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"models","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"filament-spool-rack","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"wkK3jOzHhQrEFIB2yBMmE"}
+:HL["/_next/static/chunks/009-~0i0pqr-n.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":20,"slots":{"children":{"name":"models","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"filament-spool-rack","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"nyLP3PoxBv-4icmHYrzbw"}

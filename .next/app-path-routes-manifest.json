@@ -21,6 +21,7 @@
   "/api/debug-product/[id]/route": "/api/debug-product/[id]",
   "/api/debug-search/route": "/api/debug-search",
   "/api/hero/route": "/api/hero",
+  "/api/popup/route": "/api/popup",
   "/api/print/add-to-cart/route": "/api/print/add-to-cart",
   "/api/print/analyze/route": "/api/print/analyze",
   "/api/printing-service/quote/route": "/api/printing-service/quote",

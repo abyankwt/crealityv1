@@ -5,7 +5,7 @@ export type WordPressMenuItem = {
   parent?: number;
 };
 
-const MENU_REVALIDATE_SECONDS = 60;
+const MENU_REVALIDATE_SECONDS = 3600;
 
 const FALLBACK_MENU: WordPressMenuItem[] = [
   { id: 1, title: "All Products", url: "/products", parent: 0 },

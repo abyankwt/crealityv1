@@ -204,7 +204,7 @@ const wooRequest = async <T>(path: string, init: WooRequestInit = {}) => {
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
-    ...(isGet && !init.next ? { next: { revalidate: 300 } } : {}),
+    ...(isGet && !init.next ? { next: { revalidate: 3600 } } : {}),
   });
 };
 
@@ -740,7 +740,7 @@ export const verifyWpUser = async (email: string, password: string, preloaded?: 
  */
 export async function getSpecialOrderProductIds(): Promise<Set<number>> {
   const result = await getWooPublishedProductsByCategorySlug("specialorder", {
-    revalidate: 60,
+    revalidate: 3600,
   });
   if (!result.ok) return new Set();
   return new Set(result.data.map((p) => p.id));

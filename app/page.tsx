@@ -1,17 +1,101 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import CategoryNavigation from "@/components/CategoryNavigation";
 import ProductCard from "@/components/ProductCard";
+import ProductCardSkeleton from "@/components/ProductCardSkeleton";
 import ProductGrid from "@/components/ProductGrid";
 import FilterBar from "@/components/store/FilterBar";
 import { fetchProducts } from "@/lib/api";
 import { fetchCatalogProducts } from "@/lib/catalog";
 import { filterProductsForSection } from "@/lib/productLogic";
-import { getProductsRestData } from "@/lib/woo-client";
 import { fetchHomepageHeroSlides } from "@/lib/creality-cms";
+import { getProductsRestData } from "@/lib/woo-client";
 import CampaignHero from "@/components/CampaignHero";
+import type { Product } from "@/lib/woocommerce-types";
 
-export const revalidate = 60;
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+
+async function enrichWithStockQuantity(products: Product[]): Promise<Product[]> {
+  if (products.length === 0) return products;
+  try {
+    const ids = products.map((p) => p.id);
+    const restResult = await getProductsRestData(ids);
+    if (!restResult.ok) return products;
+    const byId = new Map(restResult.data.map((d) => [d.id, d]));
+    return products.map((p) => {
+      const extra = byId.get(p.id);
+      if (!extra) return p;
+      return {
+        ...p,
+        sku: p.sku ?? extra.sku ?? null,
+        stock_quantity: p.stock_quantity ?? extra.stock_quantity ?? null,
+      };
+    });
+  } catch {
+    return products;
+  }
+}
+
+// Cache the full hero + product fetches for 1 hour across Lambda invocations
+const getCachedHeroSlides = unstable_cache(
+  () => fetchHomepageHeroSlides(),
+  ["homepage-hero"],
+  { revalidate: 3600 }
+);
+
+const getCachedNewArrivals = unstable_cache(
+  async (stock: string) => {
+    try {
+      const result = await fetchProducts({
+        orderby: "date",
+        order: "desc",
+        perPage: 8,
+        stock_status: stock || undefined,
+      });
+      const filtered = filterProductsForSection(result.data, "default").slice(0, 4);
+      return await enrichWithStockQuantity(filtered);
+    } catch {
+      return [] as Product[];
+    }
+  },
+  ["homepage-new-arrivals"],
+  { revalidate: 3600 }
+);
+
+const getCachedFeaturedProducts = unstable_cache(
+  async (sort: string, stock: string, series: string) => {
+    const orderMap: Record<string, { orderby: string; order: "asc" | "desc" }> = {
+      price_asc: { orderby: "price", order: "asc" },
+      price_desc: { orderby: "price", order: "desc" },
+      date_desc: { orderby: "date", order: "desc" },
+    };
+    const { orderby, order } = orderMap[sort] ?? { orderby: "popularity", order: "desc" as const };
+
+    try {
+      const result = series
+        ? await fetchCatalogProducts({ categorySlug: series, sort: sort || undefined, stockStatus: stock || undefined })
+        : await fetchProducts({ orderby, order, stock_status: stock || undefined });
+
+      const products = filterProductsForSection(result.data, "default");
+      const featured = products.filter((p) => p.featured);
+      const display = series ? products : (featured.length ? featured : products);
+      const enriched = await enrichWithStockQuantity(display);
+
+      return {
+        products: enriched,
+        totalPages: result.totalPages,
+        totalProducts: result.totalProducts,
+      };
+    } catch {
+      return { products: [] as Product[], totalPages: 1, totalProducts: 0 };
+    }
+  },
+  ["homepage-featured"],
+  { revalidate: 3600 }
+);
+
+export const revalidate = 3600;
 
 type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -20,14 +104,91 @@ function getString(p: RawSearchParams, k: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
-function resolveSort(sort?: string): { orderby: string; order: "asc" | "desc" } {
-  switch (sort) {
-    case "price_asc": return { orderby: "price", order: "asc" };
-    case "price_desc": return { orderby: "price", order: "desc" };
-    case "date_desc": return { orderby: "date", order: "desc" };
-    default: return { orderby: "popularity", order: "desc" };
-  }
+// ─── Streaming: Hero ──────────────────────────────────────────────────────────
+
+async function HeroSection() {
+  const slides = await getCachedHeroSlides();
+  return <CampaignHero initialSlides={slides} />;
 }
+
+function HeroSkeleton() {
+  return (
+    <div
+      className="w-full animate-pulse bg-gray-200"
+      style={{ aspectRatio: "16/5", minHeight: 220 }}
+    />
+  );
+}
+
+// ─── Streaming: New Arrivals ──────────────────────────────────────────────────
+
+async function NewArrivalsProducts({ stock }: { stock?: string }) {
+  const products = await getCachedNewArrivals(stock ?? "");
+  if (products.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {products.map((product, index) => (
+        <ProductCard key={product.id} product={product} imagePriority={index < 2} />
+      ))}
+    </div>
+  );
+}
+
+function NewArrivalsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 4 }, (_, i) => <ProductCardSkeleton key={i} />)}
+    </div>
+  );
+}
+
+// ─── Streaming: Featured Products ────────────────────────────────────────────
+
+type FeaturedProps = {
+  sort?: string;
+  stock?: string;
+  series?: string;
+};
+
+async function FeaturedProducts({ sort, stock, series }: FeaturedProps) {
+  const { products, totalPages, totalProducts } = await getCachedFeaturedProducts(
+    sort ?? "",
+    stock ?? "",
+    series ?? ""
+  );
+
+  const apiQuery: Record<string, string | number | undefined> = {};
+  if (sort) apiQuery.sort = sort;
+  if (stock) apiQuery.stock_status = stock;
+  if (series) apiQuery.category_slug = series;
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <FilterBar totalCount={totalProducts} />
+      </Suspense>
+      <ProductGrid
+        initialProducts={products}
+        initialPage={1}
+        totalPages={totalPages}
+        section="default"
+        showSort={false}
+        apiQuery={apiQuery}
+      />
+    </>
+  );
+}
+
+function FeaturedSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {Array.from({ length: 8 }, (_, i) => <ProductCardSkeleton key={i} />)}
+    </div>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 type PageProps = {
   searchParams?: Promise<RawSearchParams>;
@@ -38,61 +199,15 @@ export default async function HomePage({ searchParams }: PageProps) {
   const sort = getString(params, "sort");
   const stock = getString(params, "stock");
   const series = getString(params, "series");
-  const { orderby, order } = resolveSort(sort);
-  const shouldReusePrimaryProductsForNewArrivals =
-    !stock && !series && orderby === "date" && order === "desc";
-
-  const [productResult, newProductsResult, heroSlides] = await Promise.all([
-    series
-      ? fetchCatalogProducts({ categorySlug: series, sort, stockStatus: stock || undefined })
-      : fetchProducts({ orderby, order, stock_status: stock || undefined }),
-    shouldReusePrimaryProductsForNewArrivals
-      ? Promise.resolve(null)
-      : fetchProducts({ orderby: "date", order: "desc", perPage: 8 }),
-    fetchHomepageHeroSlides(),
-  ]);
-
-  const { data: rawProducts, totalPages, totalProducts } = productResult;
-  const rawNewProducts = shouldReusePrimaryProductsForNewArrivals
-    ? rawProducts.slice(0, 8)
-    : newProductsResult?.data ?? [];
-
-  // Enrich all unique products with stock_quantity + sku from REST API (one batch call)
-  const allIds = [...new Set([...rawProducts, ...rawNewProducts].map((p) => p.id))];
-  const restDataResult = await getProductsRestData(allIds);
-  const restById = new Map(
-    restDataResult.ok ? restDataResult.data.map((d) => [d.id, d]) : []
-  );
-  const enrich = <T extends { id: number; sku?: string | null; stock_quantity?: number | null }>(
-    list: T[]
-  ): T[] =>
-    list.map((p) => {
-      const extra = restById.get(p.id);
-      if (!extra) return p;
-      return { ...p, sku: p.sku ?? extra.sku ?? null, stock_quantity: p.stock_quantity ?? extra.stock_quantity ?? null };
-    });
-
-  const products = enrich(rawProducts);
-  const newProducts = enrich(rawNewProducts);
-  const visibleProducts = filterProductsForSection(products, "default");
-  const visibleNewProducts = filterProductsForSection(newProducts, "default");
-
-  const featuredProducts = visibleProducts.filter((p) => p.featured);
-
-  // When a series filter is active, show all products from that series (not just featured).
-  const displayProducts = series
-    ? visibleProducts
-    : (featuredProducts.length ? featuredProducts : visibleProducts);
-
-  const gridApiQuery: Record<string, string | number | undefined> = {};
-  if (sort) gridApiQuery.sort = sort;
-  if (stock) gridApiQuery.stock_status = stock;
-  if (series) gridApiQuery.category_slug = series;
 
   return (
     <main className="bg-[#f8f8f8] text-gray-900 pb-10">
-      <CampaignHero initialSlides={heroSlides} />
+      {/* Hero — streams in from server cache; skeleton shows immediately */}
+      <Suspense fallback={<HeroSkeleton />}>
+        <HeroSection />
+      </Suspense>
 
+      {/* Pre-order banner — static, renders instantly */}
       <section className="bg-[#f8f8f8] py-6 sm:py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="overflow-hidden rounded-3xl border border-[#d9e8d2] bg-gradient-to-r from-[#f4faef] via-white to-[#eef6e6] p-6 sm:p-8">
@@ -110,7 +225,6 @@ export default async function HomePage({ searchParams }: PageProps) {
                   shopping flow.
                 </p>
               </div>
-
               <Link
                 href="/pre-orders"
                 prefetch
@@ -123,8 +237,10 @@ export default async function HomePage({ searchParams }: PageProps) {
         </div>
       </section>
 
+      {/* Category navigation — static, renders instantly */}
       <CategoryNavigation />
 
+      {/* New Arrivals — streams in; skeleton shows immediately */}
       <section className="bg-[#eef0f2] py-12 sm:py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-6 flex items-end justify-between">
@@ -145,11 +261,9 @@ export default async function HomePage({ searchParams }: PageProps) {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {visibleNewProducts.slice(0, 4).map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <Suspense fallback={<NewArrivalsSkeleton />}>
+            <NewArrivalsProducts stock={stock} />
+          </Suspense>
 
           <div className="mt-6 flex justify-center sm:hidden">
             <Link
@@ -163,6 +277,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         </div>
       </section>
 
+      {/* Featured Products — streams in; skeleton shows immediately */}
       <section className="bg-[#f8f8f8] py-8 sm:py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-5 text-center sm:text-left">
@@ -174,22 +289,13 @@ export default async function HomePage({ searchParams }: PageProps) {
             </p>
           </div>
 
-          <Suspense fallback={null}>
-            <FilterBar totalCount={totalProducts} />
+          <Suspense fallback={<FeaturedSkeleton />}>
+            <FeaturedProducts sort={sort} stock={stock} series={series} />
           </Suspense>
-
-          <ProductGrid
-            initialProducts={displayProducts}
-            initialPage={1}
-            totalPages={totalPages}
-            section="default"
-            showSort={false}
-            apiQuery={gridApiQuery}
-          />
         </div>
       </section>
 
-      {/* Newsletter */}
+      {/* Newsletter — static */}
       <section className="bg-[#f8f8f8] pt-2 pb-6">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 max-w-lg mx-auto text-center">
